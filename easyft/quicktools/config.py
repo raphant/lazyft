@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from typing import Union
-from lazyft.constants import BASE_DIR
+from lazyft.constants import BASE_DIR, CONFIG_DIR
 import rapidjson
 
 
@@ -11,7 +11,7 @@ class Config:
         if temp.exists():
             self._config_path = temp.resolve()
         else:
-            self._config_path = Path(BASE_DIR, config).resolve()
+            self._config_path = Path(CONFIG_DIR, config).resolve()
             assert self._config_path.exists(), f'"{self._config_path}" doesn\'t exist'
         self._data: dict = rapidjson.loads(self._config_path.read_text())
 

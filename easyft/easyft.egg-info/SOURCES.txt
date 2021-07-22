@@ -20,6 +20,8 @@ easyft.egg-info/requires.txt
 easyft.egg-info/top_level.txt
 lazyft/__init__.py
 lazyft/constants.py
+lazyft/parameters.py
+lazyft/runner.py
 lazyft/strategy.py
 lazyft/util.py
 quicktools/__init__.py

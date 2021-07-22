@@ -4,4 +4,4 @@ pyyaml
 jupyter
 python-dateutil
 pytest
-./easyft/
+-e ./easyft/

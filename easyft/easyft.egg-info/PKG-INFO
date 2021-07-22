@@ -1,4 +1,4 @@
-Metadata-Version: 1.2
+Metadata-Version: 2.1
 Name: easyft
 Version: 0.0.1
 Summary: Easily get the latest fork of a Github repo
@@ -7,6 +7,8 @@ Author: Raphael N
 Author-email: rtnanje@gmail.com
 Maintainer: Raphael N
 License: GPLv3
-Description: UNKNOWN
 Platform: linux
 Platform: linux2
+
+UNKNOWN
+

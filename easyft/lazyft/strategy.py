@@ -9,9 +9,9 @@ from lazyft import constants, util
 
 
 class AbstractStrategy(metaclass=ABCMeta):
-    TEMPLATE_DIR = pathlib.Path(constants.STUDY_DIR, 'templates')
+    TEMPLATE_DIR = pathlib.Path(constants.STRATEGY_DIR, 'templates')
 
-    def __init__(self, strategy_name: str, id: str, save_dir=constants.STUDY_DIR):
+    def __init__(self, strategy_name: str, id: str, save_dir=constants.STRATEGY_DIR):
         self.id = id
         self.strategy_name = strategy_name
         self.save_dir = save_dir
@@ -69,7 +69,7 @@ class Strategy(AbstractStrategy):
     @property
     def path(self):
         if not self.id:
-            return constants.TEMPLATE_DIR.joinpath(self.proper_name + '.py')
+            return constants.STRATEGY_DIR.joinpath(self.proper_name + '.py')
         new_strategy_path = self.save_dir.joinpath(
             self.proper_name, f'{self.strategy_name.lower()}.py'
         )
@@ -99,7 +99,7 @@ class Strategy(AbstractStrategy):
 
     def create_strategy(self):
         if not self.id:
-            return constants.TEMPLATE_DIR.joinpath(self.proper_name + '.py')
+            return constants.STRATEGY_DIR.joinpath(self.proper_name + '.py')
         return self.create_strategy_with_param_id(self.id)
 
     @classmethod
@@ -126,7 +126,7 @@ class StudyParams:
 
     @property
     def path(self):
-        return pathlib.Path(constants.STUDY_DIR.joinpath(self.strategy, 'params.json'))
+        return pathlib.Path(constants.STRATEGY_DIR.joinpath(self.strategy, 'params.json'))
 
     def mkdir(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)

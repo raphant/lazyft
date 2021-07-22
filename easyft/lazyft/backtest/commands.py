@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 import sh
 import typer
-from lazyft.constants import FT_DATA_DIR
+from lazyft.constants import USER_DATA_DIR
 from lazyft.strategy import Strategy
 from loguru import logger
 from quicktools import QuickTools

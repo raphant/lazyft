@@ -12,7 +12,7 @@ from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
 from quicktools.config import Config
 
-from lazyft.constants import FT_DATA_DIR
+from lazyft.constants import USER_DATA_DIR
 
 from loguru import logger
 
@@ -39,7 +39,7 @@ class QuickTools:
         pair: str = config.data['exchange']['pair_whitelist'][0]
         pair = pair.replace('/', '_') + f'-{interval}' + '.json'
         exchange = config['exchange']['name']
-        infile = Path(FT_DATA_DIR, f'data/{exchange}', pair)
+        infile = Path(USER_DATA_DIR, f'data/{exchange}', pair)
         # load data
         data = rapidjson.load(infile.open(), number_mode=rapidjson.NM_NATIVE)
         import pandas as pd
@@ -119,7 +119,7 @@ class QuickTools:
             days=days,
             c=str(config),
             t=interval,
-            userdir=str(FT_DATA_DIR),
+            userdir=str(USER_DATA_DIR),
             _err=print_,
             _out=print_,
         )

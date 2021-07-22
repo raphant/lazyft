@@ -1,0 +1,6 @@
+typer
+loguru
+pandas
+sh
+attrs
+rich

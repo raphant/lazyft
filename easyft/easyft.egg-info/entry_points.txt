@@ -1,0 +1,6 @@
+[console_scripts]
+backtest = easyft.main:backtest_cli
+manage = manage:core
+manage2 = easyft.manage2:cli
+study = easyft.main:study
+

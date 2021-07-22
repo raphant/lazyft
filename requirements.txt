@@ -1,0 +1,7 @@
+-r ../freqtrade/requirements-hyperopt.txt
+rich
+pyyaml
+jupyter
+python-dateutil
+pytest
+./easyft/

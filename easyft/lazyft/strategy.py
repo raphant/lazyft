@@ -49,64 +49,6 @@ class AbstractStrategy(metaclass=ABCMeta):
         pass
 
 
-class SingleCoinStrategy(AbstractStrategy):
-    def __init__(self, strategy_name: str, id: str = None, coin=None, **kwargs) -> None:
-        super().__init__(strategy_name, id, **kwargs)
-        self.coin = coin
-        if id:
-            self._new_id = self.create_id(id, coin)
-
-    @property
-    def new_id(self):
-        self._new_id = self._new_id or self.create_id(self._new_id, self.coin)
-        return self._new_id
-
-    def create_strategy_with_param_id(self, coin: str, id_: str):
-        python_text = self.base_strategy_path.read_text()
-        python_text = python_text.replace('$NAME', id_)
-        new_strategy_path = self.save_dir.joinpath(
-            coin.replace('/', '_'), f'{self.strategy_name.lower()}.py'
-        )
-        try:
-            with new_strategy_path.open('w') as f:
-                f.write(python_text)
-        except FileNotFoundError:
-            raise FileNotFoundError(f'No existing folder for coin "{coin}"')
-
-        return new_strategy_path
-
-    def create_id(self, id: str, coin=None):
-        """Auto-increment ID if an existing ID is passed"""
-        params = {}
-        if coin:
-            params = SingleCoinStudyParams(coin).dict
-        # find all existing IDs that match id param
-        existing_ids = [k for k in params[self.proper_name] if id.split('-')[0] in k]
-        return f'{id}-{len(existing_ids) + 1}'
-        # if '-' in id:
-        #     base_id, num = id.split('-')
-        #     num = int(num)
-        #     return f'{base_id}-{num+1}'
-        # else:
-        #     return f'{id}-1'
-
-    def create_strategy(self, coin):
-        return self.create_strategy_with_param_id(coin, self.id).parent
-
-    @classmethod
-    def create_strategies(cls, strategies: Iterable[str], coin: str):
-        formatted_strategies = []
-        print(strategies)
-
-        for s in strategies:
-            id = None
-            strategy = s
-            if '-' in s:
-                strategy, id = s.split('-')
-            formatted_strategies.append(SingleCoinStrategy(strategy, id=id, coin=coin))
-        return formatted_strategies
-
-
 class Strategy(AbstractStrategy):
     def __init__(self, strategy_name: str, id: str, **kwargs) -> None:
         super().__init__(strategy_name, id, **kwargs)
@@ -171,24 +113,6 @@ class Strategy(AbstractStrategy):
                 strategy, id = s.split('-')
             formatted_strategies.append((strategy, id))
         return [cls(s, id) for s, id in formatted_strategies]
-
-
-class SingleCoinStudyParams:
-    def __init__(self, coin: str) -> None:
-        self.coin = coin
-
-    @property
-    def dict(self) -> dict:
-        return json.loads(self.path.read_text())
-
-    @property
-    def path(self):
-        return pathlib.Path(
-            constants.STUDY_DIR.joinpath(self.coin.replace('/', '_'), 'params.json')
-        )
-
-    def mkdir(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
 
 
 class StudyParams:

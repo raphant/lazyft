@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="3a38962d-24ed-4ec6-b711-d7f9202f55f6" name="Sage-desktop">
+        <fileTransfer rootFolder="/home/sage/ftworkdir" accessType="SFTP" host="192.168.1.16" port="22" sshConfigId="6e958538-8461-4b20-9a35-7104839fc9fd" sshConfig="sage@192.168.1.16:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

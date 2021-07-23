@@ -53,27 +53,13 @@ class BinH(IStrategy):
     # ROI table:
     minimal_roi = {"0": 0.175, "21": 0.053, "75": 0.013, "118": 0}
 
-    # noinspection PyMethodParameters
-    def load(
-        strategy_name=locals()['__qualname__'],
-    ):
-        script_directory = pathlib.Path(__file__).parent.absolute()
-        id_file = script_directory.joinpath('strategy_ids.json')
-        params_file = pathlib.Path(script_directory, '../', '../', 'lazy_params.json')
-        if not (params_file.exists() and id_file.exists()):
-            print('DEBUG: Params file or ID file does not exist')
-            return {}
-        try:
-            id = rapidjson.loads(id_file.read_text())[strategy_name]
-        except KeyError:
-            print('DEBUG: Id not found for', strategy_name)
-            print('DEBUG: ID path:', str(id_file))
-            return {}
-        params = json.loads(params_file.read_text())
-        return params[strategy_name][id]['params']
+    from pathlib import Path
+    import sys
+    sys.path.append(str(Path(__file__).parent))
+    from util import load
 
-    locals().update(load())
-    print('DEBUG: Current locals', locals())
+    if locals()['__module__'] == locals()['__qualname__']:
+        locals().update(load(locals()['__qualname__']))
     # endregion
 
     ticker_interval = '5m'

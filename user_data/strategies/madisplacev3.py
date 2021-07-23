@@ -1,9 +1,9 @@
 # --- Do not remove these libs ---
 import inspect
 import json
-import pathlib
 import sys
 
+import rapidjson
 from freqtrade.strategy import (
     IStrategy,
     merge_informative_pair,
@@ -24,23 +24,6 @@ from freqtrade.persistence import Trade
 import pandas as pd
 
 # inspired by @tirail SMAOffset
-SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
-
-
-# --------------------------------
-
-
-# noinspection DuplicatedCode
-param_file_id = '$NAME'
-params_file = pathlib.Path(SCRIPT_DIRECTORY, 'params.json')
-
-
-def load():
-    if '$' in param_file_id or not params_file.exists():
-        return {}
-    params = json.loads(params_file.read_text())
-    return params['StudyMADisplaceV3'][param_file_id]['params']
-
 
 buy_params = {
     "ma_lower_length": 15,
@@ -111,7 +94,14 @@ class StudyMADisplaceV3(IStrategy):
     trailing_stop_positive = 0.01
     trailing_stop_positive_offset = 0.025
     trailing_only_offset_is_reached = True
-    locals().update(load())
+
+    from pathlib import Path
+
+    sys.path.append(str(Path(__file__).parent))
+    from util import load
+
+    if locals()['__module__'] == locals()['__qualname__']:
+        locals().update(load(locals()['__qualname__']))
 
     timeframe = '5m'
 

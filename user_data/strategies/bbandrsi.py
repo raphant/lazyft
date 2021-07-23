@@ -1,25 +1,13 @@
 # --- Do not remove these libs ---
-import json
-import pathlib
-
-import talib.abstract as ta
-from pandas import DataFrame
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
+import talib.abstract as ta
 from freqtrade.strategy import IntParameter
 from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
+
 
 # --------------------------------
-SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
-param_file_id = '$NAME'
-params_file = pathlib.Path(SCRIPT_DIRECTORY, 'params.json')
-
-
-def load():
-    if '$' in param_file_id or not params_file.exists():
-        return {}
-    params = json.loads(params_file.read_text())
-    return params['StudyBbandRsi'][param_file_id]['params']
 
 
 class StudyBbandRsi(IStrategy):
@@ -38,7 +26,14 @@ class StudyBbandRsi(IStrategy):
 
     # region Params
     stoploss = -0.25
-    locals().update(load())
+
+    from pathlib import Path
+    import sys
+    sys.path.append(str(Path(__file__).parent))
+    from util import load
+
+    if locals()['__module__'] == locals()['__qualname__']:
+        locals().update(load(locals()['__qualname__']))
 
     # endregion
 

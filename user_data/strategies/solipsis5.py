@@ -9,6 +9,7 @@ import numpy as np
 
 # Get rid of pandas warnings during backtesting
 import pandas as pd
+import rapidjson
 import talib.abstract as ta
 from pandas import DataFrame, Series
 
@@ -27,22 +28,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # Strategy specific imports, files must reside in same folder as strategy
 
 sys.path.append(str(Path(__file__).parent))
-
-SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
-
-# --------------------------------
-
-
-# noinspection DuplicatedCode
-param_file_id = '$NAME'
-params_file = pathlib.Path(SCRIPT_DIRECTORY, 'params.json')
-
-
-def load():
-    if '$' in param_file_id or not params_file.exists():
-        return {}
-    params = json.loads(params_file.read_text())
-    return params['StudySolipsis5'][param_file_id]['params']
 
 
 """
@@ -298,7 +283,7 @@ def SROC(dataframe, roclen=21, emalen=13, smooth=21):
 
 
 # endregion
-class StudySolipsis(IStrategy):
+class Solipsis(IStrategy):
     ## Buy Space Hyperopt Variables
 
     # Base Pair Params
@@ -423,7 +408,11 @@ class StudySolipsis(IStrategy):
     custom_trade_info = {}
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
-    locals().update(load())
+
+    from util import load
+
+    if locals()['__module__'] == locals()['__qualname__']:
+        locals().update(load(locals()['__qualname__']))
 
     """
     Informative Pair Definitions

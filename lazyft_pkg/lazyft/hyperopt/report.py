@@ -99,6 +99,8 @@ class HyperoptReport:
                 d = buy_params if "buy" in k else sell_params
                 try:
                     d[k] = float(v)
+                except TypeError:
+                    d[k] = v
                 except ValueError:
                     d[k] = v
             if buy_params:

@@ -4,7 +4,7 @@ from threading import Thread
 
 import sh
 from lazyft import console, constants, hyperopt, logger, runner
-from lazyft.quicktools.regex import EPOCH_LINE_REGEX
+from lazyft.quicktools.regex import EPOCH_LINE_REGEX, CURRENT_EPOCH
 from rich.live import Live
 from rich.table import Table
 import pandas as pd
@@ -54,6 +54,7 @@ class HyperoptRunner(runner.Runner):
         self.command = command
         self.strategy = command.strategy
         self.verbose = verbose
+        self.current_epoch = 0
 
     def execute(self, background=False):
         self.output_list.clear()
@@ -89,7 +90,12 @@ class HyperoptRunner(runner.Runner):
                 pass
 
     def sub_process_log(self, text="", out=False):
-        if not text or "ETA" in text:
+        if not text:
+            return
+        if "ETA" in text:
+            search = CURRENT_EPOCH.search(text)
+            if search:
+                self.current_epoch = search.groupdict()['epoch']
             return
         text = text.strip()
         self.output_list.append(text)

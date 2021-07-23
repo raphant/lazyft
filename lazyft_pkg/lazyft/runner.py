@@ -13,7 +13,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
     def __init__(self, verbose=False):
         self.output_list = []
         self.verbose = verbose
-        self.console = Console(width=127)
+        self.console = Console(width=120)
         self.process: Optional[RunningCommand] = None
         self.running = False
 

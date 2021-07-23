@@ -17,6 +17,7 @@ SEED_REGEX = re.compile(r'Using optimizer random state: (\d+)')
 EPOCH_LINE_REGEX = re.compile(
     r'(?P<epoch>[\d/]+)[\s|]+(?P<trades>[\d/]+)[\s|]+(?P<wins_draws_losses>\d+\s+\d+\s+\d+)[\s|]+(?P<average_profit>[\d.-]+%)[\s|]+(?P<profit>[\d.-]+ \w+\s+\([\d.-]+%\))[\s|]+(?P<average_duration>\d+ \w+ [\d:]+)[\s|]+(?P<max_drawdown>[\d.-]+ \w+\s+\([\d.]+%\))[\s|]+(?P<objective>[\d.-]+)'
 )
+CURRENT_EPOCH = re.compile(r'Epoch (?P<epoch>\d+)')
 H_DATE_FROM_TO = re.compile(
     r'Hyperopting with data from (?P<from>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) up to '
     r'(?P<to>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) '

@@ -44,7 +44,7 @@ sell_params = {
 }
 
 
-class StudyMADisplaceV3(IStrategy):
+class MADisplaceV3(IStrategy):
 
     buy_ma_lower_length = IntParameter(
         15, 25, default=buy_params['ma_lower_length'], space='buy'

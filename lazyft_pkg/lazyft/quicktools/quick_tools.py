@@ -73,14 +73,7 @@ class QuickTools:
     @staticmethod
     def refresh_pairlist(config: Config, n_coins: int, save_as=None) -> list[str]:
         exchange = Exchange(config.data)
-        config['pairlists'][0] = {
-            "method": "VolumePairList",
-            "number_assets": n_coins,
-            "sort_key": "quoteVolume",
-            "refresh_period": 1800,
-        }
-        config['pairlists'].append({"method": "AgeFilter", "min_days_listed": 100})
-        config['pairlists'].append({"method": "PriceFilter", "low_price_ratio": 0.02})
+        QuickTools.set_pairlist_settings(config, n_coins)
         manager = PairListManager(exchange, config.data)
         try:
             manager.refresh_pairlist()
@@ -90,6 +83,39 @@ class QuickTools:
             config['pairlists'].append({"method": "StaticPairList"})
             config.save(save_as)
         return manager.whitelist
+
+    @staticmethod
+    def set_pairlist_settings(config, n_coins):
+        config['pairlists'][0] = {
+            "method": "VolumePairList",
+            "number_assets": n_coins,
+            "sort_key": "quoteVolume",
+            "refresh_period": 1800,
+        }
+        config['pairlists'].append({"method": "AgeFilter", "min_days_listed": 14})
+        config['pairlists'].append(
+            {"method": "PriceFilter", "low_price_ratio": 0.10, "min_price": 0.001}
+        )
+        config['pairlists'].append(
+            {"method": "SpreadFilter", "low_price_ratio": 0.10, "min_price": 0.001}
+        )
+        config['pairlists'].append(
+            {
+                "method": "RangeStabilityFilter",
+                "lookback_days": 3,
+                "min_rate_of_change": 0.1,
+                "refresh_period": 1800,
+            }
+        )
+        config['pairlists'].append(
+            {
+                "method": "VolatilityFilter",
+                "lookback_days": 3,
+                "min_volatility": 0.02,
+                "max_volatility": 0.75,
+                "refresh_period": 43200,
+            }
+        )
 
     @staticmethod
     def download_data(

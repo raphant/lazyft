@@ -34,7 +34,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         text = text.strip()
         self.output_list.append(text)
         if out or self.verbose:
-            self.console.print(text, end="\n")
+            self.console.print(text, end="")
 
     @abstractmethod
     def generate_report(self):

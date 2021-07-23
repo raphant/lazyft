@@ -1,19 +1,14 @@
-import json
-import pathlib
 import sys
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
 
+import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
 
 # Get rid of pandas warnings during backtesting
 import pandas as pd
-import rapidjson
 import talib.abstract as ta
-from pandas import DataFrame, Series
-
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
     IStrategy,
@@ -22,6 +17,7 @@ from freqtrade.strategy import (
     DecimalParameter,
     CategoricalParameter,
 )
+from pandas import DataFrame, Series
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

@@ -64,6 +64,7 @@ class HyperoptRunner(runner.Runner):
                 self.command.command_string.split(" "),
                 no_color=True,
                 print_json=True,
+                disable_param_export=True,
                 _out=lambda log: self.sub_process_log(log),
                 _err=lambda log: self.sub_process_log(log),
                 _cwd=str(constants.BASE_DIR),

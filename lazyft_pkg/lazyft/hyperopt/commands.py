@@ -26,6 +26,10 @@ class HyperoptCommand:
         loss_function: str,
         days: int = None,
         timerange=None,
+        pairs: list[str] = None,
+        starting_balance=None,
+        max_open_trades=None,
+        stake_amount=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
         timerange = timerange or QuickTools.get_timerange(
@@ -41,6 +45,15 @@ class HyperoptCommand:
             f"-i {interval}",
             f"-c {str(self.config.path)}",
         ]
+
+        if pairs:
+            args_list.append(f'-p {" ".join(pairs)}')
+        if starting_balance:
+            args_list.append(f'--starting-balance {starting_balance}')
+        if max_open_trades:
+            args_list.append(f'--max-open-trades  {max_open_trades}')
+        if stake_amount:
+            args_list.append(f'--stake-amount  {stake_amount}')
 
         if loss_function != "ShortTradeDurHyperOptLoss":
             args_list.append(f"--hyperopt-loss {loss_function}")
@@ -73,9 +86,9 @@ def new_hyperopt_cli(
         days,
         epochs,
         interval,
-        loss_function,
+        QuickHyperopt.get_loss_func(loss_function),
         min_trades,
-        spaces,
+        QuickHyperopt.get_spaces(spaces),
         timerange,
         verbose=verbose,
     )
@@ -87,10 +100,14 @@ def create_commands(
     days=90,
     epochs=100,
     interval="5m",
-    loss_function="0",
+    loss_function="SortinoHyperOptLossDaily",
     min_trades=100,
-    spaces="sbSr",
+    spaces='default',
     timerange=None,
+    pairs: list[str] = None,
+    starting_balance=None,
+    max_open_trades=None,
+    stake_amount=None,
     verbose=False,
     skip_data_download=False,
 ):
@@ -107,7 +124,17 @@ def create_commands(
     for s in strategies:
         command = HyperoptCommand(config, s, verbose)
         command.build_command(
-            interval, epochs, min_trades, spaces, loss_function, days, timerange
+            interval=interval,
+            epochs=epochs,
+            min_trades=min_trades,
+            spaces=spaces,
+            loss_function=loss_function,
+            days=days,
+            timerange=timerange,
+            pairs=pairs,
+            starting_balance=starting_balance,
+            max_open_trades=max_open_trades,
+            stake_amount=stake_amount,
         )
         commands.append(command)
     return commands

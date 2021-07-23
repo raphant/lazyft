@@ -21,6 +21,10 @@ class BacktestCommand:
         interval: str,
         days: int = None,
         timerange=None,
+        pairs: list[str] = None,
+        starting_balance=None,
+        max_open_trades=None,
+        stake_amount=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
         timerange_ = timerange or QuickTools.get_timerange(
@@ -33,6 +37,14 @@ class BacktestCommand:
             f'-i {interval}',
             f"-c {str(self.config.path)}",
         ]
+        if pairs:
+            args_list.append(f'-p {" ".join(pairs)}')
+        if starting_balance:
+            args_list.append(f'--starting-balance {starting_balance}')
+        if max_open_trades:
+            args_list.append(f'--max-open-trades {max_open_trades}')
+        if stake_amount:
+            args_list.append(f'--stake-amount {stake_amount}')
         self.command_string = ' '.join(args_list)
 
 
@@ -64,6 +76,10 @@ def create_commands(
     days: int = None,
     id=None,
     timerange: Optional[str] = None,
+    pairs: list[str] = None,
+    starting_balance=None,
+    max_open_trades=None,
+    stake_amount=None,
     verbose=False,
     skip_data_download=False,
 ):
@@ -78,6 +94,14 @@ def create_commands(
         )
     for s in strategies:
         command = BacktestCommand(config, s, id=id, verbose=verbose)
-        command.build_command(interval, days, timerange)
+        command.build_command(
+            interval,
+            days,
+            timerange,
+            pairs=pairs,
+            starting_balance=starting_balance,
+            max_open_trades=max_open_trades,
+            stake_amount=stake_amount,
+        )
         commands.append(command)
     return commands

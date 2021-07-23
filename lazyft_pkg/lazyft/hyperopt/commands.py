@@ -22,7 +22,7 @@ class HyperoptCommand:
         interval: str,
         epochs: int,
         min_trades: int,
-        spaces: list[str],
+        spaces: str,
         loss_function: str,
         days: int = None,
         timerange=None,
@@ -51,9 +51,9 @@ class HyperoptCommand:
         if starting_balance:
             args_list.append(f'--starting-balance {starting_balance}')
         if max_open_trades:
-            args_list.append(f'--max-open-trades  {max_open_trades}')
+            args_list.append(f'--max-open-trades {max_open_trades}')
         if stake_amount:
-            args_list.append(f'--stake-amount  {stake_amount}')
+            args_list.append(f'--stake-amount {stake_amount}')
 
         if loss_function != "ShortTradeDurHyperOptLoss":
             args_list.append(f"--hyperopt-loss {loss_function}")
@@ -114,11 +114,9 @@ def create_commands(
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
     config = Config(config)
-    spaces = QuickHyperopt.get_spaces(spaces)
-    loss_function = QuickHyperopt.get_loss_func(loss_function)
     if not skip_data_download:
         QuickTools.download_data(
-            config, interval=interval, days=days, timerange=timerange
+            config, interval=interval, days=days, timerange=timerange, verbose=verbose
         )
     commands = []
     for s in strategies:

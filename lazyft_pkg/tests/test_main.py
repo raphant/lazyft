@@ -10,13 +10,13 @@ backtest_config = Config(backtest_config_name)
 
 def test_refresh_pairlist():
     whitelist = refresh_config['exchange']['pair_whitelist']
-    QuickTools.refresh_pairlist(refresh_config, 50, backtest_config_name)
+    QuickTools.refresh_pairlist(refresh_config, 10, backtest_config_name)
     assert refresh_config['exchange']['pair_whitelist'] != whitelist
 
 
 def test_backtest_with_generated_pairlist():
     commands = backtest.create_commands(
-        strategies=strategy, interval='5m', config=backtest_config.path, days=100
+        strategies=strategy, interval='5m', config=backtest_config.path, days=10
     )
     runner = backtest.BacktestRunner(commands.pop())
     runner.execute()

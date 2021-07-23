@@ -218,3 +218,4 @@ user_data/hyperopt_results
 /lazyft_pkg/tests/params.json
 /user_data/strategies/strategy_ids.json
 /strategies/
+.idea/sonarlint/

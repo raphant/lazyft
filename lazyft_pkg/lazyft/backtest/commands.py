@@ -65,14 +65,14 @@ def create_commands(
     id=None,
     timerange: Optional[str] = None,
     verbose=False,
-    skip_backtest=False,
+    skip_data_download=False,
 ):
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
     config = Config(config)
     logger.debug('Using config: {}', config.path)
     commands = []
-    if not skip_backtest:
+    if not skip_data_download:
         QuickTools.download_data(
             config, interval=interval, days=days, timerange=timerange
         )

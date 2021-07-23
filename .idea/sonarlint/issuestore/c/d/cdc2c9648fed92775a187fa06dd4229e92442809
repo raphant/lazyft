@@ -1,16 +1,0 @@
-
-Hpython:S1066­"/Merge this if statement with the enclosing one.(”Ûë
-Hpython:S1066´"/Merge this if statement with the enclosing one.(Ë‡ÿ£
-Hpython:S1066ê"/Merge this if statement with the enclosing one.(“úè
-Hpython:S1066í"/Merge this if statement with the enclosing one.(ûÅáù
-Hpython:S1066ó"/Merge this if statement with the enclosing one.(˜î¦¤
-;python:S125"Remove this commented out code.(ì‹Ÿúÿÿÿÿ
-bpython:S1542"IRename function "RMI" to match the regular expression ^[a-z_][a-z0-9_]*$.(¼ÚÚ
-jpython:S1542È"QRename function "SSLChannels" to match the regular expression ^[a-z_][a-z0-9_]*$.(¸©Òµ
-npython:S1542ã"URename function "SSLChannels_ATR" to match the regular expression ^[a-z_][a-z0-9_]*$.(¿ğéÍ
-hpython:S1542÷"ORename function "WaveTrend" to match the regular expression ^[a-z_][a-z0-9_]*$.(ÈŒĞ´
-fpython:S1542‹"HRename function "T3" to match the regular expression ^[a-z_][a-z0-9_]*$.(óÖ–£øÿÿÿÿ
-cpython:S1542¢"JRename function "SROC" to match the regular expression ^[a-z_][a-z0-9_]*$.(Áº‹Ê
-@python:S1481¥"'Remove the unused local variable "roc".(¬à¨ä
-mpython:S3776”"TRefactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.(„Í˜
-rpython:S3776Â"TRefactor this function to reduce its Cognitive Complexity from 42 to the 15 allowed.(Æê°Áúÿÿÿÿ

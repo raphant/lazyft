@@ -1,13 +1,13 @@
 import pathlib
+
 import lazyft
-import rapidjson
 from lazyft.constants import BASE_DIR
+from lazyft.hyperopt.commands import create_commands
+from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
     HyperoptManager,
 )
-from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
-from lazyft.hyperopt.commands import create_commands
 
 STRATEGY = ['TestBinH']
 
@@ -22,7 +22,7 @@ def test_get_hyperopt_runner():
         epochs=10,
         spaces='bs',
         days=5,
-        skip_backtest=True,
+        skip_data_download=True,
     )
     runner = HyperoptRunner(commands[0])
     runner.execute()
@@ -35,26 +35,26 @@ def test_get_hyperopt_runner():
     report.save()
 
 
-def test_param_save():
-    params = {'mock': 'data'}
-    ...
+# def test_param_save():
+#     params = {'mock': 'data'}
+#     ...
 
 
-def test_multiple_hyperopt_runners():
-    commands = create_commands(
-        strategies=STRATEGIES,
-        config=pathlib.Path(lazyft.constants.BASE_DIR, 'config_binance.json'),
-        epochs=2,
-        spaces='bs',
-        days=10,
-    )
-    manager = HyperoptManager(commands)
-    manager.create_runners()
-    assert any(manager.runners)
-    manager.execute()
-    manager.generate_reports()
-    assert isinstance(manager.reports, list)
-    report = manager.reports[0]
-    assert isinstance(report, HyperoptReport)
-    best_run = manager.get_best_run()
-    assert isinstance(best_run, HyperoptReport)
+# def test_multiple_hyperopt_runners():
+#     commands = create_commands(
+#         strategies=STRATEGIES,
+#         config=pathlib.Path(lazyft.constants.CONFIG_DIR, 'config_binance.json'),
+#         epochs=2,
+#         spaces='bs',
+#         days=10,
+#     )
+#     manager = HyperoptManager(commands)
+#     manager.create_runners()
+#     assert any(manager.runners)
+#     manager.execute()
+#     manager.generate_reports()
+#     assert isinstance(manager.reports, list)
+#     report = manager.reports[0]
+#     assert isinstance(report, HyperoptReport)
+#     best_run = manager.get_best_run()
+#     assert isinstance(best_run, HyperoptReport)

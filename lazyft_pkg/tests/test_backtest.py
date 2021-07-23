@@ -14,7 +14,7 @@ def test_backtest_command():
         interval='5m',
         id=ID,
         verbose=True,
-        skip_backtest=True,
+        skip_data_download=True,
     )
     runner = BacktestRunner(commands[0])
     runner.execute()

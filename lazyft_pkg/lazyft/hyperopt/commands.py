@@ -92,14 +92,14 @@ def create_commands(
     spaces="sbSr",
     timerange=None,
     verbose=False,
-    skip_backtest=False,
+    skip_data_download=False,
 ):
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
     config = Config(config)
     spaces = QuickHyperopt.get_spaces(spaces)
     loss_function = QuickHyperopt.get_loss_func(loss_function)
-    if not skip_backtest:
+    if not skip_data_download:
         QuickTools.download_data(
             config, interval=interval, days=days, timerange=timerange
         )

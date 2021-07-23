@@ -1,4 +1,5 @@
 import pathlib
+from typing import Union
 
 import typer
 from lazyft import logger
@@ -10,10 +11,11 @@ logger = logger.getChild("hyperopt.commands")
 
 
 class HyperoptCommand:
-    def __init__(self, config: Config, strategy: str) -> None:
+    def __init__(self, config: Config, strategy: str, verbose: bool) -> None:
         self.config = config
         self.strategy = strategy
         self.command_string = ""
+        self.verbose = verbose
 
     def build_command(
         self,
@@ -26,19 +28,20 @@ class HyperoptCommand:
         timerange=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
-        args_list = []
-        args_list.append(f"hyperopt")
-        args_list.append(f"-s {self.strategy}")
         timerange = timerange or QuickTools.get_timerange(
             days, interval, self.config, False
         )
-        args_list.append(f"--timerange {timerange}")
-        args_list.append(f"--spaces {spaces}")
-        args_list.append(f"-e {epochs}")
-        args_list.append(f"--min-trades {min_trades}")
-        args_list.append(f"-i {interval}")
+        args_list = [
+            f"hyperopt",
+            f"-s {self.strategy}",
+            f"--timerange {timerange}",
+            f"--spaces {spaces}",
+            f"-e {epochs}",
+            f"--min-trades {min_trades}",
+            f"-i {interval}",
+            f"-c {str(self.config.path)}",
+        ]
 
-        args_list.append(f"-c {str(self.config.path)}")
         if loss_function != "ShortTradeDurHyperOptLoss":
             args_list.append(f"--hyperopt-loss {loss_function}")
         self.command_string = " ".join(args_list)
@@ -74,12 +77,13 @@ def new_hyperopt_cli(
         min_trades,
         spaces,
         timerange,
+        verbose=verbose,
     )
 
 
 def create_commands(
     strategies: list[str],
-    config="config.json",
+    config: Union[str, pathlib.Path] = "config.json",
     days=90,
     epochs=100,
     interval="5m",
@@ -87,7 +91,8 @@ def create_commands(
     min_trades=100,
     spaces="sbSr",
     timerange=None,
-    skip_backtest=False
+    verbose=False,
+    skip_backtest=False,
 ):
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
@@ -95,10 +100,12 @@ def create_commands(
     spaces = QuickHyperopt.get_spaces(spaces)
     loss_function = QuickHyperopt.get_loss_func(loss_function)
     if not skip_backtest:
-        QuickTools.download_data(config, interval=interval, days=days, timerange=timerange)
+        QuickTools.download_data(
+            config, interval=interval, days=days, timerange=timerange
+        )
     commands = []
     for s in strategies:
-        command = HyperoptCommand(config, s)
+        command = HyperoptCommand(config, s, verbose)
         command.build_command(
             interval, epochs, min_trades, spaces, loss_function, days, timerange
         )

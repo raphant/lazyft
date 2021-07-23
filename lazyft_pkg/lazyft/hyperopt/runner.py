@@ -94,7 +94,7 @@ class HyperoptRunner(runner.Runner):
         text = text.strip()
         self.output_list.append(text)
 
-    def on_finished(self, cmd, success, exit_code):
+    def on_finished(self, _, success, _2):
         logger.info("Finished")
         self.running = False
 

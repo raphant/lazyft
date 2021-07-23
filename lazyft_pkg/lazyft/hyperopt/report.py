@@ -2,7 +2,6 @@ from typing import Tuple
 
 import attr
 import rapidjson
-import yaml
 
 from lazyft import logger, util
 from lazyft.constants import BASE_DIR

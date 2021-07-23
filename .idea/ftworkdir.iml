@@ -6,6 +6,9 @@
       <excludeFolder url="file://$MODULE_DIR$/venv/lib/python3.9/site-packages/jupyterlab_widgets/labextension/static" />
       <excludeFolder url="file://$MODULE_DIR$/lazyft_pkg/tests/lazyft/.pytest_cache" />
       <excludeFolder url="file://$MODULE_DIR$/lazyft_pkg/tests/.pytest_cache" />
+      <excludeFolder url="file://$MODULE_DIR$/user_data/backtest_results" />
+      <excludeFolder url="file://$MODULE_DIR$/user_data/data" />
+      <excludeFolder url="file://$MODULE_DIR$/user_data/hyperopt_results" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (ftworkdir)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

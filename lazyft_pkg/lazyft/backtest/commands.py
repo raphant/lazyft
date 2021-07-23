@@ -23,16 +23,16 @@ class BacktestCommand:
         timerange=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
-        args_list = []
-        args_list.append(f'backtesting')
-        args_list.append(f'-s {self.strategy}')
         timerange_ = timerange or QuickTools.get_timerange(
             days, interval, self.config, True
         )
-        args_list.append(f'--timerange {timerange_}')
-        args_list.append(f'-i {interval}')
-
-        args_list.append(f"-c {str(self.config.path)}")
+        args_list = [
+            f'backtesting',
+            f'-s {self.strategy}',
+            f'--timerange {timerange_}',
+            f'-i {interval}',
+            f"-c {str(self.config.path)}",
+        ]
         self.command_string = ' '.join(args_list)
 
 
@@ -77,7 +77,7 @@ def create_commands(
             config, interval=interval, days=days, timerange=timerange
         )
     for s in strategies:
-        command = BacktestCommand(config, s, id=id, verbose=True)
+        command = BacktestCommand(config, s, id=id, verbose=verbose)
         command.build_command(interval, days, timerange)
         commands.append(command)
     return commands

@@ -23,7 +23,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
 
     def stop(self):
         if not self.running:
-            logger.warn("The command is not currently running")
+            logger.warning("The command is not currently running")
             return False
         self.process.signal_group(signal.SIGINT)
         return True

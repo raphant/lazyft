@@ -150,4 +150,4 @@ class PairListTools:
 
 
 if __name__ == '__main__':
-    QuickTools.refresh_pairlist(Config('../../config.json'))
+    QuickTools.refresh_pairlist(Config('../../config.json'), 10)

@@ -1,32 +1,7 @@
-from typing import TYPE_CHECKING
-
 import rapidjson
-import yaml
-from lazyft import util, logger
-from lazyft.constants import BASE_DIR, ID_TO_LOAD_FILE
-from box import Box
 
-if TYPE_CHECKING:
-    from .hyperopt import HyperoptPerformance
-
-
-class Parameters:
-    SAVE_PATH = BASE_DIR.joinpath('lazy_params.json')
-
-    def __init__(
-        self,
-        params: dict,
-        performance: 'HyperoptPerformance',
-        strategy: str,
-    ) -> None:
-        self.id = util.rand_token()
-        self.params = params
-        self.strategy = strategy
-        self.performance = performance
-
-    @property
-    def path(self):
-        return
+from lazyft import logger
+from lazyft.constants import ID_TO_LOAD_FILE
 
 
 class ParamsToLoad:

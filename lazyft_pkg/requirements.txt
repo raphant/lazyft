@@ -8,3 +8,6 @@ pyyaml
 rapidjson
 pytest
 python-box
+numpy
+python-dateutil
+arrow

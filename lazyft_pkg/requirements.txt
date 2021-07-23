@@ -1,0 +1,10 @@
+typer
+loguru
+pandas
+sh
+attrs
+rich
+pyyaml
+rapidjson
+pytest
+python-box

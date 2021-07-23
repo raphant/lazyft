@@ -20,7 +20,7 @@ from rich import print
 # noinspection DuplicatedCode
 
 
-class BinH(IStrategy):
+class TestBinH(IStrategy):
     """
     556 trades. 348/194/14 Wins/Draws/Losses. Avg profit   1.88%.
     Median profit   1.30%. Total profit  1046.77706433 USD ( 209.36Σ%).
@@ -59,7 +59,9 @@ class BinH(IStrategy):
     ):
         script_directory = pathlib.Path(__file__).parent.absolute()
         id_file = script_directory.joinpath('strategy_ids.json')
-        params_file = pathlib.Path(script_directory, '../', '../', 'lazy_params.json')
+        params_file = pathlib.Path(
+            script_directory, '../', '../', 'lazyft_pkg', 'tests', 'params.json'
+        )
         if not (params_file.exists() and id_file.exists()):
             print('DEBUG: Params file or ID file does not exist')
             return {}

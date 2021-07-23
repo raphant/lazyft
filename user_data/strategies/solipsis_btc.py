@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from study_templates.solipsis5 import StudySolipsis
+from solipsis5 import StudySolipsis
 
 SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
 

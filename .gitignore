@@ -211,3 +211,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+user_data/data
+user_data/backtest_results
+user_data/hyperopt_results
+/lazy_params.json
+/lazyft_pkg/tests/params.json
+/user_data/strategies/strategy_ids.json
+/strategies/

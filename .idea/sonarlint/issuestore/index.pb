@@ -1,0 +1,19 @@
+
+^
+..idea/inspectionProfiles/profiles_settings.xml,1/e/1e9075f5bf079c01ef2c910709e91a497d262080
+\
+,.idea/inspectionProfiles/Project_Default.xml,4/9/496a238a6afa168dbaf6efd37bb459331589579c
+P
+ user_data/strategies/__init__.py,c/a/ca6ab1cd0ca9900b4c9edb614472b60f16225278
+O
+user_data/strategies/adxsmas.py,a/7/a705d7957ea8a6677c0c69f50dd6d0597ce43ff6
+P
+ user_data/strategies/bbandrsi.py,f/0/f070ad092e2dcacaf54caee1b5bdb7d335642805
+]
+-user_data/strategies/combinedbinhandclucv2.py,9/6/96c536897ea8653e0091fd2c45c09fa202b05a86
+T
+$user_data/strategies/madisplacev3.py,8/2/829008b49113d44259fe81f7e786b7c5456902aa
+Q
+!user_data/strategies/solipsis5.py,c/d/cdc2c9648fed92775a187fa06dd4229e92442809
+T
+$user_data/strategies/solipsis_usd.py,e/5/e5c459991daad038601b9815b886f9923355d326

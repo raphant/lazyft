@@ -1,4 +1,4 @@
-from study_templates.solipsis5 import StudySolipsis
+from solipsis5 import StudySolipsis
 
 
 class StudySolipsis_ETH(StudySolipsis):

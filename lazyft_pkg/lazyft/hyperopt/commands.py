@@ -22,7 +22,7 @@ class HyperoptCommand:
         interval: str,
         epochs: int,
         min_trades: int,
-        spaces: list[str],
+        spaces: str,
         loss_function: str,
         days: int = None,
         timerange=None,
@@ -32,8 +32,8 @@ class HyperoptCommand:
         stake_amount=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
-        timerange = timerange or QuickTools.get_timerange(
-            days, interval, self.config, False
+        timerange, _ = timerange or QuickTools.get_timerange(
+            self.config, days, interval
         )
         args_list = [
             f"hyperopt",
@@ -104,7 +104,7 @@ def create_commands(
     min_trades=100,
     spaces='default',
     timerange=None,
-    pairs: list[str] = None,
+    pairs: str = None,
     starting_balance=None,
     max_open_trades=None,
     stake_amount=None,

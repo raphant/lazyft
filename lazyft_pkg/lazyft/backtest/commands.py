@@ -27,8 +27,8 @@ class BacktestCommand:
         stake_amount=None,
     ):
         assert days or timerange, "--days or --timerange must be specified"
-        timerange_ = timerange or QuickTools.get_timerange(
-            days, interval, self.config, True
+        _, timerange_ = timerange or QuickTools.get_timerange(
+            self.config, days, interval
         )
         args_list = [
             f'backtesting',

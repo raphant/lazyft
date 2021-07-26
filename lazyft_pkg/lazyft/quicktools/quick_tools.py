@@ -1,7 +1,6 @@
 from datetime import datetime
-from os import PathLike
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import dateutil.parser
 import rapidjson
@@ -17,7 +16,19 @@ from lazyft.quicktools.config import Config
 
 class QuickTools:
     @staticmethod
-    def get_timerange(days: int, interval: str, config: Config, backtesting=False):
+    def get_timerange(config: Config, days: int, interval: str) -> Tuple[str, str]:
+        """
+
+        Args:
+            config: A config file object
+            days: How many days to split
+            interval: The ticker interval. Default: 5m
+
+        Returns: Tuple of a hyperopt timerange and a backtest timerange
+
+        Takes N days and splits those days into ranges of 2/3rds for hyperopt and 1/3rd for
+        backtesting
+        """
         first_date, last_date = QuickTools.get_first_last_date_of_pair_data(
             config, interval
         )
@@ -30,10 +41,21 @@ class QuickTools:
         end_range = (start_range[1].shift(days=0), last_date)
         hyperopt_range = f"{'-'.join([s.format('YYYYMMDD') for s in start_range])}"
         backtest_range = f"{'-'.join([s.format('YYYYMMDD') for s in end_range])}"
-        return hyperopt_range if not backtesting else backtest_range
+        return hyperopt_range, backtest_range
 
     @staticmethod
-    def get_first_last_date_of_pair_data(config, interval):
+    def get_first_last_date_of_pair_data(
+        config: Config, interval: str
+    ) -> Tuple[Arrow, Arrow]:
+        """
+
+        Args:
+            config: A config file object
+            interval: The ticker interval. Default: 5m
+
+        Returns: The first and last day of data stored as Arrow objects
+
+        """
         pair: str = config.data['exchange']['pair_whitelist'][0]
         pair = pair.replace('/', '_') + f'-{interval}' + '.json'
         exchange = config['exchange']['name']
@@ -50,30 +72,41 @@ class QuickTools:
         first_date = Arrow.fromtimestamp(df.iloc[0]['open_time'], tzinfo='utc')
         return first_date, last_date
 
-    @staticmethod
-    def change_pairs(
-        config_path: PathLike, pairs_name, pair_names_json='pair-names.json'
-    ):
-        config = rapidjson.loads(Path(config_path).read_text())
-        pairlist_names = rapidjson.loads(Path(pair_names_json).read_text())
-        try:
-            pairlist = pairlist_names[pairs_name]
-        except KeyError:
-            print(f'\nCould not find pairlist: "{pairs_name}"')
-            return exit(1)
-        config['exchange']['pair_whitelist'] = pairlist['list']
-        QuickTools.save_config(config, config_path)
+    # @staticmethod
+    # def change_pairs(
+    #     config_path: PathLike, pairs_name, pair_names_json='pair-names.json'
+    # ):
+    #     config = rapidjson.loads(Path(config_path).read_text())
+    #     pairlist_names = rapidjson.loads(Path(pair_names_json).read_text())
+    #     try:
+    #         pairlist = pairlist_names[pairs_name]
+    #     except KeyError:
+    #         print(f'\nCould not find pairlist: "{pairs_name}"')
+    #         return exit(1)
+    #     config['exchange']['pair_whitelist'] = pairlist['list']
+    #     QuickTools.save_config(config, config_path)
+    #
+    # @staticmethod
+    # def save_config(config: dict, config_path: PathLike):
+    #     """
+    #
+    #     Args:
+    #         config:
+    #         config_path:
+    #
+    #     Returns:
+    #
+    #     """
+    #     path = Path(config_path)
+    #     with open(path, 'w') as f:
+    #         rapidjson.dump(config, f, indent=2)
 
     @staticmethod
-    def save_config(config: dict, config_path: PathLike):
-        path = Path(config_path)
-        with open(path, 'w') as f:
-            rapidjson.dump(config, f, indent=2)
-
-    @staticmethod
-    def refresh_pairlist(config: Config, n_coins: int, save_as=None) -> list[str]:
+    def refresh_pairlist(
+        config: Config, n_coins: int, save_as=None, age_limit=14
+    ) -> list[str]:
         exchange = Exchange(config.data)
-        QuickTools.set_pairlist_settings(config, n_coins)
+        QuickTools.set_pairlist_settings(config, n_coins, age_limit)
         manager = PairListManager(exchange, config.data)
         try:
             manager.refresh_pairlist()
@@ -85,14 +118,26 @@ class QuickTools:
         return manager.whitelist
 
     @staticmethod
-    def set_pairlist_settings(config, n_coins):
+    def set_pairlist_settings(config: Config, n_coins, age_limit):
+        """
+
+        Args:
+            config: A config file object
+            n_coins: The number of coins to get
+            age_limit: Filter the coins based on an age limit
+
+        Returns: None
+
+        """
         config['pairlists'][0] = {
             "method": "VolumePairList",
             "number_assets": n_coins,
             "sort_key": "quoteVolume",
             "refresh_period": 1800,
         }
-        config['pairlists'].append({"method": "AgeFilter", "min_days_listed": 14})
+        config['pairlists'].append(
+            {"method": "AgeFilter", "min_days_listed": age_limit}
+        )
         config['pairlists'].append(
             {"method": "PriceFilter", "low_price_ratio": 0.10, "min_price": 0.001}
         )
@@ -125,6 +170,18 @@ class QuickTools:
         timerange: Optional[str] = None,
         verbose=False,
     ):
+        """
+
+        Args:
+            config: A config file object
+            interval: The ticker interval. Default: 5m
+            days: How many days worth of data to download
+            timerange: Optional timerange parameter
+            verbose: Default: False
+
+        Returns: None
+        """
+
         def print_(text):
             if verbose:
                 print(text)
@@ -176,4 +233,4 @@ class PairListTools:
 
 
 if __name__ == '__main__':
-    QuickTools.refresh_pairlist(Config('../../config.json'), 10)
+    QuickTools.refresh_pairlist(Config('config.json'), 10)

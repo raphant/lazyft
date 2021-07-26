@@ -38,14 +38,15 @@ class HyperoptReport:
         self.params, self.performance = extracted
         self.id = util.rand_token()
 
-    def save(self):
+    def save(self) -> str:
+        """
+        Returns: ID of report
+        """
         data = self.add_to_existing_data()
-        # with self.SAVE_PATH.open("w") as f:
-        #     yaml.dump(data, f)
         self.SAVE_PATH.write_text(rapidjson.dumps(data))
         return self.id
 
-    def add_to_existing_data(self):
+    def add_to_existing_data(self) -> dict:
         # grab all data
         data = self.get_existing_data()
         # get strategy data if available, else create empty dict
@@ -60,7 +61,7 @@ class HyperoptReport:
         return data
 
     @classmethod
-    def get_existing_data(cls):
+    def get_existing_data(cls) -> dict:
         if cls.SAVE_PATH.exists():
             return rapidjson.loads(cls.SAVE_PATH.read_text())
         return {}
@@ -70,43 +71,40 @@ class HyperoptReport:
     ) -> Tuple[dict, HyperoptPerformance]:
         logger.debug("Extracting output...")
         search = regex.FINAL_REGEX.search(output)
-        if search:
-            params = (
-                raw.strip()
-                .replace('"True"', "true")
-                .replace('"False"', "false")
-                .replace('"none"', "null")
-            )
-            date_search = regex.H_DATE_FROM_TO.search(output)
-            from_ = date_search.groupdict()["from"]
-            to = date_search.groupdict()["to"]
-            seed_search = regex.SEED_REGEX.search(output)
-            seed = seed_search.groups()[0]
-            performance = HyperoptPerformance(
-                **search.groupdict(), seed=seed, from_date=from_, to_date=to
-            )
+        assert search
+        params = (
+            raw.strip()
+            .replace('"True"', "true")
+            .replace('"False"', "false")
+            .replace('"none"', "null")
+        )
+        date_search = regex.H_DATE_FROM_TO.search(output)
+        from_ = date_search.groupdict()["from"]
+        to = date_search.groupdict()["to"]
+        seed_search = regex.SEED_REGEX.search(output)
+        seed = seed_search.groups()[0]
+        performance = HyperoptPerformance(
+            **search.groupdict(), seed=seed, from_date=from_, to_date=to
+        )
 
-            return self._format_parameters(rapidjson.loads(params)), performance
+        return self._format_parameters(rapidjson.loads(params)), performance
 
     @staticmethod
-    def _format_parameters(params: dict):
+    def _format_parameters(params: dict) -> dict:
         dictionary = {}
-
-        if "params" in params:
-            bs = params.pop("params")
-            buy_params = {}
-            sell_params = {}
-            for k, v in bs.items():
-                d = buy_params if "buy" in k else sell_params
-                try:
-                    d[k] = float(v)
-                except TypeError:
-                    d[k] = v
-                except ValueError:
-                    d[k] = v
-            if buy_params:
-                dictionary["buy_params"] = buy_params
-            if sell_params:
-                dictionary["sell_params"] = sell_params
+        assert "params" in params, '"params" key not found while scraping parameters.'
+        bs = params.pop("params")
+        buy_params = {}
+        sell_params = {}
+        for k, v in bs.items():
+            d = buy_params if "buy" in k else sell_params
+            try:
+                d[k] = float(v)
+            except (TypeError, ValueError):
+                d[k] = v
+        if buy_params:
+            dictionary["buy_params"] = buy_params
+        if sell_params:
+            dictionary["sell_params"] = sell_params
         dictionary.update(**params)
         return dictionary

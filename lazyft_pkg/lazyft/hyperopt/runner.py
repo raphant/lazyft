@@ -4,7 +4,7 @@ from threading import Thread
 
 import sh
 from lazyft import console, constants, hyperopt, logger, runner
-from lazyft.quicktools.regex import EPOCH_LINE_REGEX, CURRENT_EPOCH
+from lazyft.quicktools.regex import EPOCH_LINE_REGEX
 from rich.live import Live
 from rich.table import Table
 import pandas as pd
@@ -57,7 +57,7 @@ class HyperoptRunner(runner.Runner):
         self.current_epoch = 0
 
     def execute(self, background=False):
-        self.output_list.clear()
+        self.reset()
         logger.info('Running command: "%s"', self.command.command_string)
         try:
             self.process = sh.freqtrade(
@@ -66,7 +66,7 @@ class HyperoptRunner(runner.Runner):
                 print_json=True,
                 disable_param_export=True,
                 _out=lambda log: self.sub_process_log(log),
-                _err=lambda log: self.sub_process_log(log),
+                _err=lambda log: self.sub_process_log(log, error=True),
                 _cwd=str(constants.BASE_DIR),
                 _bg=True,
                 _done=self.on_finished,
@@ -89,17 +89,8 @@ class HyperoptRunner(runner.Runner):
                     live.update(self.get_results_as_table())
             except KeyboardInterrupt:
                 pass
-
-    def sub_process_log(self, text="", out=False):
-        if not text:
-            return
-        if "ETA" in text:
-            search = CURRENT_EPOCH.search(text)
-            if search:
-                self.current_epoch = search.groupdict()['epoch']
-            return
-        text = text.strip()
-        self.output_list.append(text)
+        if self.error:
+            logger.error('\n'.join(self.error_list[-5:]))
 
     def on_finished(self, _, success, _2):
         logger.info("Finished")
@@ -108,6 +99,7 @@ class HyperoptRunner(runner.Runner):
         if constants.STRATEGY_DIR.joinpath(self.strategy.lower() + '.json').exists():
             constants.STRATEGY_DIR.joinpath(self.strategy.lower() + '.json').unlink()
         if not success:
+            self.error = True
             logger.error(self.output)
 
     def generate_report(self):

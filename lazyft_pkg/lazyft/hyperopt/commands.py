@@ -22,7 +22,7 @@ class HyperoptCommand:
         interval: str,
         epochs: int,
         min_trades: int,
-        spaces: str,
+        spaces: list[str],
         loss_function: str,
         days: int = None,
         timerange=None,

@@ -43,6 +43,7 @@ class HyperoptReport:
         # with self.SAVE_PATH.open("w") as f:
         #     yaml.dump(data, f)
         self.SAVE_PATH.write_text(rapidjson.dumps(data))
+        return self.id
 
     def add_to_existing_data(self):
         # grab all data

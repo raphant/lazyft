@@ -12,10 +12,15 @@ import talib.abstract as ta
 from pandas import DataFrame
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from freqtrade.strategy import RealParameter, IntParameter, CategoricalParameter
+from freqtrade.strategy import (
+    RealParameter,
+    IntParameter,
+    CategoricalParameter
+)
 from freqtrade.strategy.interface import IStrategy
 from freqtrade.persistence import Trade
 from rich import print
+
 
 # noinspection DuplicatedCode
 
@@ -55,6 +60,7 @@ class BinH(IStrategy):
 
     from pathlib import Path
     import sys
+
     sys.path.append(str(Path(__file__).parent))
     from util import load
 
@@ -64,6 +70,13 @@ class BinH(IStrategy):
 
     ticker_interval = '5m'
 
+    use_custom_stoploss = True
+
+    # Recommended
+    use_sell_signal = True
+    sell_profit_only = True
+    ignore_roi_if_buy_signal = True
+
     def custom_stoploss(
         self,
         pair: str,
@@ -71,9 +84,8 @@ class BinH(IStrategy):
         current_time: datetime,
         current_rate: float,
         current_profit: float,
-        **kwargs
+        **kwargs,
     ) -> float:
-
         if (
             current_profit < -0.04
             and current_time - timedelta(minutes=35) > trade.open_date_utc
@@ -112,6 +124,7 @@ class BinH(IStrategy):
         conditions = []
 
         # GUARDS AND TRENDS
+
         if self.buy_bb_lower.value:
             conditions.append(
                 dataframe['bb_lowerband'].shift().gt(self.buy_bb_lower.value)

@@ -7,10 +7,7 @@ RESULTS_REGEX = re.compile(
 )
 PICKLE_REGEX = re.compile(r"epochs saved to\s+'([\w\d_/.\-]+)")
 FINAL_REGEX = re.compile(
-    r'(?P<trades>\d+) trades.\s?(?P<wins>\d+)/(?P<draws>\d+)/(?P<losses>\d+) Wins/Draws/Losses. '
-    r'Avg profit\s+(?P<avg_profits>[\d.-]+)%. Median profit\s+(?P<med_profit>[\d.-]+)%. '
-    r'Total profit\s+(?P<tot_profit>[\d.-]+) USD \(\s+(?P<profit_percent>[\d.-]+)Σ?%?\). '
-    r'Avg duration (?P<avg_duration>(\d+ days?, ?)?.?.:..:..) min. Objective: (?P<loss>[\-\d.]+)'
+    r'(?P<trades>\d+) trades.\s?(?P<wins>\d+)/(?P<draws>\d+)/(?P<losses>\d+) Wins/Draws/Losses. Avg profit\s+(?P<avg_profits>[\d.-]+)%. Median profit\s+(?P<med_profit>[\d.-]+)%. Total profit\s+(?P<tot_profit>[\d.-]+) \w+ \(\s+(?P<profit_percent>[\d.-]+)Σ?%?\). Avg duration (?P<avg_duration>(\d+ days?, ?)?.?.:..:..) min. Objective: (?P<loss>[\d.-]+)'
 )
 PARAM_REGEX = re.compile(r'({\"params\":{.+)')
 SEED_REGEX = re.compile(r'Using optimizer random state: (\d+)')

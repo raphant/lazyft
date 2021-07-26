@@ -19,6 +19,7 @@ class BacktestRunner(Runner):
         self.min_win_rate = min_win_rate
 
     def execute(self, background=False):
+        self.reset()
         if self.command.id:
             ParamsToLoad.set_id(self.strategy, self.command.id)
         logger.info('Running command: "{}"', self.command.command_string)

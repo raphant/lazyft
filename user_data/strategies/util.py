@@ -21,4 +21,9 @@ def load(strategy_name: str):
         print('DEBUG: ID path:', str(id_file))
         return {}
     params = rapidjson.loads(params_file.read_text())
-    return params[strategy_name][id]['params']
+    if strategy_name not in params:
+        print('WARNING: No params found for', strategy_name)
+        return {}
+    params = params[strategy_name][id]['params']
+    print(f'DEBUG: Loaded param from id "{id}"')
+    return params

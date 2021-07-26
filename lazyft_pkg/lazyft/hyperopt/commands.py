@@ -102,7 +102,7 @@ def create_commands(
     interval="5m",
     loss_function="SortinoHyperOptLossDaily",
     min_trades=100,
-    spaces='default',
+    spaces="default",
     timerange=None,
     pairs: str = None,
     starting_balance=None,

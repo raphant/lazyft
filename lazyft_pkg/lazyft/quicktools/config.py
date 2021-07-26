@@ -8,7 +8,18 @@ from lazyft.constants import CONFIG_DIR
 
 
 class Config:
+    """
+    A wrapper for a FreqTrade config file.
+    Can be used like `config[key] = value` to get and set values.
+    """
+
     def __init__(self, config: Union[os.PathLike, str]) -> None:
+        """
+        Args:
+            config: A path to or the name of an existing config file.
+                MAIN_DIR/config/ directory will be prepended to the config file name if no
+                path is included.
+        """
         temp = Path(config)
         if temp.exists():
             self._config_path = temp.resolve()
@@ -22,6 +33,14 @@ class Config:
         pass
 
     def save(self, save_as: Union[os.PathLike, str] = None) -> Path:
+        """
+        Save the config file as a new or current file name.
+        Args:
+            save_as: An optional file name to save the config file as.
+
+        Returns: Path to the new config file.
+
+        """
         if not save_as:
             self._config_path.write_text(self.to_json)
             path = self._config_path
@@ -36,18 +55,33 @@ class Config:
 
     @property
     def to_json(self) -> str:
+        """
+        Returns: A valid JSON string
+        """
         return rapidjson.dumps(self._data, indent=2)
 
     @property
     def data(self):
-        return self._data.copy()
+        """
+        Returns: A copy of the config data as a `dict`.
+        """
+        return self.copy()
 
     @property
     def path(self):
         return self._config_path
 
     @classmethod
-    def new(cls, config_name: str, from_config: Union[str, 'Config']):
+    def new(cls, config_name: str, from_config: Union[str, 'Config']) -> 'Config':
+        """
+        Creates a new config file from an existing one.
+        Args:
+            config_name: The name of the new config file name
+            from_config: The exising config file to copy. Can be a Config object or a string.
+
+        Returns: The new Config file
+
+        """
         return cls(cls(str(from_config)).save(config_name))
 
     def get(self, key, default=None):

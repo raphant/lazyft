@@ -27,7 +27,6 @@ class BbandRsi(IStrategy):
     https://github.com/sthewissen/Mynt/blob/master/src/Mynt.Core/Strategies/BbandRsi.cs
     """
 
-    # buy_bb_lower = RealParameter(-1.0, 3.0, default=2.0, space='buy')
     buy_rsi = IntParameter(5, 50, default=30, load=True)
     sell_rsi = IntParameter(50, 100, default=70, load=True)
 

@@ -1,18 +1,29 @@
+import pathlib
 import re
+from os import PathLike
 from pprint import pprint
+from typing import Union
 
 import pandas as pd
 from numpy import inf
-from lazyft.quicktools import regex
+
+from lazyft import regex
 
 
 class BacktestReport:
     def __init__(
-        self, data: pd.DataFrame, total_series: pd.Series, min_win_rate: float
+        self,
+        data: pd.DataFrame,
+        total_series: pd.Series,
+        min_win_rate: float,
+        json_file: Union[str],
     ) -> None:
         self.df = data
         self._totals = total_series
         self.min_win_rate = min_win_rate
+        self.json_file = pathlib.Path(
+            './user_data/backtest_results', json_file
+        ).resolve()
 
     @property
     def winners(self):
@@ -54,37 +65,13 @@ class BacktestReport:
         output_string = output_string.split('SELL REASON STATS')[0]
         total = re.findall(regex.totals, output_string)[0]
         find_pairs = re.findall(regex.pair_totals, output_string)
-        df = BacktestOutputExtractor.create_dataframe(find_pairs)
-        totals_series = pd.Series(total, index=df.columns)
-        return cls(df, totals_series, min_win_rate)
-
-
-class BacktestOutputExtractor:
-    @classmethod
-    def create_report(cls, output: str, min_win_rate: float) -> BacktestReport:
-        """
-
-        Args:
-            output: A string of the backtest output.
-            min_win_rate:
-
-        Returns: Tuple: (DataFrame, DataFrame with totals)
-
-        """
-        output_string = output.split('BACKTESTING REPORT')[1]
-        output_string = output_string.split('SELL REASON STATS')[0]
-        total = re.findall(regex.totals, output_string)[0]
-        find_pairs = re.findall(regex.pair_totals, output_string)
         df = cls.create_dataframe(find_pairs)
         totals_series = pd.Series(total, index=df.columns)
-        return BacktestReport(df, totals_series, min_win_rate)
+        json_file = regex.backtest_json.findall(output)[0]
+        return cls(df, totals_series, min_win_rate, json_file=json_file)
 
-    @classmethod
-    def get_winners(cls, df: pd.DataFrame, min_win_rate: float):
-        return df[df['Accumulative Profit'] > min_win_rate].copy()
-
-    @classmethod
-    def create_dataframe(cls, pairs: list):
+    @staticmethod
+    def create_dataframe(pairs: list):
         def get_sec(time_str):
             """Get Seconds from time."""
             try:

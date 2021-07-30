@@ -24,6 +24,7 @@ class QuickTools:
             days: How many days to split
             interval: The ticker interval. Default: 5m
 
+
         Returns: Tuple of a hyperopt timerange and a backtest timerange
 
         Takes N days and splits those days into ranges of 2/3rds for hyperopt and 1/3rd for
@@ -58,6 +59,7 @@ class QuickTools:
         """
         pair: str = config.data['exchange']['pair_whitelist'][0]
         pair = pair.replace('/', '_') + f'-{interval}' + '.json'
+        logger.debug('Getting time-ranges using %s', pair)
         exchange = config['exchange']['name']
         infile = Path(USER_DATA_DIR, f'data/{exchange}', pair)
         # load data
@@ -105,8 +107,8 @@ class QuickTools:
     def refresh_pairlist(
         config: Config, n_coins: int, save_as=None, age_limit=14
     ) -> list[str]:
-        exchange = Exchange(config.data)
         QuickTools.set_pairlist_settings(config, n_coins, age_limit)
+        exchange = Exchange(config.data)
         manager = PairListManager(exchange, config.data)
         try:
             manager.refresh_pairlist()
@@ -129,6 +131,7 @@ class QuickTools:
         Returns: None
 
         """
+        config['exchange']['pair_whitelist'] = []
         config['pairlists'][0] = {
             "method": "VolumePairList",
             "number_assets": n_coins,
@@ -194,7 +197,11 @@ class QuickTools:
             days_between = (datetime.now() - start_dt).days
             days = days_between
 
-        logger.info('Downloading %s days worth of market data' % days)
+        logger.info(
+            'Downloading %s days worth of market data for %s ticker-interval',
+            days,
+            interval,
+        )
         sh.freqtrade(
             'download-data',
             days=days,

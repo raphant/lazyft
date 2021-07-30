@@ -5,7 +5,7 @@ import rapidjson
 
 from lazyft import logger, util
 from lazyft.constants import BASE_DIR
-from lazyft.quicktools import regex
+from lazyft import regex
 
 logger.getChild("hyperopt.report")
 

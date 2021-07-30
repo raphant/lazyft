@@ -4,7 +4,7 @@ from loguru import logger
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.constants import BASE_DIR
 from lazyft.parameters import ParamsToLoad
-from lazyft.quicktools.backtest import BacktestOutputExtractor
+from lazyft.backtest.report import BacktestReport
 from lazyft.runner import Runner
 
 
@@ -26,7 +26,7 @@ class BacktestRunner(Runner):
         try:
             self.process: sh.RunningCommand = sh.freqtrade(
                 self.command.command_string.split(' '),
-                _out=lambda log: self.sub_process_log(log, True),
+                _out=lambda log: self.sub_process_log(log, False),
                 _err=lambda log: self.sub_process_log(log, False),
                 _cwd=str(BASE_DIR),
                 _bg=True,
@@ -40,4 +40,4 @@ class BacktestRunner(Runner):
             raise
 
     def generate_report(self):
-        return BacktestOutputExtractor.create_report(self.output, self.min_win_rate)
+        return BacktestReport.from_output(self.output, self.min_win_rate)

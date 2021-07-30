@@ -23,12 +23,11 @@ H_DATE_FROM_TO = re.compile(
 totals = r'(TOTAL)[^\d-]+(?P<sells>\d+)[^\d-]+(?P<avg_profit>[\d.-]+)[^\d-]+(?P<cum_profit>[\d.-]+)[^\d-]+(?P<total_profit_btc>[\d.-]+)[^\d-]+(?P<profit_percent>[\d.-]+)[^\d-]+(?P<avg_duration>[\d:]+)[^\d-]+(?P<wins>[\d.-]+)[^\d-]+(?P<draws>[\d.-]+)[^\d-]+(?P<losses>[\d.-]+)'
 
 pair_totals = (
-    r'(?P<pair>\w+/\w+)[^\d-]+(?P<sells>\d+)[^\d-]+'
-    r'(?P<avg_profit>[\d.-]+)[^\d-]+(?P<cum_profit>[\d.-]+)'
-    r'[^\d-]+(?P<total_profit_btc>[\d.-]+)[^\d-]+'
-    r'(?P<profit_percent>[\d.-]+)[^\d-]+(?P<avg_duration>[\d:]+)'
-    r'[^\d-]+(?P<wins>[\d.-]+)[^\d-]+(?P<draws>[\d.-]+)[^\d-]+'
-    r'(?P<losses>[\d.-]+)'
+    r'(?P<pair>\w+/\w+)[^\d-]+(?P<sells>\d+)[^\d-]+(?P<avg_profit>[\d.-]+)[^\d-]+'
+    r'(?P<cum_profit>[\d.-]+)[^\d-]+(?P<total_profit_btc>[\d.-]+)[^\d-]+'
+    r'(?P<profit_percent>[\d.-]+)[^\d-]+(?P<avg_duration>(\d+ days?, ?)?.?.:..:?.?.?)'
+    r'[^\d-]+(?P<wins>[\d.-]+)[^\d-]+(?P<draws>[\d.-]+)[^\d-]+(?P<losses>[\d.-]+)'
+    r'[^\d-]+(?P<win_percent>[\d.-]+)'
 )
 b_from_ = r'Backtesting from[^\d]+(?P<date_from>\d{4}-\d{2}-\d{2} [\d:]+)'
 b_to = r'Backtesting to[^\d]+(?P<date_to>\d{4}-\d{2}-\d{2} [\d:]+)'
@@ -36,4 +35,5 @@ b_to = r'Backtesting to[^\d]+(?P<date_to>\d{4}-\d{2}-\d{2} [\d:]+)'
 first_trade = r'First trade[^\d]+(?P<first_trade>\d{4}-\d{2}-\d{2} [\d:]+)'
 trades_per_day = r'Trades per day[^\d]+(?P<trades_per_day>[\d.]+)'
 total_trades = r'Total trades[^\d]+(?P<total_trades>[\d.]+)'
+backtest_json = re.compile(r'(backtest-result[^\"]+)')
 # endregion

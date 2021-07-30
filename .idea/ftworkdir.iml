@@ -9,6 +9,7 @@
       <excludeFolder url="file://$MODULE_DIR$/user_data/backtest_results" />
       <excludeFolder url="file://$MODULE_DIR$/user_data/data" />
       <excludeFolder url="file://$MODULE_DIR$/user_data/hyperopt_results" />
+      <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (ftworkdir)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

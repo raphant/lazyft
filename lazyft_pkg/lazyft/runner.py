@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Runner(abc.ABC, metaclass=ABCMeta):
     def __init__(self, verbose=False):
         self.verbose = verbose
-        self.console = Console(width=120)
+        self.console = Console(width=200)
         self.process: Optional[RunningCommand] = None
         self.running = False
         self.error = False

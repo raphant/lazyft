@@ -4,7 +4,7 @@ from threading import Thread
 
 import sh
 from lazyft import console, constants, hyperopt, logger, runner
-from lazyft.quicktools.regex import EPOCH_LINE_REGEX
+from lazyft.regex import EPOCH_LINE_REGEX
 from rich.live import Live
 from rich.table import Table
 import pandas as pd
@@ -53,7 +53,7 @@ class HyperoptRunner(runner.Runner):
         super().__init__(verbose)
         self.command = command
         self.strategy = command.strategy
-        self.verbose = verbose
+        self.verbose = verbose or command.verbose
         self.current_epoch = 0
 
     def execute(self, background=False):
@@ -82,7 +82,7 @@ class HyperoptRunner(runner.Runner):
 
     def live_output(self):
         table = Printer.create_new_table()
-        with Live(table, refresh_per_second=4, console=console) as live:
+        with Live(table, refresh_per_second=4, console=self.console) as live:
             try:
                 while self.running:
                     time.sleep(0.4)

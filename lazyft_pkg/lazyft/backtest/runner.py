@@ -30,6 +30,7 @@ class BacktestRunner(Runner):
                 _err=lambda log: self.sub_process_log(log, False),
                 _cwd=str(BASE_DIR),
                 _bg=True,
+                _done=self.on_finished,
             )
             self.running = True
 
@@ -39,5 +40,9 @@ class BacktestRunner(Runner):
             logger.error(self.output)
             raise
 
+    def on_finished(self, _, success, _2):
+        if not success:
+            self.error = True
+
     def generate_report(self):
-        return BacktestReport.from_output(self.output, self.min_win_rate)
+        return BacktestReport.from_output(self.strategy, self.output, self.min_win_rate)

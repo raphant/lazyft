@@ -57,7 +57,7 @@ class QuickTools:
         Returns: The first and last day of data stored as Arrow objects
 
         """
-        pair: str = config.data['exchange']['pair_whitelist'][0]
+        pair: str = config.whitelist[0]
         pair = pair.replace('/', '_') + f'-{interval}' + '.json'
         logger.debug('Getting time-ranges using %s', pair)
         exchange = config['exchange']['name']
@@ -105,22 +105,30 @@ class QuickTools:
 
     @staticmethod
     def refresh_pairlist(
-        config: Config, n_coins: int, save_as=None, age_limit=14
+        config: Config, n_coins: int, save_as=None, age_limit=14, **kwargs
     ) -> list[str]:
-        QuickTools.set_pairlist_settings(config, n_coins, age_limit)
+        default_kwargs = dict(
+            PriceFilter=True,
+            AgeFilter=True,
+            SpreadFilter=True,
+            RangeStabilityFilter=True,
+            VolatilityFilter=True,
+        )
+        default_kwargs.update(kwargs)
+        QuickTools.set_pairlist_settings(config, n_coins, age_limit, **default_kwargs)
         exchange = Exchange(config.data)
         manager = PairListManager(exchange, config.data)
         try:
             manager.refresh_pairlist()
         finally:
-            config['exchange']['pair_whitelist'] = manager.whitelist
+            config.update_whitelist(manager.whitelist)
             config['pairlists'].clear()
             config['pairlists'].append({"method": "StaticPairList"})
             config.save(save_as)
         return manager.whitelist
 
     @staticmethod
-    def set_pairlist_settings(config: Config, n_coins, age_limit):
+    def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
         """
 
         Args:
@@ -138,32 +146,37 @@ class QuickTools:
             "sort_key": "quoteVolume",
             "refresh_period": 1800,
         }
-        config['pairlists'].append(
-            {"method": "AgeFilter", "min_days_listed": age_limit}
-        )
-        config['pairlists'].append(
-            {"method": "PriceFilter", "low_price_ratio": 0.10, "min_price": 0.001}
-        )
-        config['pairlists'].append(
-            {"method": "SpreadFilter", "low_price_ratio": 0.10, "min_price": 0.001}
-        )
-        config['pairlists'].append(
-            {
-                "method": "RangeStabilityFilter",
-                "lookback_days": 3,
-                "min_rate_of_change": 0.1,
-                "refresh_period": 1800,
-            }
-        )
-        config['pairlists'].append(
-            {
-                "method": "VolatilityFilter",
-                "lookback_days": 3,
-                "min_volatility": 0.02,
-                "max_volatility": 0.75,
-                "refresh_period": 43200,
-            }
-        )
+        if filter_kwargs['AgeFilter']:
+            config['pairlists'].append(
+                {"method": "AgeFilter", "min_days_listed": age_limit}
+            )
+        if filter_kwargs['PriceFilter']:
+            config['pairlists'].append(
+                {"method": "PriceFilter", "low_price_ratio": 0.10, "min_price": 0.001}
+            )
+        if filter_kwargs['SpreadFilter']:
+            config['pairlists'].append(
+                {"method": "SpreadFilter", "low_price_ratio": 0.10, "min_price": 0.001}
+            )
+        if filter_kwargs['RangeStabilityFilter']:
+            config['pairlists'].append(
+                {
+                    "method": "RangeStabilityFilter",
+                    "lookback_days": 3,
+                    "min_rate_of_change": 0.1,
+                    "refresh_period": 1800,
+                }
+            )
+        if filter_kwargs['VolatilityFilter']:
+            config['pairlists'].append(
+                {
+                    "method": "VolatilityFilter",
+                    "lookback_days": 3,
+                    "min_volatility": 0.02,
+                    "max_volatility": 0.75,
+                    "refresh_period": 43200,
+                }
+            )
 
     @staticmethod
     def download_data(
@@ -198,8 +211,9 @@ class QuickTools:
             days = days_between
 
         logger.info(
-            'Downloading %s days worth of market data for %s ticker-interval',
+            'Downloading %s days worth of market data for %s coins @ %s ticker-interval',
             days,
+            len(config.whitelist),
             interval,
         )
         sh.freqtrade(

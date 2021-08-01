@@ -556,7 +556,7 @@ def backtest(
         # Parse output
         output = ''.join(output)
         report = BacktestOutputExtractor.create_report(output, min_win_rate)
-        pprint(report.df_with_totals)
+        pprint(report.df)
 
         logfile = save_backtest_results(pairs_name, report)
         logfile.write_text(output)

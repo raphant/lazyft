@@ -2,7 +2,7 @@ import logging
 from rich.logging import RichHandler
 from rich.console import Console
 
-console = Console(width=126)
+console = Console(width=200)
 
 logger = logging.getLogger("lazyft")
 logger.setLevel("INFO")

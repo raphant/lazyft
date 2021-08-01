@@ -5,45 +5,60 @@ from pprint import pprint
 from typing import Union
 
 import pandas as pd
+import rapidjson
 from numpy import inf
 
-from lazyft import regex
+from lazyft import regex, constants
 
 
 class BacktestReport:
     def __init__(
         self,
-        data: pd.DataFrame,
-        total_series: pd.Series,
+        strategy: str,
         min_win_rate: float,
         json_file: Union[str],
     ) -> None:
-        self.df = data
-        self._totals = total_series
+        self.strategy = strategy
         self.min_win_rate = min_win_rate
         self.json_file = pathlib.Path(
-            './user_data/backtest_results', json_file
+            constants.USER_DATA_DIR, 'backtest_results', json_file
         ).resolve()
+        self._loaded_json_data = None
 
     @property
     def winners(self):
-        winners = self.df[self.df['Accumulative Profit'] > self.min_win_rate].copy()
-        winners['WL Ratio'] = self.df['Wins'] / self.df['Losses']
-        winners.loc[winners['WL Ratio'] == inf, 'WL Ratio'] = winners['Wins']
-        winners['WL Ratio'] = winners['WL Ratio'].round(2)
+        winners = self.df[self.df['total_profit_market'] > self.min_win_rate].copy()
+        winners['WL Ratio'] = self.df['wins'] / self.df['losses']
+        winners.loc[winners['WL Ratio'] == inf, 'WL Ratio'] = winners['wins'].round(2)
+        winners.drop(winners.tail(1).index, inplace=True)
+        # winners['WL Ratio'] = winners['WL Ratio'].round(2)
         return winners
 
     @property
     def winners_as_pairlist(self):
-        return list(self.winners.Pair)
+        return list(self.winners.key)
 
     @property
-    def df_with_totals(self):
-        df_with_totals = self.df.append(self._totals, ignore_index=True)
-        df_with_totals.loc[
-            df_with_totals['Pair'] == 'TOTAL', 'Total Profit USD'
-        ] = self.df['Total Profit USD'].sum()
-        return df_with_totals
+    def df(self):
+        df_data = self.json_data['strategy'][self.strategy]['results_per_pair']
+        df = pd.DataFrame(df_data, columns=df_data[0].keys())
+        df.rename(
+            {
+                'profit_total_abs': 'total_profit_market',
+                'profit_mean': 'avg_profit_pct',
+                'profit_mean_pct': 'accumulative_profit',
+                'profit_total': 'total_profit_pct',
+            },
+            inplace=True,
+            axis='columns',
+        )
+        return df
+
+    @property
+    def trades(self):
+        df_data = self.json_data['strategy'][self.strategy]['trades']
+        df = pd.DataFrame(df_data, columns=df_data[0].keys())
+        return df
 
     def print_winners(self):
 
@@ -60,15 +75,15 @@ class BacktestReport:
         # pprint({max_ratio_dict.pop('Pair'): max_ratio_dict})
 
     @classmethod
-    def from_output(cls, output: str, min_win_rate: float = 0.5):
-        output_string = output.split('BACKTESTING REPORT')[1]
-        output_string = output_string.split('SELL REASON STATS')[0]
-        total = re.findall(regex.totals, output_string)[0]
-        find_pairs = re.findall(regex.pair_totals, output_string)
-        df = cls.create_dataframe(find_pairs)
-        totals_series = pd.Series(total, index=df.columns)
+    def from_output(cls, strategy: str, output: str, min_win_rate: float = 0.5):
+        # output_string = output.split('BACKTESTING REPORT')[1]
+        # output_string = output_string.split('SELL REASON STATS')[0]
+        # total = re.findall(regex.totals, output_string)[0]
+        # find_pairs = re.findall(regex.pair_totals, output_string)
+        # df = cls.create_dataframe(find_pairs)
+        # totals_series = pd.Series(total, index=df.columns)
         json_file = regex.backtest_json.findall(output)[0]
-        return cls(df, totals_series, min_win_rate, json_file=json_file)
+        return cls(strategy, min_win_rate=min_win_rate, json_file=json_file)
 
     @staticmethod
     def create_dataframe(pairs: list):
@@ -99,3 +114,9 @@ class BacktestReport:
         for c in df:
             df[c] = pd.to_numeric(df[c], errors='ignore')
         return df
+
+    @property
+    def json_data(self) -> dict:
+        if not self._loaded_json_data:
+            self._loaded_json_data = rapidjson.loads(self.json_file.read_text())
+        return self._loaded_json_data

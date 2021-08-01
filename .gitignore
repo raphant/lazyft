@@ -220,3 +220,4 @@ user_data/hyperopt_results
 /strategies/
 .idea/sonarlint/
 configs/*
+!configs/config.json

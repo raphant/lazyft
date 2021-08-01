@@ -53,6 +53,19 @@ class Config:
         self._config_path = path
         return path
 
+    def update_whitelist(self, whitelist: list[str], append=False) -> list[str]:
+        if append:
+            existing = set(self['exchange']['pair_whitelist'])
+            existing.update(whitelist)
+            self['exchange']['pair_whitelist'] = len(existing)
+        else:
+            self['exchange']['pair_whitelist'] = whitelist
+        return self['exchange']['pair_whitelist']
+
+    @property
+    def whitelist(self):
+        return self.data['exchange']['pair_whitelist']
+
     @property
     def to_json(self) -> str:
         """

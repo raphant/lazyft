@@ -39,12 +39,11 @@ class Runner(abc.ABC, metaclass=ABCMeta):
     def sub_process_log(self, text="", out=False, error=False):
         if not text or "ETA" in text:
             return
-        text = text.strip()
-        self.output_list.append(text)
+        self.output_list.append(text.strip())
         if out or self.verbose:
             self.console.print(text, end="")
         if error:
-            self.error_list.append(text)
+            self.error_list.append(text.strip())
 
     @abstractmethod
     def generate_report(self):

@@ -20,9 +20,10 @@ def test_get_hyperopt_runner():
         strategies=STRATEGY,
         config='config_binance.json',
         epochs=10,
-        spaces='bs',
+        spaces='buy sell',
         days=5,
         skip_data_download=True,
+        verbose=True,
     )
     runner = HyperoptRunner(commands[0])
     runner.execute()
@@ -33,7 +34,6 @@ def test_get_hyperopt_runner():
     assert isinstance(report.params, dict)
 
     report.save()
-
 
 # def test_param_save():
 #     params = {'mock': 'data'}

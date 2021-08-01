@@ -18,6 +18,8 @@ def test_backtest_command():
     )
     runner = BacktestRunner(commands[0])
     runner.execute()
+    if runner.error:
+        raise RuntimeError('Error in backtest runner')
     report = runner.generate_report()
     assert any(report.winners)
     report.print_winners()

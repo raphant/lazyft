@@ -9,9 +9,9 @@ backtest_config = Config(backtest_config_name)
 
 
 def test_refresh_pairlist():
-    whitelist = refresh_config['exchange']['pair_whitelist']
+    whitelist = refresh_config.whitelist
     QuickTools.refresh_pairlist(refresh_config, 10, backtest_config_name)
-    assert refresh_config['exchange']['pair_whitelist'] != whitelist
+    assert refresh_config.whitelist != whitelist
 
 
 def test_backtest_with_generated_pairlist():

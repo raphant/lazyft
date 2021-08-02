@@ -1,5 +1,6 @@
 import re
 
+# region hyperopt
 RESULTS_REGEX = re.compile(
     r'Best \|\s+([\d/]+) \|\s+(?P<trades>\d+)\s\|\s+(?P<wins>\d+)\s+(?P<draws>\d+)\s+'
     r'(?P<losses>\d+) \|\s+(?P<profit>[\d.]+)% \|\s+(?P<avg_profit>[\d.]+) USD\s+'
@@ -19,6 +20,7 @@ H_DATE_FROM_TO = re.compile(
     r'Hyperopting with data from (?P<from>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) up to '
     r'(?P<to>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) '
 )
+# endregion
 # region backtesting
 totals = r'(TOTAL)[^\d-]+(?P<sells>\d+)[^\d-]+(?P<avg_profit>[\d.-]+)[^\d-]+(?P<cum_profit>[\d.-]+)[^\d-]+(?P<total_profit_btc>[\d.-]+)[^\d-]+(?P<profit_percent>[\d.-]+)[^\d-]+(?P<avg_duration>[\d:]+)[^\d-]+(?P<wins>[\d.-]+)[^\d-]+(?P<draws>[\d.-]+)[^\d-]+(?P<losses>[\d.-]+)'
 

@@ -43,7 +43,7 @@ class HyperoptReport:
         Returns: ID of report
         """
         data = self.add_to_existing_data()
-        self.SAVE_PATH.write_text(rapidjson.dumps(data))
+        self.SAVE_PATH.write_text(rapidjson.dumps(data, indent=2))
         return self.id
 
     def add_to_existing_data(self) -> dict:

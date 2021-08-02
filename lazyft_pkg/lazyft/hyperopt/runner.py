@@ -39,7 +39,7 @@ class HyperoptManager:
     def generate_reports(self):
         for r in self.runners:
             report = r.generate_report()
-            report.params.save()
+            report.save()
             self.reports.append(report)
 
     def get_best_run(self):
@@ -142,6 +142,10 @@ class Printer:
     @staticmethod
     def create_new_table():
         table = Table(
-            *columns, show_header=True, header_style="bold magenta", show_lines=True
+            *columns,
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,
+            expand=True
         )
         return table

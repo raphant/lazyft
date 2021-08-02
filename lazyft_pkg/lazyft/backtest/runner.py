@@ -2,15 +2,15 @@ import sh
 from loguru import logger
 
 from lazyft.backtest.commands import BacktestCommand
+from lazyft.backtest.report import BacktestReport
 from lazyft.constants import BASE_DIR
 from lazyft.parameters import ParamsToLoad
-from lazyft.backtest.report import BacktestReport
 from lazyft.runner import Runner
 
 
 class BacktestRunner(Runner):
     def __init__(
-        self, command: BacktestCommand, min_win_rate=5, verbose: bool = False
+        self, command: BacktestCommand, min_win_rate=1, verbose: bool = False
     ) -> None:
         super().__init__(verbose)
         self.command = command

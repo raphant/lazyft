@@ -1,12 +1,9 @@
 import pathlib
-import re
-from os import PathLike
 from pprint import pprint
 from typing import Union
 
 import pandas as pd
 import rapidjson
-from numpy import inf
 
 from lazyft import regex, constants
 from lazyft.strategy import Strategy

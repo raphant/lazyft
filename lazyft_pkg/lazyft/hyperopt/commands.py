@@ -2,9 +2,10 @@ import pathlib
 from typing import Union
 
 import typer
+
 from lazyft import logger
-from lazyft.quicktools import QuickTools
 from lazyft.config import Config
+from lazyft.quicktools import QuickTools
 from lazyft.quicktools.hyperopt import QuickHyperopt
 
 logger = logger.getChild("hyperopt.commands")

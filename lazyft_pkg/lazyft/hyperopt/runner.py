@@ -2,12 +2,13 @@ import time
 from queue import Queue
 from threading import Thread
 
+import pandas as pd
 import sh
-from lazyft import console, constants, hyperopt, logger, runner
-from lazyft.regex import EPOCH_LINE_REGEX
 from rich.live import Live
 from rich.table import Table
-import pandas as pd
+
+from lazyft import constants, hyperopt, logger, runner
+from lazyft.regex import EPOCH_LINE_REGEX
 
 logger = logger.getChild("hyperopt.runner")
 columns = [

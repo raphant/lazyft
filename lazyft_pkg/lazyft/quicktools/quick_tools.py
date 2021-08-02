@@ -10,8 +10,8 @@ from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
 
 from lazyft import logger
-from lazyft.constants import USER_DATA_DIR
 from lazyft.config import Config
+from lazyft.constants import USER_DATA_DIR
 
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
 

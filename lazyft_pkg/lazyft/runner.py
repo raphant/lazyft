@@ -1,10 +1,11 @@
 import abc
-from abc import ABCMeta, abstractmethod
-from rich.console import Console
-from sh import RunningCommand
-from typing import Optional
 import logging
 import signal
+from abc import ABCMeta, abstractmethod
+from typing import Optional
+
+from rich.console import Console
+from sh import RunningCommand
 
 logger = logging.getLogger(__name__)
 

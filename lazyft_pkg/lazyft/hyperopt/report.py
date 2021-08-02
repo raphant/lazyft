@@ -3,9 +3,8 @@ from typing import Tuple
 import attr
 import rapidjson
 
-from lazyft import logger, util
+from lazyft import logger, util, regex
 from lazyft.constants import BASE_DIR
-from lazyft import regex
 
 logger.getChild("hyperopt.report")
 

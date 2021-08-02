@@ -1,8 +1,6 @@
-import difflib
 import fnmatch
 import json
 import os
-import re
 import shutil
 import sys
 from datetime import datetime
@@ -10,8 +8,7 @@ from numbers import Number
 from pathlib import Path
 from pprint import pprint
 from string import Template, Formatter
-from quicktools.backtest import BacktestOutputExtractor
-from quicktools.quick_tools import PairListTools
+
 import click
 import pandas as pd
 import rapidjson
@@ -19,14 +16,11 @@ import requests
 import sh
 from arrow import Arrow, now
 from bullet import Bullet
-
 from dotenv import load_dotenv
 from halo import Halo
 from loguru import logger
-
-from numpy import inf
-
-from user_scripts import regex_strings
+from quicktools.backtest import BacktestOutputExtractor
+from quicktools.quick_tools import PairListTools
 
 # region Config
 os.chdir('../../')

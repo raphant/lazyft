@@ -1,12 +1,9 @@
 import pathlib
 
-import lazyft
-from lazyft.constants import BASE_DIR
 from lazyft.hyperopt.commands import create_commands
 from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
-    HyperoptManager,
 )
 
 STRATEGY = ['TestBinH']

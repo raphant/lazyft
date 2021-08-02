@@ -4,8 +4,8 @@ from typing import Optional, Union
 import typer
 from loguru import logger
 
-from lazyft.quicktools import QuickTools
 from lazyft.config import Config
+from lazyft.quicktools import QuickTools
 from lazyft.strategy import Strategy
 
 

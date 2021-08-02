@@ -1,5 +1,5 @@
 from lazyft import backtest
-from lazyft.quicktools.config import Config
+from lazyft.config import Config
 from lazyft.quicktools.quick_tools import QuickTools
 
 strategy = ['BinH']

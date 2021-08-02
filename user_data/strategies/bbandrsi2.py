@@ -41,7 +41,7 @@ class BbandRsi2(IStrategy):
     import sys
 
     sys.path.append(str(Path(__file__).parent))
-    from util import load
+    from custom_util import load
 
     if locals()['__module__'] == locals()['__qualname__']:
         locals().update(load(locals()['__qualname__']))

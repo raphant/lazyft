@@ -42,7 +42,7 @@ class BbandRsi3(IStrategy):
     from pathlib import Path
     import sys
 
-    from util import load
+    from custom_util import load
 
     if locals()['__module__'] == locals()['__qualname__']:
         locals().update(load(locals()['__qualname__']))

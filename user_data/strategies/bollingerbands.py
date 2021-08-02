@@ -7,36 +7,31 @@ from pathlib import Path
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IntParameter, DecimalParameter, merge_informative_pair
+from freqtrade.strategy import (
+    IntParameter,
+    DecimalParameter,
+    merge_informative_pair,
+    CategoricalParameter,
+)
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
 
-import custom_indicators as cta
-
 # --------------------------------
 
 
 class BollingerBands(IStrategy):
-    """
-    author@: Gert Wohlgemuth
-
-    converted from:
-
-    https://github.com/sthewissen/Mynt/blob/master/src/Mynt.Core/Strategies/BbandRsi.cs
-    """
-
     # buy_rsi = IntParameter(5, 50, default=30, load=True)
     # sell_rsi = IntParameter(50, 100, default=70, load=True)
-
+    sell_band = CategoricalParameter(
+        ['bb_middleband', 'bb_upperband'], default='bb_upperband', load=True
+    )
     # region Params
-    stoploss = -0.25
+    stoploss = -0.147
+    minimal_roi = {'0': 0.188, '21': 0.095, '35': 0.033, '130': 0}
 
-    from pathlib import Path
-    import sys
-
-    from util import load
+    from custom_util import load
 
     if locals()['__module__'] == locals()['__qualname__']:
         locals().update(load(locals()['__qualname__']))
@@ -118,6 +113,7 @@ class BollingerBands(IStrategy):
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            qtpylib.crossed_above(dataframe['close'], dataframe['bb_upperband']), 'sell'
+            qtpylib.crossed_above(dataframe['close'], dataframe[self.sell_band.value]),
+            'sell',
         ] = 1
         return dataframe

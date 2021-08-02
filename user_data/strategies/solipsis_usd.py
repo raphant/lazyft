@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from solipsis5 import StudySolipsis
+from solipsis5 import Solipsis
 
 SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
 
@@ -20,7 +20,7 @@ def load():
     return params['StudySolipsis5'][param_file_id]['params']
 
 
-class StudySolipsis_USD(StudySolipsis):
+class SolipsisUSD(Solipsis):
 
     timeframe = '5m'
     inf_timeframe = '1h'

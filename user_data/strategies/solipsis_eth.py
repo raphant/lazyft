@@ -1,7 +1,7 @@
-from solipsis5 import StudySolipsis
+from solipsis5 import Solipsis
 
 
-class StudySolipsis_ETH(StudySolipsis):
+class StudySolipsis_ETH(Solipsis):
 
     timeframe = '5m'
     inf_timeframe = '1h'

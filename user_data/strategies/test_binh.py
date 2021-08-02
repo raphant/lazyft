@@ -17,7 +17,7 @@ from freqtrade.strategy import RealParameter, IntParameter, CategoricalParameter
 from freqtrade.strategy.interface import IStrategy
 from freqtrade.persistence import Trade
 from rich import print
-from util import load
+from custom_util import load
 
 # noinspection DuplicatedCode
 sys.path.append(str(pathlib.Path(__file__).parent))

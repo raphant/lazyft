@@ -5,47 +5,51 @@ import typer
 from loguru import logger
 
 from lazyft.quicktools import QuickTools
-from lazyft.quicktools.config import Config
+from lazyft.config import Config
+from lazyft.strategy import Strategy
 
 
 class BacktestCommand:
-    def __init__(self, config: Config, strategy: str, id=None, verbose=False) -> None:
+    def __init__(
+        self, command_args, config: Config, strategy: str, id=None, verbose=False
+    ) -> None:
+        self.command_args = command_args
         self.config = config
         self.strategy = strategy
-        self.command_string = ''
         self.id = id
         self.verbose = verbose
+        self.config = Strategy.init_config(config=config, strategy=strategy)
 
-    def build_command(
-        self,
-        interval: str,
-        days: int = None,
-        timerange=None,
-        pairs: list[str] = None,
-        starting_balance=None,
-        max_open_trades=None,
-        stake_amount=None,
-    ):
-        assert days or timerange, "--days or --timerange must be specified"
-        _, timerange_ = timerange or QuickTools.get_timerange(
-            self.config, days, interval
-        )
+    @property
+    def command_string(self):
+        return self.build_command()
+
+    def build_command(self):
+        args = self.command_args
+        assert (
+            args["days"] or args["timerange"]
+        ), "'days' or 'timerange' must be specified"
+        timerange = args["timerange"]
+        if not timerange:
+            _, timerange = QuickTools.get_timerange(
+                self.config, args["days"], args["interval"]
+            )
         args_list = [
             f'backtesting',
             f'-s {self.strategy}',
-            f'--timerange {timerange_}',
-            f'-i {interval}',
+            f'--timerange {timerange}',
+            f'-i {args["interval"]}',
             f"-c {str(self.config.path)}",
         ]
-        if pairs:
-            args_list.append(f'-p {" ".join(pairs)}')
-        if starting_balance:
-            args_list.append(f'--starting-balance {starting_balance}')
-        if max_open_trades:
-            args_list.append(f'--max-open-trades {max_open_trades}')
-        if stake_amount:
-            args_list.append(f'--stake-amount {stake_amount}')
-        self.command_string = ' '.join(args_list)
+        if args["pairs"]:
+            args_list.append(f'-p {" ".join(args["pairs"])}')
+        if args["starting_balance"]:
+            args_list.append(f'--starting-balance {args["starting_balance"]}')
+        if args["max_open_trades"]:
+            args_list.append(f'--max-open-trades {args["max_open_trades"]}')
+        if args["stake_amount"]:
+            args_list.append(f'--stake-amount {args["stake_amount"]}')
+        return ' '.join(args_list)
 
 
 def new_hyperopt_cli(
@@ -93,15 +97,15 @@ def create_commands(
             config, interval=interval, days=days, timerange=timerange
         )
     for s in strategies:
-        command = BacktestCommand(config, s, id=id, verbose=verbose)
-        command.build_command(
-            interval,
-            days,
-            timerange,
+        command_args = dict(
+            interval=interval,
+            days=days,
+            timerange=timerange,
             pairs=pairs,
             starting_balance=starting_balance,
             max_open_trades=max_open_trades,
             stake_amount=stake_amount,
         )
+        command = BacktestCommand(command_args, config, s, id=id, verbose=verbose)
         commands.append(command)
     return commands

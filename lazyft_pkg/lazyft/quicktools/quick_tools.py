@@ -11,7 +11,9 @@ from freqtrade.plugins.pairlistmanager import PairListManager
 
 from lazyft import logger
 from lazyft.constants import USER_DATA_DIR
-from lazyft.quicktools.config import Config
+from lazyft.config import Config
+
+STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
 
 
 class QuickTools:
@@ -178,6 +180,14 @@ class QuickTools:
                 }
             )
 
+        # set blacklist
+        if config['stake_currency'] in STABLE_COINS:
+            config['exchange']['pair_blacklist'] = [
+                f'{s}/{config["stake_currency"]}'
+                for s in STABLE_COINS
+                if config['stake_currency'] != s
+            ]
+
     @staticmethod
     def download_data(
         config: Config,
@@ -204,7 +214,7 @@ class QuickTools:
 
         assert days or timerange
 
-        if not days:
+        if timerange:
             start, finish = timerange.split('-')
             start_dt = dateutil.parser.parse(start)
             days_between = (datetime.now() - start_dt).days

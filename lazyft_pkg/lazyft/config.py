@@ -49,7 +49,8 @@ class Config:
                 path = self._config_path.parent.joinpath(save_as)
                 path.write_text(self.to_json)
             else:
-                path = Path(save_as).write_text(self.to_json)
+                path = Path(save_as)
+                path.write_text(self.to_json)
         self._config_path = path
         return path
 
@@ -57,10 +58,19 @@ class Config:
         if append:
             existing = set(self['exchange']['pair_whitelist'])
             existing.update(whitelist)
-            self['exchange']['pair_whitelist'] = len(existing)
+            self['exchange']['pair_whitelist'] = list(existing)
         else:
             self['exchange']['pair_whitelist'] = whitelist
         return self['exchange']['pair_whitelist']
+
+    def update_blacklist(self, blacklist: list[str], append=False) -> list[str]:
+        if append:
+            existing = set(self['exchange'].get('pair_blacklist', []))
+            existing.update(blacklist)
+            self['exchange']['pair_blacklist'] = list(existing)
+        else:
+            self['exchange']['pair_blacklist'] = blacklist
+        return self['exchange']['pair_blacklist']
 
     @property
     def whitelist(self):

@@ -9,6 +9,7 @@ import rapidjson
 from numpy import inf
 
 from lazyft import regex, constants
+from lazyft.strategy import Strategy
 
 
 class BacktestReport:
@@ -25,14 +26,25 @@ class BacktestReport:
         ).resolve()
         self._loaded_json_data = None
 
+    def add_super_earners_to_whitelist(self, pct: float):
+        Strategy.add_pairs_to_whitelist(self.strategy, *list(self.get_winners(pct).key))
+
+    def add_super_losers_to_blacklist(self, pct: float):
+        Strategy.add_pairs_to_blacklist(self.strategy, *list(self.get_losers(pct).key))
+
+    def get_losers(self, pct: float):
+        df = self.df.loc[self.df['profit_total_pct'] < pct].copy()
+        df = df[df.key != 'TOTAL']
+        return df
+
+    def get_winners(self, pct: float):
+        df = self.df.loc[self.df['profit_total_pct'] > pct].copy()
+        df = df[df.key != 'TOTAL']
+        return df
+
     @property
     def winners(self):
-        winners = self.df[self.df['total_profit_market'] > self.min_win_rate].copy()
-        winners['WL Ratio'] = self.df['wins'] / self.df['losses']
-        winners.loc[winners['WL Ratio'] == inf, 'WL Ratio'] = winners['wins'].round(2)
-        winners.drop(winners.tail(1).index, inplace=True)
-        # winners['WL Ratio'] = winners['WL Ratio'].round(2)
-        return winners
+        return self.get_winners(self.min_win_rate)
 
     @property
     def winners_as_pairlist(self):
@@ -75,7 +87,7 @@ class BacktestReport:
         # pprint({max_ratio_dict.pop('Pair'): max_ratio_dict})
 
     @classmethod
-    def from_output(cls, strategy: str, output: str, min_win_rate: float = 0.5):
+    def from_output(cls, strategy: str, output: str, min_win_rate: float = 1):
         # output_string = output.split('BACKTESTING REPORT')[1]
         # output_string = output_string.split('SELL REASON STATS')[0]
         # total = re.findall(regex.totals, output_string)[0]

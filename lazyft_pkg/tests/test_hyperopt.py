@@ -16,7 +16,7 @@ def test_get_hyperopt_runner():
     commands = create_commands(
         strategies=STRATEGY,
         config='config_binance.json',
-        epochs=10,
+        epochs=20,
         spaces='buy sell',
         days=5,
         skip_data_download=True,

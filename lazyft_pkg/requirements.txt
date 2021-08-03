@@ -11,3 +11,4 @@ python-box
 numpy
 python-dateutil
 arrow
+python-dotenv

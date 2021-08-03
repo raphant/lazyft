@@ -113,6 +113,9 @@ class Config:
     def copy(self):
         return self._data.copy()
 
+    def update(self, update: dict):
+        self._data.update(update)
+
     def __getitem__(self, key: str):
         return self._data[key]
 

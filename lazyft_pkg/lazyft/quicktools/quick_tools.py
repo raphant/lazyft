@@ -13,6 +13,7 @@ from lazyft import logger
 from lazyft.config import Config
 from lazyft.constants import USER_DATA_DIR
 
+logger = logger.getChild('quicktools')
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
 
 
@@ -208,9 +209,9 @@ class QuickTools:
         Returns: None
         """
 
-        def print_(text):
+        def print_(text: str):
             if verbose:
-                print(text)
+                logger.debug(text.strip())
 
         assert days or timerange
 

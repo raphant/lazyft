@@ -1,3 +1,5 @@
+import logging
+import pathlib
 import time
 from queue import Queue
 from threading import Thread
@@ -7,10 +9,17 @@ import sh
 from rich.live import Live
 from rich.table import Table
 
-from lazyft import constants, hyperopt, logger, runner
+from lazyft import constants, hyperopt, runner
 from lazyft.regex import EPOCH_LINE_REGEX
 
-logger = logger.getChild("hyperopt.runner")
+logger = hyperopt.logger.getChild('runner')
+logger_exec = logger.getChild('exec')
+logger_exec.handlers.clear()
+fh = logging.FileHandler(pathlib.Path(constants.BASE_DIR, 'hyperopt.log'), mode='a')
+formatter = logging.Formatter('%(message)s')
+fh.setFormatter(formatter)
+logger_exec.addHandler(fh)
+
 columns = [
     "Epoch",
     "Trades",
@@ -104,7 +113,9 @@ class HyperoptRunner(runner.Runner):
             logger.error(self.output)
 
     def generate_report(self):
-        return hyperopt.HyperoptReport(self.output, self.output_list[-1], self.strategy)
+        return hyperopt.HyperoptReport(
+            self.command.config, self.output, self.output_list[-1], self.strategy
+        )
 
     def get_results(self):
         data = EPOCH_LINE_REGEX.findall(self.output)
@@ -117,6 +128,10 @@ class HyperoptRunner(runner.Runner):
             table.add_row(*d)
 
         return table
+
+    def sub_process_log(self, text="", out=False, error=False):
+        logger_exec.info(text.strip())
+        super().sub_process_log(text, out, error)
 
 
 class Extractor(Thread):

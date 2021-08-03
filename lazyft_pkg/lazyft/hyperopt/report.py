@@ -3,10 +3,12 @@ from typing import Tuple
 import attr
 import rapidjson
 
-from lazyft import logger, util, regex
+from lazyft import util, regex
+from lazyft.config import Config
 from lazyft.constants import BASE_DIR
+from lazyft.hyperopt import logger
 
-logger.getChild("hyperopt.report")
+logger.getChild('report')
 
 
 @attr.s
@@ -29,8 +31,11 @@ class HyperoptPerformance:
 class HyperoptReport:
     SAVE_PATH = BASE_DIR.joinpath("lazy_params.json")
 
-    def __init__(self, output: str, raw_params: str, strategy: str) -> None:
+    def __init__(
+        self, config: Config, output: str, raw_params: str, strategy: str
+    ) -> None:
         self.strategy = strategy
+        self.config = config
         extracted = self._extract_output(raw_params, output)
         if not extracted:
             raise ValueError('Report is empty')
@@ -54,6 +59,7 @@ class HyperoptReport:
         strategy_data[self.id] = {
             "params": self.params,
             "performance": self.performance.__dict__,
+            "pairlist": self.config.whitelist,
         }
         # add strategy back to all data
         data[self.strategy] = strategy_data

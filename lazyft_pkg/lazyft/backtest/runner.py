@@ -1,11 +1,23 @@
-import sh
-from loguru import logger
+import logging
+import pathlib
 
+import sh
+
+from lazyft import constants
+from lazyft.backtest import logger
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReport
 from lazyft.constants import BASE_DIR
 from lazyft.parameters import ParamsToLoad
 from lazyft.runner import Runner
+
+logger = logger.getChild('runner')
+logger_exec = logger.getChild('exec')
+logger_exec.handlers.clear()
+fh = logging.FileHandler(pathlib.Path(constants.BASE_DIR, 'backtest.log'), mode='a')
+formatter = logging.Formatter('%(message)s')
+fh.setFormatter(formatter)
+logger_exec.addHandler(fh)
 
 
 class BacktestRunner(Runner):
@@ -22,7 +34,7 @@ class BacktestRunner(Runner):
         self.reset()
         if self.command.id:
             ParamsToLoad.set_id(self.strategy, self.command.id)
-        logger.info('Running command: "{}"', self.command.command_string)
+        logger.info('Running command: "%s"', self.command.command_string)
         try:
             self.process: sh.RunningCommand = sh.freqtrade(
                 self.command.command_string.split(' '),
@@ -46,3 +58,7 @@ class BacktestRunner(Runner):
 
     def generate_report(self):
         return BacktestReport.from_output(self.strategy, self.output, self.min_win_rate)
+
+    def sub_process_log(self, text="", out=False, error=False):
+        logger_exec.info(text.strip())
+        super().sub_process_log(text, out, error)

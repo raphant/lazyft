@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union, Iterable
 
 import rapidjson
 
@@ -54,7 +54,7 @@ class Config:
         self._config_path = path
         return path
 
-    def update_whitelist(self, whitelist: list[str], append=False) -> list[str]:
+    def update_whitelist(self, whitelist: Iterable[str], append=False) -> list[str]:
         if append:
             existing = set(self['exchange']['pair_whitelist'])
             existing.update(whitelist)

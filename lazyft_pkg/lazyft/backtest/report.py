@@ -21,7 +21,7 @@ class BacktestReport:
         self.json_file = pathlib.Path(
             constants.USER_DATA_DIR, 'backtest_results', json_file
         ).resolve()
-        self._loaded_json_data = None
+        self._json_data = None
 
     def add_super_earners_to_whitelist(self, pct: float):
         Strategy.add_pairs_to_whitelist(self.strategy, *list(self.get_winners(pct).key))
@@ -76,21 +76,9 @@ class BacktestReport:
 
         print(f'\n{len(self.winners)} Winner(s) (>{self.min_win_rate}%):')
         pprint(self.winners)
-        # print('Highest WL ratio:')
-        # max_ratio = self.winners[
-        #     self.winners['WL Ratio'] == self.winners['WL Ratio'].max()
-        # ]
-        # max_ratio_dict = max_ratio.to_dict(orient='records')[0]
-        # pprint({max_ratio_dict.pop('Pair'): max_ratio_dict})
 
     @classmethod
     def from_output(cls, strategy: str, output: str, min_win_rate: float = 1):
-        # output_string = output.split('BACKTESTING REPORT')[1]
-        # output_string = output_string.split('SELL REASON STATS')[0]
-        # total = re.findall(regex.totals, output_string)[0]
-        # find_pairs = re.findall(regex.pair_totals, output_string)
-        # df = cls.create_dataframe(find_pairs)
-        # totals_series = pd.Series(total, index=df.columns)
         json_file = regex.backtest_json.findall(output)[0]
         return cls(strategy, min_win_rate=min_win_rate, json_file=json_file)
 
@@ -126,6 +114,6 @@ class BacktestReport:
 
     @property
     def json_data(self) -> dict:
-        if not self._loaded_json_data:
-            self._loaded_json_data = rapidjson.loads(self.json_file.read_text())
-        return self._loaded_json_data
+        if not self._json_data:
+            self._json_data = rapidjson.loads(self.json_file.read_text())
+        return self._json_data

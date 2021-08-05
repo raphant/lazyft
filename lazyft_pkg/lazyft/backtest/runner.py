@@ -60,5 +60,5 @@ class BacktestRunner(Runner):
         return BacktestReport.from_output(self.strategy, self.output, self.min_win_rate)
 
     def sub_process_log(self, text="", out=False, error=False):
-        logger_exec.info(text.strip())
+        # logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)

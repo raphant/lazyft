@@ -13,6 +13,7 @@ logger = logger.getChild("hyperopt.commands")
 command_map = dict(
     strategy='-s',
     config='-c',
+    secret_config='-c',
     interval='-i',
     epochs='-e',
     min_trades='--min-trades',
@@ -24,6 +25,7 @@ command_map = dict(
     starting_balance='--starting-balance',
     max_open_trades='--max-open-trades',
     stake_amount='--stake-amount',
+    seed='--random-state',
 )
 
 
@@ -44,11 +46,12 @@ class HyperoptCommand:
         self.verbose = verbose
         self.secret_config = secret_config
         self.pairs = pairs
+        self.id = id
         self.command_dict['config'] = self.config
         self.command_dict['pairs'] = pairs
         self.command_dict['strategy'] = strategy
         if self.secret_config:
-            self.command_dict['config'] = self.secret_config
+            self.command_dict['secret_config'] = self.secret_config
         if id and not self.pairs:
             # load pairs from ID if pairs not already provided.
             self.pairs = Pairlist.load_from_id(strategy=strategy, id=id)

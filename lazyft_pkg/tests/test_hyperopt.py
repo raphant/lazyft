@@ -35,7 +35,7 @@ def test_hyperopt():
     assert isinstance(report.performance, HyperoptPerformance)
     assert isinstance(report.params, dict)
 
-    report.save()
+    print(report.save())
 
 
 def test_build_command():

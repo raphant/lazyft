@@ -58,13 +58,23 @@ class HyperoptManager:
 
 class HyperoptRunner(runner.Runner):
     def __init__(
-        self, command: hyperopt.HyperoptCommand, verbose: bool = False
+        self,
+        command: hyperopt.HyperoptCommand,
+        auto_generate_report=True,
+        verbose: bool = False,
     ) -> None:
         super().__init__(verbose)
         self.command = command
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
         self.current_epoch = 0
+        self.auto_generate_report = auto_generate_report
+
+        self._report = None
+
+    @property
+    def report(self) -> hyperopt.HyperoptReport:
+        return self._report
 
     def execute(self, background=False):
         self.reset()
@@ -112,7 +122,10 @@ class HyperoptRunner(runner.Runner):
             self.error = True
             logger.error(self.output)
         else:
-            self.generate_report()
+            if 'epochs saved' in self.output_list[-1]:
+                del self.output_list[-1]
+            if self.auto_generate_report:
+                self._report = self.generate_report()
 
     def generate_report(self):
         return hyperopt.HyperoptReport(

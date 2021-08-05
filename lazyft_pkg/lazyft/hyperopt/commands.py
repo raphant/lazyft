@@ -11,6 +11,7 @@ from lazyft.quicktools import QuickTools
 logger = logger.getChild("hyperopt.commands")
 
 command_map = dict(
+    strategy='-s',
     config='-c',
     interval='-i',
     epochs='-e',
@@ -45,6 +46,7 @@ class HyperoptCommand:
         self.pairs = pairs
         self.command_dict['config'] = self.config
         self.command_dict['pairs'] = pairs
+        self.command_dict['strategy'] = strategy
         if self.secret_config:
             self.command_dict['config'] = self.secret_config
         if id and not self.pairs:
@@ -57,9 +59,7 @@ class HyperoptCommand:
 
     def build_command(self):
         cd = self.command_dict.copy()
-        assert cd.get('days') or cd.get(
-            'timerange'
-        ), "--days or --timerange must be specified"
+        assert cd.days or cd.timerange, "--days or --timerange must be specified"
 
         args = ['hyperopt']
         if not cd.timerange:
@@ -69,6 +69,8 @@ class HyperoptCommand:
             del cd.days
 
         for key, value in cd.items():
+            if not value:
+                continue
             if key == 'pairs':
                 value = ' '.join(value)
             arg_line = f"{command_map[key]} {value}"

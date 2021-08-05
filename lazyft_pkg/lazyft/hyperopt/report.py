@@ -32,10 +32,17 @@ class HyperoptReport:
     SAVE_PATH = BASE_DIR.joinpath("lazy_params.json")
 
     def __init__(
-        self, config: Config, output: str, raw_params: str, strategy: str
+        self,
+        config: Config,
+        output: str,
+        raw_params: str,
+        strategy: str,
+        secondary_config: dict = None,
     ) -> None:
         self.strategy = strategy
         self.config = config
+        self.secondary_config = secondary_config
+
         extracted = self._extract_output(raw_params, output)
         if not extracted:
             raise ValueError('Report is empty')
@@ -60,6 +67,7 @@ class HyperoptReport:
             "params": self.params,
             "performance": self.performance.__dict__,
             "pairlist": self.config.whitelist,
+            "balance_info": self.secondary_config,
         }
         # add strategy back to all data
         data[self.strategy] = strategy_data

@@ -10,10 +10,11 @@ from rich.live import Live
 from rich.table import Table
 
 from lazyft import constants, hyperopt, runner
+from lazyft.parameters import ParamsToLoad
 from lazyft.regex import EPOCH_LINE_REGEX
 
 logger = hyperopt.logger.getChild('runner')
-logger_exec = logger.getChild('exec')
+logger_exec = logging.getLogger('lazyft.hyperopt.exec')
 logger_exec.handlers.clear()
 fh = logging.FileHandler(pathlib.Path(constants.BASE_DIR, 'hyperopt.log'), mode='a')
 formatter = logging.Formatter('%(message)s')
@@ -78,6 +79,8 @@ class HyperoptRunner(runner.Runner):
 
     def execute(self, background=False):
         self.reset()
+        if self.command.id:
+            ParamsToLoad.set_id(self.strategy, self.command.id)
         logger.info('Running command: "%s"', self.command.command_string)
         try:
             self.process = sh.freqtrade(
@@ -128,8 +131,23 @@ class HyperoptRunner(runner.Runner):
                 self._report = self.generate_report()
 
     def generate_report(self):
+        secondary_config = dict(
+            starting_balance=self.command.command_dict.get(
+                'starting_balance', self.command.config['dry_run_wallet']
+            ),
+            stake_amount=self.command.command_dict.get(
+                'stake_amount', self.command.config['stake_amount']
+            ),
+            max_open_trades=self.command.command_dict.get(
+                'max_open_trades', self.command.config['max_open_trades']
+            ),
+        )
         return hyperopt.HyperoptReport(
-            self.command.config, self.output, self.output_list[-1], self.strategy
+            self.command.config,
+            self.output,
+            self.output_list[-1],
+            self.strategy,
+            secondary_config=secondary_config,
         )
 
     def get_results(self):

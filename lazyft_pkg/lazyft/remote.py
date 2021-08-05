@@ -60,6 +60,7 @@ class Remote:
         si_loaded[strategy] = id
         si.write_text(rapidjson.dumps(si_loaded))
         cls.send_file(bot_id, si, remote_path)
+        cls.send_file(bot_id, constants.PARAMS_FILE, './')
 
     @classmethod
     def update_remote_bot_whitelist(
@@ -185,6 +186,7 @@ class Remote:
 
     @classmethod
     def restart_bot(cls, bot_id: int):
+        logger.debug('[restart bot] %s' % bot_id)
         sh.ssh(
             [cls.REMOTE_ADDR, f'docker restart freqtrade_bot{bot_id}'],
             _err=logger.error,
@@ -199,3 +201,6 @@ class Remote:
 
 if __name__ == '__main__':
     logger.setLevel('DEBUG')
+    Remote.update_remote_strategy(4, 'BollingerBands2', 'bollingerbands2.py')
+    # Remote.send_file(4, constants.BASE_DIR.joinpath('logs.log'), './')
+    Remote.restart_bot(4)

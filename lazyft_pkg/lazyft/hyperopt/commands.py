@@ -1,139 +1,131 @@
 import pathlib
 from typing import Union
 
-import typer
+from box import Box
 
 from lazyft import logger
 from lazyft.config import Config
+from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools
-from lazyft.quicktools.hyperopt import QuickHyperopt
 
 logger = logger.getChild("hyperopt.commands")
 
+command_map = dict(
+    config='-c',
+    interval='-i',
+    epochs='-e',
+    min_trades='--min-trades',
+    spaces='--spaces',
+    loss='--hyperopt-loss',
+    days='--days',
+    timerange='--timerange',
+    pairs='--pairs',
+    starting_balance='--starting-balance',
+    max_open_trades='--max-open-trades',
+    stake_amount='--stake-amount',
+)
+
 
 class HyperoptCommand:
-    def __init__(self, config: Config, strategy: str, verbose: bool) -> None:
+    def __init__(
+        self,
+        command_dict: dict[str, Union[str, list, int, float]],
+        config: Config,
+        strategy: str,
+        secret_config: Config = None,
+        id=None,
+        pairs=None,
+        verbose: bool = False,
+    ) -> None:
+        self.command_dict = Box(command_dict, default_box=True, default_box_attr=None)
         self.config = config
         self.strategy = strategy
-        self.command_string = ""
         self.verbose = verbose
+        self.secret_config = secret_config
+        self.pairs = pairs
+        self.command_dict['config'] = self.config
+        self.command_dict['pairs'] = pairs
+        if self.secret_config:
+            self.command_dict['config'] = self.secret_config
+        if id and not self.pairs:
+            # load pairs from ID if pairs not already provided.
+            self.pairs = Pairlist.load_from_id(strategy=strategy, id=id)
 
-    def build_command(
-        self,
-        interval: str,
-        epochs: int,
-        min_trades: int,
-        spaces: str,
-        loss_function: str,
-        days: int = None,
-        timerange=None,
-        pairs: list[str] = None,
-        starting_balance=None,
-        max_open_trades=None,
-        stake_amount=None,
-    ):
-        assert days or timerange, "--days or --timerange must be specified"
-        timerange, _ = timerange or QuickTools.get_timerange(
-            self.config, days, interval
-        )
-        args_list = [
-            f"hyperopt",
-            f"-s {self.strategy}",
-            f"--timerange {timerange}",
-            f"--spaces {spaces}",
-            f"-e {epochs}",
-            f"--min-trades {min_trades}",
-            f"-i {interval}",
-            f"-c {str(self.config.path)}",
-        ]
+    @property
+    def command_string(self):
+        return self.build_command()
 
-        if pairs:
-            args_list.append(f'-p {" ".join(pairs)}')
-        if starting_balance:
-            args_list.append(f'--starting-balance {starting_balance}')
-        if max_open_trades:
-            args_list.append(f'--max-open-trades {max_open_trades}')
-        if stake_amount:
-            args_list.append(f'--stake-amount {stake_amount}')
+    def build_command(self):
+        cd = self.command_dict.copy()
+        assert cd.get('days') or cd.get(
+            'timerange'
+        ), "--days or --timerange must be specified"
 
-        if loss_function != "ShortTradeDurHyperOptLoss":
-            args_list.append(f"--hyperopt-loss {loss_function}")
-        self.command_string = " ".join(args_list)
+        args = ['hyperopt']
+        if not cd.timerange:
+            cd.timerange, _ = QuickTools.get_timerange(
+                self.config, cd.days, cd.interval
+            )
+            del cd.days
 
-
-def new_hyperopt_cli(
-    strategies: list[str] = typer.Argument(...),
-    interval: str = typer.Option("5m", "-i", "--interval"),
-    epochs: int = typer.Option(100, "-e", "-epochs"),
-    config: pathlib.Path = typer.Option("config.json", "-c", "--config"),
-    min_trades: int = typer.Option(100, "-m", "--min-trades"),
-    spaces: str = typer.Option(
-        "sbSr",
-        "-s",
-        "--spaces",
-        help=QuickHyperopt.spaces_help,
-    ),
-    loss_function: str = typer.Option(
-        "0", "-L", "--loss-function", help=QuickHyperopt.losses_help
-    ),
-    days: int = typer.Option(90, "-d", "--days"),
-    timerange: str = typer.Option(None, "-t", "--timerange"),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
-):
-
-    return create_commands(
-        strategies,
-        config,
-        days,
-        epochs,
-        interval,
-        QuickHyperopt.get_loss_func(loss_function),
-        min_trades,
-        QuickHyperopt.get_spaces(spaces),
-        timerange,
-        verbose=verbose,
-    )
+        for key, value in cd.items():
+            if key == 'pairs':
+                value = ' '.join(value)
+            arg_line = f"{command_map[key]} {value}"
+            args.append(arg_line)
+        return ' '.join(args)
 
 
 def create_commands(
     strategies: list[str],
     config: Union[str, pathlib.Path] = "config.json",
-    days=90,
-    epochs=100,
-    interval="5m",
-    loss_function="SortinoHyperOptLossDaily",
-    min_trades=100,
-    spaces="default",
-    timerange=None,
+    secret_config: Union[pathlib.Path, str] = None,
     pairs: str = None,
-    starting_balance=None,
-    max_open_trades=None,
-    stake_amount=None,
     verbose=False,
     skip_data_download=False,
+    **kwargs,
 ):
+    """
+
+    Args:
+        strategies:
+        config:
+        secret_config:
+        pairs:
+        verbose:
+        skip_data_download:
+    Returns:
+
+    """
     """Create `HyperoptCommand` for each strategy in strategies."""
-    logger.debug(strategies)
+    if 'loss' not in kwargs:
+        kwargs['loss'] = 'SortinoHyperOptLossDaily'
+    if 'interval' not in kwargs:
+        kwargs['interval'] = '5m'
+    args = Box(kwargs, default_box=True, default_box_attr=None)
+    logger.debug('creating commands for %s', strategies)
+    logger.debug('args: %s', args)
     config = Config(config)
+    if secret_config:
+        secret_config = Config(secret_config)
     if not skip_data_download:
         QuickTools.download_data(
-            config, interval=interval, days=days, timerange=timerange, verbose=verbose
+            config,
+            interval=args.interval,
+            days=args.days,
+            timerange=args.timerange,
+            verbose=verbose,
         )
     commands = []
     for s in strategies:
-        command = HyperoptCommand(config, s, verbose)
-        command.build_command(
-            interval=interval,
-            epochs=epochs,
-            min_trades=min_trades,
-            spaces=spaces,
-            loss_function=loss_function,
-            days=days,
-            timerange=timerange,
+        command = HyperoptCommand(
+            command_dict=args,
+            config=config,
+            strategy=s,
+            secret_config=secret_config,
             pairs=pairs,
-            starting_balance=starting_balance,
-            max_open_trades=max_open_trades,
-            stake_amount=stake_amount,
+            verbose=verbose,
         )
+        command.build_command()
         commands.append(command)
     return commands

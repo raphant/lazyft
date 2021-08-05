@@ -5,6 +5,7 @@ import typer
 
 from lazyft.backtest import logger
 from lazyft.config import Config
+from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools
 from lazyft.strategy import Strategy
 
@@ -13,20 +14,33 @@ logger = logger.getChild('commands')
 
 class BacktestCommand:
     def __init__(
-        self, command_args, config: Config, strategy: str, id=None, verbose=False
+        self,
+        command_args,
+        config: Config,
+        strategy: str,
+        secret_config: Config = None,
+        pairs=None,
+        id=None,
+        verbose=False,
     ) -> None:
         self.command_args = command_args
         self.config = config
         self.strategy = strategy
         self.id = id
         self.verbose = verbose
+        self.pairs = pairs or []
+        if id and not self.pairs:
+            # load pairs from ID if pairs not already provided.
+            self.pairs = Pairlist.load_from_id(strategy=strategy, id=id)
         self.config = Strategy.init_config(config=config, strategy=strategy)
+        self.secret_config = secret_config
 
     @property
     def command_string(self):
         return self.build_command()
 
     def build_command(self):
+        logger.debug('Building command')
         args = self.command_args
         assert (
             args["days"] or args["timerange"]
@@ -41,10 +55,12 @@ class BacktestCommand:
             f'-s {self.strategy}',
             f'--timerange {timerange}',
             f'-i {args["interval"]}',
-            f"-c {str(self.config.path)}",
+            f"-c {self.config}",
         ]
-        if args["pairs"]:
-            args_list.append(f'-p {" ".join(args["pairs"])}')
+        if self.secret_config:
+            args_list.append(f"-c {self.secret_config}")
+        if self.pairs:
+            args_list.append(f'-p {" ".join(self.pairs)}')
         if args["starting_balance"]:
             args_list.append(f'--starting-balance {args["starting_balance"]}')
         if args["max_open_trades"]:
@@ -79,6 +95,7 @@ def create_commands(
     strategies: list[str],
     interval: str,
     config: Union[pathlib.Path, str],
+    secret_config: Union[pathlib.Path, str] = None,
     days: int = None,
     id=None,
     timerange: Optional[str] = None,
@@ -92,6 +109,8 @@ def create_commands(
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
     config = Config(config)
+    if secret_config:
+        secret_config = Config(secret_config)
     logger.debug('Using config: %s', config.path)
     commands = []
     if not skip_data_download:
@@ -103,11 +122,18 @@ def create_commands(
             interval=interval,
             days=days,
             timerange=timerange,
-            pairs=pairs,
             starting_balance=starting_balance,
             max_open_trades=max_open_trades,
             stake_amount=stake_amount,
         )
-        command = BacktestCommand(command_args, config, s, id=id, verbose=verbose)
+        command = BacktestCommand(
+            command_args,
+            config=config,
+            secret_config=secret_config,
+            strategy=s,
+            id=id,
+            pairs=pairs,
+            verbose=verbose,
+        )
         commands.append(command)
     return commands

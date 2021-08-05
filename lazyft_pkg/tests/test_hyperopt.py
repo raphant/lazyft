@@ -9,25 +9,29 @@ from lazyft.hyperopt.runner import (
 
 STRATEGY = ['TestBinH']
 
-STRATEGIES = ['TestBinH']
 HyperoptReport.SAVE_PATH = pathlib.Path(__file__).parent.joinpath('params.json')
+config_name = 'config_test.json'
+epochs = 60
+days = 5
+min_trades = 1
 
 
-def test_get_hyperopt_runner():
+def test_hyperopt():
     commands = create_commands(
         strategies=STRATEGY,
-        config='config_binance.json',
-        epochs=20,
+        config=config_name,
+        epochs=epochs,
         spaces='buy sell',
-        days=5,
+        days=days,
+        min_trades=min_trades,
         skip_data_download=True,
         verbose=True,
     )
     runner = HyperoptRunner(commands[0])
     runner.execute()
-    report = runner.generate_report()
+    report = runner.report
     assert isinstance(report, HyperoptReport)
-    assert report.strategy == STRATEGY.pop()
+    assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
     assert isinstance(report.params, dict)
 
@@ -35,29 +39,31 @@ def test_get_hyperopt_runner():
 
 
 def test_build_command():
-    config = Config('config_binance.json')
+    config = Config(config_name)
     commands = create_commands(
         strategies=STRATEGY,
         config=str(config),
-        epochs=20,
+        epochs=epochs,
+        min_trades=min_trades,
         spaces='buy sell',
         timerange='20210601-',
         skip_data_download=True,
         verbose=True,
         pairs=config.whitelist,
     )
-    assert any(commands)
+    assert len(commands) == len(STRATEGY)
     print(commands[0].build_command())
 
 
 def test_build_command_with_days():
-    config = Config('config_binance.json')
+    config = Config(config_name)
     commands = create_commands(
         strategies=STRATEGY,
         config=str(config),
-        epochs=20,
+        epochs=epochs,
         spaces='buy sell',
-        days=5,
+        days=days,
+        min_trades=min_trades,
         skip_data_download=False,
         verbose=True,
         pairs=config.whitelist,

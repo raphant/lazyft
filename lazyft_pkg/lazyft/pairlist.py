@@ -18,8 +18,8 @@ class Pairlist:
         params_strategy = params_dict[strategy]
         if id not in params_strategy:
             raise KeyError('Id %s not found for strategy' % id)
-        if 'pairlist' not in params_strategy:
+        if 'pairlist' not in params_strategy[id]:
             raise KeyError(
                 'Pairlist not found in strategy %s for id %s' % (strategy, id)
             )
-        return params_strategy['id']['pairlist']
+        return params_strategy[id]['pairlist']

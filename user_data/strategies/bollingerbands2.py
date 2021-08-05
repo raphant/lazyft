@@ -25,17 +25,18 @@ sys.path.append(str(Path(__file__).parent))
 class BollingerBands2(IStrategy):
     # buy_rsi = IntParameter(5, 50, default=30, load=True)
     # sell_rsi = IntParameter(50, 100, default=70, load=True)
-    buy_high_or_close = CategoricalParameter(
-        ['high', 'close'], default='high', load=True
+    buy_low_or_close = CategoricalParameter(
+        ['low', 'close'], default='close', load=True, optimize=False
     )
 
-    sell_band_matching = CategoricalParameter([True, False], default=True, load=True)
+    sell_band_matching = CategoricalParameter(
+        [True, False], default=True, load=True, optimize=False
+    )
     # sell_band_matching_offset = DecimalParameter(
     #     low=0.0, high=0.05, default=0.0, load=True
     # )
-    sell_band_lt_gt = CategoricalParameter(['lt', 'gt'], default='gt', load=True)
     sell_low_or_close = CategoricalParameter(
-        ['low', 'close'], default='close', load=True
+        ['low', 'close', 'high'], default='close', load=True, optimize=False
     )
 
     # region Params
@@ -119,7 +120,7 @@ class BollingerBands2(IStrategy):
         conditions = []
 
         conditions.append(
-            (dataframe[self.buy_high_or_close.value] < dataframe['bb_lowerband'])
+            (dataframe[self.buy_low_or_close.value] < dataframe['bb_lowerband'])
         )
         conditions.append(dataframe['volume'].gt(0))
 
@@ -142,16 +143,10 @@ class BollingerBands2(IStrategy):
                 )
             )
         )
-        if self.sell_band_lt_gt.value == 'lt':
-            lt_gt = (
-                dataframe['bb_upperband'] <= self.cust_last_lowerband[metadata['pair']]
-            )
-        else:
-            lt_gt = (
+        if self.sell_band_matching.value:
+            conditions.append(
                 dataframe['bb_upperband'] >= self.cust_last_lowerband[metadata['pair']]
             )
-        if self.sell_band_matching.value:
-            conditions.append(lt_gt)
 
         if conditions:
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1

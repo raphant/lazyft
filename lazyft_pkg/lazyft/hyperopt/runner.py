@@ -76,7 +76,7 @@ class HyperoptRunner(runner.Runner):
                 print_json=True,
                 disable_param_export=True,
                 _out=lambda log: self.sub_process_log(log),
-                _err=lambda log: self.sub_process_log(log, error=True),
+                _err=lambda log: self.sub_process_log(log),
                 _cwd=str(constants.BASE_DIR),
                 _bg=True,
                 _done=self.on_finished,
@@ -111,6 +111,8 @@ class HyperoptRunner(runner.Runner):
         if not success:
             self.error = True
             logger.error(self.output)
+        else:
+            self.generate_report()
 
     def generate_report(self):
         return hyperopt.HyperoptReport(

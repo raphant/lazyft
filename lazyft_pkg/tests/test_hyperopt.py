@@ -1,5 +1,6 @@
 import pathlib
 
+from lazyft.config import Config
 from lazyft.hyperopt.commands import create_commands
 from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
 from lazyft.hyperopt.runner import (
@@ -31,6 +32,39 @@ def test_get_hyperopt_runner():
     assert isinstance(report.params, dict)
 
     report.save()
+
+
+def test_build_command():
+    config = Config('config_binance.json')
+    commands = create_commands(
+        strategies=STRATEGY,
+        config=str(config),
+        epochs=20,
+        spaces='buy sell',
+        timerange='20210601-',
+        skip_data_download=True,
+        verbose=True,
+        pairs=config.whitelist,
+    )
+    assert any(commands)
+    print(commands[0].build_command())
+
+
+def test_build_command_with_days():
+    config = Config('config_binance.json')
+    commands = create_commands(
+        strategies=STRATEGY,
+        config=str(config),
+        epochs=20,
+        spaces='buy sell',
+        days=5,
+        skip_data_download=False,
+        verbose=True,
+        pairs=config.whitelist,
+    )
+    assert any(commands)
+    print(commands[0].build_command())
+
 
 # def test_param_save():
 #     params = {'mock': 'data'}

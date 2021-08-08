@@ -1,10 +1,12 @@
 import tempfile
 from pathlib import Path
 
+import sh
 import yaml
 
 from lazyft.config import Config
-from lazyft.constants import STRATEGY_DIR
+from lazyft.paths import STRATEGY_DIR, USER_DATA_DIR
+from lazyft.regex import strategy_files_pattern
 
 
 class Strategy:
@@ -64,3 +66,19 @@ class Strategy:
         tmp_config.update_blacklist(blacklist, True)
         tmp_config.save()
         return tmp_config
+
+    @staticmethod
+    def get_file_name(strategy: str) -> str:
+        """Returns the file name of a strategy"""
+        text = sh.freqtrade(
+            'list-strategies', no_color=True, userdir=str(USER_DATA_DIR)
+        )
+        to_dict = dict(strategy_files_pattern.findall('\n'.join(text)))
+        return to_dict.get(strategy)
+
+    @staticmethod
+    def create_strategy_params_filepath(strategy: str) -> Path:
+        """Return the path to the strategies parameter file."""
+        return STRATEGY_DIR.joinpath(
+            Strategy.get_file_name(strategy).rstrip('.py') + '.json'
+        )

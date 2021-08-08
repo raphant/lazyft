@@ -1,6 +1,6 @@
 import pathlib
 
-from lazyft import backtest, constants
+from lazyft import paths
 from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.quicktools.quick_tools import QuickTools
@@ -9,7 +9,7 @@ strategy = ['BinH']
 refresh_config = Config('config_binance2.json')
 backtest_config_name = 'config_test.json'
 backtest_config = Config(backtest_config_name)
-constants.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
+paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 
 
 def test_refresh_pairlist():

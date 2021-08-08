@@ -1,5 +1,6 @@
 import pathlib
 
+from lazyft import paths
 from lazyft.config import Config
 from lazyft.hyperopt.commands import create_commands
 from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
@@ -7,18 +8,19 @@ from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
 
-STRATEGY = ['TestBinH']
+paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 
-HyperoptReport.SAVE_PATH = pathlib.Path(__file__).parent.joinpath('params.json')
+STRATEGY = ['TestBinH']
+STRATEGY_WITH_ID = ['TestBinH-fcOsWD']
 config_name = 'config_test.json'
 epochs = 60
 days = 5
 min_trades = 1
 
 
-def test_hyperopt():
+def get_commands(strategy):
     commands = create_commands(
-        strategies=STRATEGY,
+        strategies=strategy,
         config=config_name,
         epochs=epochs,
         spaces='buy sell',
@@ -27,15 +29,27 @@ def test_hyperopt():
         skip_data_download=True,
         verbose=True,
     )
+    return commands
+
+
+def test_hyperopt():
+    commands = get_commands(STRATEGY)
     runner = HyperoptRunner(commands[0])
     runner.execute()
     report = runner.report
     assert isinstance(report, HyperoptReport)
     assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
-    assert isinstance(report.params, dict)
+    assert isinstance(report.params_file, pathlib.Path)
 
     print(report.save())
+
+
+def test_hyperopt_with_id():
+    commands = get_commands(STRATEGY_WITH_ID)
+    runner = HyperoptRunner(commands[0])
+    runner.execute()
+    assert bool(runner.report)
 
 
 def test_build_command():

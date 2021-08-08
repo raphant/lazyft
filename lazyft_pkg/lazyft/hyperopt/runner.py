@@ -9,14 +9,14 @@ import sh
 from rich.live import Live
 from rich.table import Table
 
-from lazyft import constants, hyperopt, runner
-from lazyft.parameters import ParamsToLoad
+from lazyft import paths, hyperopt, runner
+from lazyft.parameters import Parameter
 from lazyft.regex import EPOCH_LINE_REGEX
 
 logger = hyperopt.logger.getChild('runner')
 logger_exec = logging.getLogger('lazyft.hyperopt.exec')
 logger_exec.handlers.clear()
-fh = logging.FileHandler(pathlib.Path(constants.BASE_DIR, 'hyperopt.log'), mode='a')
+fh = logging.FileHandler(pathlib.Path(paths.BASE_DIR, 'hyperopt.log'), mode='a')
 formatter = logging.Formatter('%(message)s')
 fh.setFormatter(formatter)
 logger_exec.addHandler(fh)
@@ -78,26 +78,26 @@ class HyperoptRunner(runner.Runner):
         return self._report
 
     def execute(self, background=False):
+        if self.running:
+            raise RuntimeError('Hyperopt is already running')
         self.reset()
         if self.command.id:
-            ParamsToLoad.set_id(self.strategy, self.command.id)
+            Parameter.set_params_file(self.strategy, self.command.id)
         logger.info('Running command: "%s"', self.command.command_string)
         try:
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
                 no_color=True,
-                print_json=True,
-                disable_param_export=True,
                 _out=lambda log: self.sub_process_log(log),
                 _err=lambda log: self.sub_process_log(log),
-                _cwd=str(constants.BASE_DIR),
+                _cwd=str(paths.BASE_DIR),
                 _bg=True,
                 _done=self.on_finished,
             )
             self.running = True
 
             if not background:
-                self.live_output()
+                self.process.wait()
 
         except Exception:
             logger.error(self.output)
@@ -119,8 +119,6 @@ class HyperoptRunner(runner.Runner):
         logger.info("Finished")
         self.running = False
 
-        if constants.STRATEGY_DIR.joinpath(self.strategy.lower() + '.json').exists():
-            constants.STRATEGY_DIR.joinpath(self.strategy.lower() + '.json').unlink()
         if not success:
             self.error = True
             logger.error(self.output)
@@ -145,7 +143,6 @@ class HyperoptRunner(runner.Runner):
         return hyperopt.HyperoptReport(
             self.command.config,
             self.output,
-            self.output_list[-1],
             self.strategy,
             secondary_config=secondary_config,
         )
@@ -163,7 +160,7 @@ class HyperoptRunner(runner.Runner):
         return table
 
     def sub_process_log(self, text="", out=False, error=False):
-        logger_exec.info(text.strip())
+        # logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 
 

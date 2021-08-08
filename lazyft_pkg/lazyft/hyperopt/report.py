@@ -5,8 +5,9 @@ import rapidjson
 
 from lazyft import util, regex
 from lazyft.config import Config
-from lazyft.constants import BASE_DIR
 from lazyft.hyperopt import logger
+from lazyft.paths import PARAMS_FILE, STRATEGY_DIR, PARAMS_DIR
+from lazyft.strategy import Strategy
 
 logger.getChild('report')
 
@@ -29,32 +30,36 @@ class HyperoptPerformance:
 
 
 class HyperoptReport:
-    SAVE_PATH = BASE_DIR.joinpath("lazy_params.json")
-
     def __init__(
         self,
         config: Config,
         output: str,
-        raw_params: str,
         strategy: str,
         secondary_config: dict = None,
     ) -> None:
+        self.id = util.rand_token()
         self.strategy = strategy
         self.config = config
         self.secondary_config = secondary_config
-
-        extracted = self._extract_output(raw_params, output)
+        self.params_file = self.get_params_file(strategy)
+        extracted = self._extract_output(output)
         if not extracted:
             raise ValueError('Report is empty')
-        self.params, self.performance = extracted
-        self.id = util.rand_token()
+        self.performance = extracted
+
+    def get_params_file(self, strategy):
+        strategy_json = Strategy.get_file_name(strategy).rstrip('.py') + '.json'
+        strat_file = STRATEGY_DIR.joinpath(strategy_json)
+        moved = strat_file.replace(PARAMS_DIR.joinpath(self.id + '.json'))
+        strat_file.unlink(missing_ok=True)
+        return moved
 
     def save(self) -> str:
         """
         Returns: ID of report
         """
         data = self.add_to_existing_data()
-        self.SAVE_PATH.write_text(rapidjson.dumps(data, indent=2))
+        PARAMS_FILE.write_text(rapidjson.dumps(data, indent=2))
         return self.id
 
     def add_to_existing_data(self) -> dict:
@@ -64,7 +69,7 @@ class HyperoptReport:
         strategy_data = data.get(self.strategy, {})
         # add the current params to id in strategy data
         strategy_data[self.id] = {
-            "params": self.params,
+            "params_file": str(self.params_file),
             "performance": self.performance.__dict__,
             "pairlist": self.config.whitelist,
             "balance_info": self.secondary_config,
@@ -75,22 +80,14 @@ class HyperoptReport:
 
     @classmethod
     def get_existing_data(cls) -> dict:
-        if cls.SAVE_PATH.exists():
-            return rapidjson.loads(cls.SAVE_PATH.read_text())
+        if PARAMS_FILE.exists():
+            return rapidjson.loads(PARAMS_FILE.read_text())
         return {}
 
-    def _extract_output(
-        self, raw: str, output: str
-    ) -> Tuple[dict, HyperoptPerformance]:
+    def _extract_output(self, output: str) -> HyperoptPerformance:
         logger.debug("Extracting output...")
         search = regex.FINAL_REGEX.search(output)
         assert search
-        params = (
-            raw.strip()
-            .replace('"True"', "true")
-            .replace('"False"', "false")
-            .replace('"none"', "null")
-        )
         date_search = regex.H_DATE_FROM_TO.search(output)
         from_ = date_search.groupdict()["from"]
         to = date_search.groupdict()["to"]
@@ -100,7 +97,7 @@ class HyperoptReport:
             **search.groupdict(), seed=seed, from_date=from_, to_date=to
         )
 
-        return self._format_parameters(rapidjson.loads(params)), performance
+        return performance
 
     @staticmethod
     def _format_parameters(params: dict) -> dict:

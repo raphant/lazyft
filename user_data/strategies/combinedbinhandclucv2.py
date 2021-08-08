@@ -1,6 +1,7 @@
 # --- Do not remove these libs ---
 import json
 import pathlib
+import sys
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
@@ -10,28 +11,11 @@ import talib.abstract as ta
 from freqtrade.strategy import IStrategy, merge_informative_pair
 from pandas import DataFrame
 
+sys.path.append(str(pathlib.Path(__file__).parent))
+
 
 # The main idea is to buy only when overall uptrend in higher informative
 # but in local dip cause BinCluc some king of pullback strategy.
-
-SCRIPT_DIRECTORY = pathlib.Path(__file__).parent.absolute()
-
-
-# --------------------------------
-
-
-# noinspection DuplicatedCode
-param_file_id = '$NAME'
-params_file = pathlib.Path(SCRIPT_DIRECTORY, 'params.json')
-
-
-def load():
-    if '$' in param_file_id or not params_file.exists():
-        return {}
-    params = json.loads(params_file.read_text())
-    return params['StudyBinH'][param_file_id]['params']
-
-
 def bollinger_bands(stock_price, window_size, num_of_std):
     rolling_mean = stock_price.rolling(window=window_size).mean()
     rolling_std = stock_price.rolling(window=window_size).std()
@@ -76,7 +60,10 @@ class CombinedBinHAndClucV2(IStrategy):
     ]
 
     startup_candle_count = 200
-    locals().update(load())
+    from custom_util import load
+
+    if locals()['__module__'] == locals()['__qualname__']:
+        locals().update(load(locals()['__qualname__']))
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()

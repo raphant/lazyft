@@ -1,6 +1,6 @@
 import rapidjson
 
-from lazyft import constants, logger
+from lazyft import paths, logger
 
 logger = logger.getChild('pairlist')
 
@@ -9,10 +9,10 @@ class Pairlist:
     @staticmethod
     def load_from_id(strategy: str, id: str):
         logger.debug('loading pairlist from id %s for strategy %s', strategy, id)
-        if not constants.PARAMS_FILE.exists():
+        if not paths.PARAMS_FILE.exists():
             raise FileNotFoundError('Params file does not exist.')
         # load params as json
-        params_dict = rapidjson.loads(constants.PARAMS_FILE.read_text())
+        params_dict = rapidjson.loads(paths.PARAMS_FILE.read_text())
         if strategy not in params_dict:
             raise KeyError('Strategy %s not found in params file' % strategy)
         params_strategy = params_dict[strategy]

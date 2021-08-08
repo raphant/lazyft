@@ -4,7 +4,7 @@ import pathlib
 
 import rapidjson
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('lazyft.custom_util')
 
 script_directory = pathlib.Path(__file__).parent
 id_file = script_directory.joinpath('strategy_ids.json').resolve()
@@ -22,7 +22,7 @@ def load(strategy_name: str):
     try:
         id = rapidjson.loads(id_file.read_text())[strategy_name]
     except KeyError:
-        logger.info('Id not found for %s', strategy_name)
+        logger.info('ID not found for %s', strategy_name)
         logger.info('ID path: %s', str(id_file))
         return {}
     params = rapidjson.loads(params_file.read_text())

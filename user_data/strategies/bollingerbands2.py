@@ -55,9 +55,6 @@ class BollingerBands2(IStrategy):
     timeframe = '5m'
     use_custom_stoploss = False
 
-    custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
-    custom_btc_inf = False  # Don't change this.
-
     # Recommended
     use_sell_signal = True
     sell_profit_only = True
@@ -143,7 +140,10 @@ class BollingerBands2(IStrategy):
                 )
             )
         )
-        if self.sell_band_matching.value:
+        if (
+            self.sell_band_matching.value
+            and metadata['pair'] in self.cust_last_lowerband
+        ):
             conditions.append(
                 dataframe['bb_upperband'] >= self.cust_last_lowerband[metadata['pair']]
             )
@@ -151,14 +151,3 @@ class BollingerBands2(IStrategy):
         if conditions:
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
         return dataframe
-
-    def custom_sell(
-        self,
-        pair: str,
-        trade: Trade,
-        current_time: datetime,
-        current_rate: float,
-        current_profit: float,
-        **kwargs,
-    ) -> Optional[Union[str, bool]]:
-        pass

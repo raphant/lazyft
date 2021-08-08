@@ -1,27 +1,70 @@
 import pathlib
+from dataclasses import dataclass
 from pprint import pprint
 from typing import Union
 
 import pandas as pd
 import rapidjson
 
-from lazyft import regex, constants
+from lazyft import regex, paths
+from lazyft.config import Config
+from lazyft.pairlist import Pairlist
+from lazyft.paths import BACKTEST_RESULTS_FILE
 from lazyft.strategy import Strategy
+
+
+class BacktestSaver:
+    @staticmethod
+    def save(performance: 'Performance'):
+        data = BacktestSaver.add_to_existing_data(performance)
+        BACKTEST_RESULTS_FILE.write_text(rapidjson.dumps(data, indent=2))
+        return performance.id
+
+    @staticmethod
+    def add_to_existing_data(performance: 'Performance') -> dict:
+        # grab all data
+        data = BacktestSaver.get_existing_data()
+        # get strategy data if available, else create empty dict
+        strategy_data = data.get(performance.strategy, {})
+        # add the current params to id in strategy data
+        try:
+            pairlist = Pairlist.load_from_id(performance.strategy, performance.id)
+        except KeyError:
+            pairlist = []
+        strategy_data[performance.id] = {
+            "performance": performance.total,
+            "pairlist": pairlist,
+        }
+        # add strategy back to all data
+        data[performance.strategy] = strategy_data
+        return data
+
+    @staticmethod
+    def get_existing_data() -> dict:
+        if BACKTEST_RESULTS_FILE.exists():
+            return rapidjson.loads(BACKTEST_RESULTS_FILE.read_text())
+        return {}
 
 
 class BacktestReport:
     def __init__(
-        self,
-        strategy: str,
-        min_win_rate: float,
-        json_file: Union[str],
+        self, strategy: str, min_win_rate: float, json_file: Union[str], id: str = None
     ) -> None:
         self.strategy = strategy
         self.min_win_rate = min_win_rate
         self.json_file = pathlib.Path(
-            constants.USER_DATA_DIR, 'backtest_results', json_file
+            paths.USER_DATA_DIR, 'backtest_results', json_file
         ).resolve()
         self._json_data = None
+        self.id = id
+
+    def save(self):
+        if not self.id:
+            raise RuntimeError('Can not save backtest reports without a params ID.')
+        to_dict = self.totals.to_dict(orient='records')[0]
+        to_dict.pop('key')
+        performance = Performance(to_dict, self.id, self.strategy)
+        return BacktestSaver.save(performance)
 
     def add_super_earners_to_whitelist(self, pct: float):
         Strategy.add_pairs_to_whitelist(self.strategy, *list(self.get_winners(pct).key))
@@ -38,6 +81,23 @@ class BacktestReport:
         df = self.df.loc[self.df['profit_total_pct'] > pct].copy()
         df = df[df.key != 'TOTAL']
         return df
+
+    @property
+    def trades(self):
+        return pd.DataFrame(self._json_data['strategy'][self.strategy]['trades'])
+
+    @property
+    def totals(self):
+        tail = self.df.tail(1)
+        key = f'{self.strategy}'
+        if self.id:
+            key = key + f'-{self.id}'
+        tail.key = key
+        return tail
+
+    @property
+    def total_profit(self):
+        return float(self.df.loc[self.df.key == 'TOTAL']['total_profit_market'])
 
     @property
     def winners(self):
@@ -64,10 +124,17 @@ class BacktestReport:
         return df
 
     @property
-    def trades(self):
-        df_data = self.json_data['strategy'][self.strategy]['trades']
-        df = pd.DataFrame(df_data, columns=df_data[0].keys())
-        return df
+    def pair_performance(self):
+        t_df = self.trades
+        aggregation_functions = {'profit_abs': 'sum'}
+        aggregate = t_df.groupby('pair').aggregate(aggregation_functions)
+        for p in t_df.pair.unique():
+            count = t_df.loc[t_df.pair == p].pair.count()
+            volume = t_df.loc[t_df.pair == p].stake_amount.sum()
+            aggregate.loc[p, 'trades'] = count
+            aggregate.loc[p, 'volume'] = volume
+        aggregate.trades = aggregate.trades.astype(int)
+        return aggregate
 
     def print_winners(self):
 
@@ -78,9 +145,9 @@ class BacktestReport:
         pprint(self.winners)
 
     @classmethod
-    def from_output(cls, strategy: str, output: str, min_win_rate: float = 1):
+    def from_output(cls, strategy: str, output: str, min_win_rate: float = 1, id=''):
         json_file = regex.backtest_json.findall(output)[0]
-        return cls(strategy, min_win_rate=min_win_rate, json_file=json_file)
+        return cls(strategy, min_win_rate=min_win_rate, json_file=json_file, id=id)
 
     @staticmethod
     def create_dataframe(pairs: list):
@@ -117,3 +184,10 @@ class BacktestReport:
         if not self._json_data:
             self._json_data = rapidjson.loads(self.json_file.read_text())
         return self._json_data
+
+
+@dataclass
+class Performance:
+    total: dict
+    id: str
+    strategy: str

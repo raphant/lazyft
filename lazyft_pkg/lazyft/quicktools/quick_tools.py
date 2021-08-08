@@ -11,7 +11,7 @@ from freqtrade.plugins.pairlistmanager import PairListManager
 
 from lazyft import logger
 from lazyft.config import Config
-from lazyft.constants import USER_DATA_DIR
+from lazyft.paths import USER_DATA_DIR
 
 logger = logger.getChild('quicktools')
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
@@ -211,7 +211,7 @@ class QuickTools:
 
         def print_(text: str):
             if verbose:
-                logger.debug(text.strip())
+                logger.info(text.strip())
 
         assert days or timerange
 
@@ -227,12 +227,11 @@ class QuickTools:
             len(config.whitelist),
             interval,
         )
+        command = 'download-data --days {} -c {} -t {} --userdir {}'.format(
+            days, config, interval, USER_DATA_DIR
+        ).split()
         sh.freqtrade(
-            'download-data',
-            days=days,
-            c=str(config),
-            t=interval,
-            userdir=str(USER_DATA_DIR),
+            *command,
             _err=print_,
             _out=print_,
         )
@@ -240,29 +239,3 @@ class QuickTools:
 
 class PairListTools:
     pair_names_json = 'pair-names.json'
-
-    @classmethod
-    def add_to_pairlist(cls, pairlist_name, results):
-        pnj = Path(cls.pair_names_json)
-        if not pnj.exists():
-            pnj.write_text('{}')
-        pairlist_names = rapidjson.loads(pnj.read_text())
-        existing: dict = pairlist_names.get(
-            pairlist_name,
-            {'list': [], 'date': datetime.now().strftime('%Y-%m-%d-T%H:%M:%S')},
-        )
-        new_list = existing.copy()
-        new_list['list'] = list(
-            set(existing['list'] + results.winners['Pair'].tolist())
-        )
-        pairlist_names[pairlist_name] = new_list
-        with Path(cls.pair_names_json).open('w') as f:
-            rapidjson.dump(pairlist_names, f, indent=2)
-        print(
-            f'Added {len(new_list["list"]) - len(existing["list"])} new pairs to '
-            f'{pairlist_name}'
-        )
-
-
-if __name__ == '__main__':
-    QuickTools.refresh_pairlist(Config('config.json'), 10)

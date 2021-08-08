@@ -4,7 +4,7 @@ from typing import Union, Iterable
 
 import rapidjson
 
-from lazyft.constants import CONFIG_DIR
+from lazyft.paths import CONFIG_DIR
 
 
 class Config:
@@ -27,10 +27,6 @@ class Config:
             self._config_path = Path(CONFIG_DIR, config).resolve()
             assert self._config_path.exists(), f'"{self._config_path}" doesn\'t exist'
         self._data: dict = rapidjson.loads(self._config_path.read_text())
-
-    def send_ssh(self, bot_id: str):
-        # todo send config to a bot via ssh
-        pass
 
     def save(self, save_as: Union[os.PathLike, str] = None) -> Path:
         """

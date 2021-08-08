@@ -8,8 +8,10 @@ from typing import Iterable, Optional, Union
 import rapidjson
 import sh
 
-from lazyft import constants, logger
+from lazyft import paths, logger
 from lazyft.config import Config
+from lazyft.parameters import Parameter
+from lazyft.strategy import Strategy
 
 logger = logger.getChild('remote')
 
@@ -44,27 +46,25 @@ class RemoteBotInfo:
 
 
 class Remote:
-    REMOTE_ADDR = 'pi@pi4.local'
-    FT_MAIN_FOLDER = '/home/pi/freqtrade/'
+    REMOTE_ADDR = 'raphael@calibre.raphaelnanje.me'
+    FT_MAIN_FOLDER = '/home/raphael/freqtrade/'
     FORMATTABLE_BOT_STRING = 'freqtrade-bot{}'
 
     tmp_files = []
 
     @classmethod
-    def update_strategy_id(cls, bot_id: int, strategy: str, id: str):
-        logger.debug('[Strategy ID] "%s" -> "%s"', strategy, id)
-        remote_path = 'user_data/strategies/strategy_ids.json'
-        si = cls.fetch_file(bot_id, remote_path)
-        assert si, 'Could not find "strategy_ids.json" in remote'
-        si_loaded = rapidjson.loads(si.read_text())
-        si_loaded[strategy] = id
-        si.write_text(rapidjson.dumps(si_loaded))
-        cls.send_file(bot_id, si, remote_path)
-        cls.send_file(bot_id, constants.PARAMS_FILE, './')
+    def update_strategy_params(cls, bot_id: int, strategy: str, id: str):
+        logger.debug('[Strategy Params] "%s" -> "%s.json"', strategy, id)
+        # load path of params
+        local_params = Parameter.get_path_of_params(id)
+        # create the remote path to save as
+        remote_path = f'user_data/strategies/{Strategy.create_strategy_params_filepath(strategy).name}'
+        # send the local params to the remote path
+        cls.send_file(bot_id, local_params, remote_path)
 
     @classmethod
     def update_remote_bot_whitelist(
-        cls, whitelist: Iterable[str], bot_id: int, append: bool = False
+        cls, bot_id: int, whitelist: Iterable[str], append: bool = False
     ):
         """
         Retrieve a local copy of specified bots remote config, update its whitelist, and send it
@@ -91,30 +91,26 @@ class Remote:
         cls,
         bot_id: int,
         strategy_name: str,
-        strategy_file_name: str = None,
         strategy_id: str = '',
     ):
+        strategy_file_name = Strategy.get_file_name(strategy=strategy_name)
+        if not strategy_file_name:
+            raise FileNotFoundError(
+                'Could not find strategy file that matches %s' % strategy_name
+            )
         env = RemoteBotInfo(bot_id).env
         env.data['STRATEGY'] = strategy_name
         new_text = '\n'.join([f'{k}={v}' for k, v in env.data.items()]) + '\n'
         env.file.write_text(new_text)
         cls.send_file(bot_id, env.file, '.env')
-        if strategy_file_name:
-            cls.send_file(
-                bot_id,
-                Path(constants.STRATEGY_DIR, strategy_file_name),
-                'user_data/strategies/',
-            )
-        # todo check if custom_util.py exists
-        # if not cls.fetch_file(bot_id, 'user_data/strategies/custom_util.py'):
-        #     logger.debug('custom_util.py not found, sending copy to bot %s', bot_id)
+
         cls.send_file(
             bot_id,
-            Path(constants.STRATEGY_DIR, 'custom_util.py'),
+            Path(paths.STRATEGY_DIR, strategy_file_name),
             'user_data/strategies/',
         )
         if strategy_id:
-            cls.update_strategy_id(bot_id, strategy_name, strategy_id)
+            cls.update_strategy_params(bot_id, strategy_name, strategy_id)
 
     @classmethod
     def send_file(
@@ -177,20 +173,37 @@ class Remote:
         else:
             destination = f'{cls.REMOTE_ADDR}:{destination}'
         command = [str(s) for s in ['-a', origin, destination]]
-        logger.debug('[sh] "rsync %s"', ' '.join(command))
+        logger.debug('[sh] "rsync -v %s"', ' '.join(command))
         sh.rsync(
             command,
-            _err=lambda o: logger.debug(o.strip()),
+            _err=lambda o: logger.info(o.strip()),
+            _out=lambda o: logger.info(o.strip()),
+        )
+
+    @classmethod
+    def delete_strategy_params(cls, bot_id: int, strategy: str):
+        project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
+        params_file = Strategy.create_strategy_params_filepath(strategy)
+        command = f'cd {project_dir};rm -vf user_data/strategies/{params_file.name}'
+
+        sh.ssh(
+            [cls.REMOTE_ADDR, ' '.join(command.split())],
+            _err=lambda o: logger.info(o.strip()),
             _out=lambda o: logger.info(o.strip()),
         )
 
     @classmethod
     def restart_bot(cls, bot_id: int):
         logger.debug('[restart bot] %s' % bot_id)
+        project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
+        command = (
+            f'cd {project_dir} && docker-compose --no-ansi down; '
+            f'docker-compose --no-ansi up  -d'
+        )
         sh.ssh(
-            [cls.REMOTE_ADDR, f'docker restart freqtrade_bot{bot_id}'],
-            _err=logger.error,
-            _out=logger.info,
+            [cls.REMOTE_ADDR, ' '.join(command.split())],
+            _err=lambda o: logger.info(o.strip()),
+            _out=lambda o: logger.info(o.strip()),
         )
 
     @classmethod
@@ -201,6 +214,8 @@ class Remote:
 
 if __name__ == '__main__':
     logger.setLevel('DEBUG')
-    Remote.update_remote_strategy(4, 'BollingerBands2', 'bollingerbands2.py')
+    # Remote.update_remote_strategy(4, 'BollingerBands2', 'bollingerbands2.py')
     # Remote.send_file(4, constants.BASE_DIR.joinpath('logs.log'), './')
-    Remote.restart_bot(4)
+    # Remote.restart_bot(4)
+    Remote.update_remote_strategy(2, 'TestBinH', 'jTc6jx')
+    # Remote.delete_strategy_params(2, 'TestBinH')

@@ -39,3 +39,7 @@ trades_per_day = r'Trades per day[^\d]+(?P<trades_per_day>[\d.]+)'
 total_trades = r'Total trades[^\d]+(?P<total_trades>[\d.]+)'
 backtest_json = re.compile(r'(backtest-result[^\"]+)')
 # endregion
+
+# region Misc
+strategy_files_pattern = re.compile(r'(\w+)[^\w]+(\w+.py)')
+# endregion

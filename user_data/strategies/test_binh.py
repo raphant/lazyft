@@ -56,9 +56,6 @@ class TestBinH(IStrategy):
     # ROI table:
     minimal_roi = {"0": 0.175, "21": 0.053, "75": 0.013, "118": 0}
 
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
-        print('DEBUG: Current locals', locals())
     # endregion
 
     ticker_interval = '5m'

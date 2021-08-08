@@ -5,31 +5,76 @@ import pandas as pd
 import rapidjson
 from dateutil.parser import parse
 
-from lazyft import logger
-from lazyft.constants import ID_TO_LOAD_FILE, PARAMS_FILE
-from lazyft.pairlist import Pairlist
+from lazyft.paths import (
+    PARAMS_FILE,
+    BACKTEST_RESULTS_FILE,
+    STRATEGY_DIR,
+    PARAMS_DIR,
+)
+from lazyft.strategy import Strategy
+
+cols = [
+    'id',
+    'starting_balance',
+    'stake_amount',
+    'max_open_trades',
+    'trades',
+    'wins',
+    'losses',
+    'draws',
+    'avg_profits',
+    'med_profit',
+    'tot_profit',
+    'profit_percent',
+    'avg_duration',
+    'loss',
+    'seed',
+    'from_date',
+    'days',
+]
 
 
-class ParamsToLoad:
+class Parameter:
     @classmethod
-    def set_id(cls, strategy: str, id: str):
-        logger.info(
-            'Updating params_to_load strategy "%s" to load param ID "%s"',
-            strategy,
-            id,
-        )
-        if not ID_TO_LOAD_FILE.exists():
+    def set_params_file(cls, strategy: str, id: str):
+        """Load strategy parameters from a saved param export."""
+        id_param_file = cls.get_path_of_params(id)
+        if not id_param_file.exists():
+            raise FileNotFoundError('Could not find parameters for id "%s"' % id)
+        # get full name that the params file will be saved as
+        strategy_json = Strategy.create_strategy_params_filepath(strategy)
+        # setup the file path
+        new_params_file = STRATEGY_DIR.joinpath(strategy_json)
+        # write into the new params file
+        new_params_file.write_text(id_param_file.read_text())
+
+    @classmethod
+    def get_path_of_params(cls, id):
+        """Returns the path to the params file in the saved_params directory using the id"""
+        id_param_file = PARAMS_DIR.joinpath(id + '.json')
+        return id_param_file
+
+    @classmethod
+    def reset_id(cls, strategy):
+        Strategy.create_strategy_params_filepath(strategy).unlink(missing_ok=True)
+
+    @classmethod
+    def load_data(cls):
+        if not PARAMS_FILE.exists():
             data = {}
         else:
-            data = rapidjson.loads(ID_TO_LOAD_FILE.read_text())
-        data[strategy] = id
-        ID_TO_LOAD_FILE.write_text(rapidjson.dumps(data))
+            data = rapidjson.loads(PARAMS_FILE.read_text())
+        return data
 
 
-class Parameter(UserDict):
+class ResultBrowser(UserDict):
     def __init__(self):
         data = rapidjson.loads(PARAMS_FILE.read_text())
         super().__init__(data)
+
+    @property
+    def backtest_data(self):
+        return rapidjson.loads(BACKTEST_RESULTS_FILE.read_text())
 
     def get_performances(self, strategy: str) -> pd.DataFrame:
         performances = []
@@ -42,26 +87,41 @@ class Parameter(UserDict):
             perf.pop('to_date')
             performances.append(perf)
 
-        columns = list(performances[0].keys())
-        df = pd.DataFrame(performances, columns=columns)
+        df = pd.DataFrame(performances)
         return df
 
     def get_params(self, strategy: str, id: str):
         try:
             return self[strategy][id]['params']
         except KeyError:
-            raise KeyError('Could not load params for %s-%s', strategy, id)
+            raise KeyError('Could not load params for %s-%s' % (strategy, id))
 
-    @staticmethod
-    def get_pairlist(strategy: str, id: str) -> list[str]:
-        return Pairlist.load_from_id(strategy, id)
+    def get_backtest_results(self, strategy: str):
+        if strategy not in self.backtest_data:
+            raise KeyError(
+                'Strategy "%s" not found in %s' % (strategy, BACKTEST_RESULTS_FILE.name)
+            )
+        performances = []
+        for id, id_dict in self.backtest_data[strategy].items():
+            perf = {'id': id}
+            perf.update(id_dict['performance'])
+            performances.append(perf)
+        df = pd.DataFrame(performances)
+        return df
+
+    def get_backtest_result_from_id(self, strategy: str, id: str):
+        if strategy not in self.backtest_data or id not in [strategy]:
+            raise KeyError(
+                'Strategy "%s" or id "%s" not found in %s'
+                % (strategy, id, BACKTEST_RESULTS_FILE.name)
+            )
+        data = [self.backtest_data[strategy][id]['performance']]
+        return pd.DataFrame(data)
 
 
 if __name__ == '__main__':
-    print(Parameter().get_performances('BollingerBands2').to_string())
-    print('fCOoUY:')
-    pprint(Parameter().get_params('BollingerBands2', 'fCOoUY'))
-    print('c32vVv:')
-    pprint(Parameter().get_params('BollingerBands2', 'c32vVv'))
-    p1 = Parameter.get_pairlist('BollingerBands2', 'fCOoUY')
-    p2 = Parameter.get_pairlist('BollingerBands2', 'c32vVv')
+    print(ResultBrowser().get_performances('TestBinH').to_string())
+    # print('Ln70qa:')
+    # pprint(ResultBrowser().get_params('BollingerBands2', 'Ln70qa'))
+    # print('c32vVv:')
+    # pprint(ResultBrowser().get_params('BollingerBands2', 'c32vVv'))

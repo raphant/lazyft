@@ -28,7 +28,7 @@ class BacktestCommand:
         self.strategy = strategy
         self.id = id
         self.verbose = verbose
-        self.pairs = pairs or []
+        self.pairs = pairs or config.whitelist
         if id and not self.pairs:
             # load pairs from ID if pairs not already provided.
             self.pairs = Pairlist.load_from_id(strategy=strategy, id=id)
@@ -82,7 +82,6 @@ def new_hyperopt_cli(
 
     return create_commands(
         strategies=strategies,
-        id=id,
         interval=interval,
         config=config,
         timerange=timerange,
@@ -97,7 +96,6 @@ def create_commands(
     config: Union[pathlib.Path, str],
     secret_config: Union[pathlib.Path, str] = None,
     days: int = None,
-    id=None,
     timerange: Optional[str] = None,
     pairs: list[str] = None,
     starting_balance=None,
@@ -108,6 +106,12 @@ def create_commands(
 ):
     """Create `HyperoptCommand` for each strategy in strategies."""
     logger.debug(strategies)
+    strategy_id_pair = []
+    for s in strategies:
+        if '-' in s:
+            strategy_id_pair.append((tuple(s.split('-'))))
+        else:
+            strategy_id_pair.append((s, ''))
     config = Config(config)
     if secret_config:
         secret_config = Config(secret_config)
@@ -117,7 +121,7 @@ def create_commands(
         QuickTools.download_data(
             config, interval=interval, days=days, timerange=timerange
         )
-    for s in strategies:
+    for s, id in strategy_id_pair:
         command_args = dict(
             interval=interval,
             days=days,

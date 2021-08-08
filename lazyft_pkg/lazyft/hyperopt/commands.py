@@ -100,9 +100,14 @@ def create_commands(
         verbose:
         skip_data_download:
     Returns:
-
     """
     """Create `HyperoptCommand` for each strategy in strategies."""
+    strategy_id_pair = []
+    for s in strategies:
+        if '-' in s:
+            strategy_id_pair.append((tuple(s.split('-'))))
+        else:
+            strategy_id_pair.append((s, ''))
     if 'loss' not in kwargs:
         kwargs['loss'] = 'SortinoHyperOptLossDaily'
     if 'interval' not in kwargs:
@@ -122,7 +127,7 @@ def create_commands(
             verbose=verbose,
         )
     commands = []
-    for s in strategies:
+    for s, id in strategy_id_pair:
         command = HyperoptCommand(
             command_dict=args,
             config=config,
@@ -130,6 +135,7 @@ def create_commands(
             secret_config=secret_config,
             pairs=pairs,
             verbose=verbose,
+            id=id,
         )
         command.build_command()
         commands.append(command)

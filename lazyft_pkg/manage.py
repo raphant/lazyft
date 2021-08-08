@@ -280,7 +280,7 @@ def refresh_pairlist(
         logger.debug(out)
 
     sh.freqtrade('test-pairlist', c=ctx.obj['config_path'], _out=extract_pairs)
-    logger.debug('Output: %s', output)
+    logger.debug('Output: {}', output)
     pairs_str = output[1]
     pairs = pairs_str.strip('][').replace("'", '').split(', ')
     logger.debug('Exchange info before: {}', config['exchange']['pair_whitelist'])

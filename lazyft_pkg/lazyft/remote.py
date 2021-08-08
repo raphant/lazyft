@@ -5,15 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
-import rapidjson
 import sh
 
 from lazyft import paths, logger
 from lazyft.config import Config
 from lazyft.parameters import Parameter
 from lazyft.strategy import Strategy
-
-logger = logger.getChild('remote')
 
 
 @dataclass
@@ -54,7 +51,7 @@ class Remote:
 
     @classmethod
     def update_strategy_params(cls, bot_id: int, strategy: str, id: str):
-        logger.debug('[Strategy Params] "%s" -> "%s.json"', strategy, id)
+        logger.debug('[Strategy Params] "{}" -> "{}.json"', strategy, id)
         # load path of params
         local_params = Parameter.get_path_of_params(id)
         # create the remote path to save as
@@ -126,7 +123,7 @@ class Remote:
         Returns:
 
         """
-        logger.debug('[send] "%s" -> bot %s', local_path, bot_id)
+        logger.debug('[send] "{}" -> bot {}', local_path, bot_id)
         cls.rsync(local_path, cls.format_remote_path(bot_id, remote_path))
 
     @classmethod
@@ -143,7 +140,7 @@ class Remote:
         Returns: Path of local copy of fetched file
 
         """
-        logger.debug('[fetch] "%s" <- bot %s', remote_path, bot_id)
+        logger.debug('[fetch] "{}" <- bot {}', remote_path, bot_id)
         if not local_path:
             temp = tempfile.mkdtemp(prefix='lazyft')
             local_path = Path(temp)
@@ -155,7 +152,7 @@ class Remote:
                 fetch=True,
             )
         except sh.ErrorReturnCode_23:
-            logger.debug('%s not found in remote.', remote_path)
+            logger.debug('{} not found in remote.', remote_path)
             return None
 
         return Path(local_path, Path(remote_path).name)
@@ -173,7 +170,7 @@ class Remote:
         else:
             destination = f'{cls.REMOTE_ADDR}:{destination}'
         command = [str(s) for s in ['-a', origin, destination]]
-        logger.debug('[sh] "rsync -v %s"', ' '.join(command))
+        logger.debug('[sh] "rsync -v {}"', ' '.join(command))
         sh.rsync(
             command,
             _err=lambda o: logger.info(o.strip()),
@@ -194,7 +191,7 @@ class Remote:
 
     @classmethod
     def restart_bot(cls, bot_id: int):
-        logger.debug('[restart bot] %s' % bot_id)
+        logger.debug('[restart bot] {}' % bot_id)
         project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
         command = (
             f'cd {project_dir} && docker-compose --no-ansi down; '

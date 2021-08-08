@@ -1,4 +1,4 @@
-import logging
+import pathlib
 import pathlib
 import time
 from queue import Queue
@@ -6,6 +6,7 @@ from threading import Thread
 
 import pandas as pd
 import sh
+from loguru import logger
 from rich.live import Live
 from rich.table import Table
 
@@ -13,14 +14,9 @@ from lazyft import paths, hyperopt, runner
 from lazyft.parameters import Parameter
 from lazyft.regex import EPOCH_LINE_REGEX
 
-logger = hyperopt.logger.getChild('runner')
-logger_exec = logging.getLogger('lazyft.hyperopt.exec')
-logger_exec.handlers.clear()
-fh = logging.FileHandler(pathlib.Path(paths.BASE_DIR, 'hyperopt.log'), mode='a')
-formatter = logging.Formatter('%(message)s')
-fh.setFormatter(formatter)
-logger_exec.addHandler(fh)
-
+logger_exec = logger.bind(name='hyperopt')
+logger_exec.remove()
+logger_exec.add(pathlib.Path(paths.BASE_DIR, 'hyperopt.log'), mode='a')
 columns = [
     "Epoch",
     "Trades",
@@ -83,7 +79,7 @@ class HyperoptRunner(runner.Runner):
         self.reset()
         if self.command.id:
             Parameter.set_params_file(self.strategy, self.command.id)
-        logger.info('Running command: "%s"', self.command.command_string)
+        logger.info('Running command: "{}"', self.command.command_string)
         try:
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
@@ -160,7 +156,7 @@ class HyperoptRunner(runner.Runner):
         return table
 
     def sub_process_log(self, text="", out=False, error=False):
-        # logger_exec.info(text.strip())
+        logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 
 

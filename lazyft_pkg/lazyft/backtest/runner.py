@@ -1,23 +1,20 @@
-import logging
 import pathlib
 
 import pandas as pd
 import sh
+from loguru import logger
 
 from lazyft import paths
-from lazyft.backtest import logger
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReport
 from lazyft.parameters import Parameter
 from lazyft.runner import Runner
 
-logger = logger.getChild('runner')
-logger_exec = logger.getChild('exec')
-logger_exec.handlers.clear()
-fh = logging.FileHandler(pathlib.Path(paths.BASE_DIR, 'backtest.log'), mode='a')
-formatter = logging.Formatter('%(message)s')
-fh.setFormatter(formatter)
-logger_exec.addHandler(fh)
+logger_exec = logger.bind(name='backtest')
+logger_exec.remove()
+logger_exec.add(
+    pathlib.Path(paths.BASE_DIR, 'backtest.log'), mode='a', format='{message}'
+)
 
 
 class BacktestMultiRunner:
@@ -67,9 +64,9 @@ class BacktestRunner(Runner):
             Parameter.set_params_file(self.strategy, self.command.id)
         else:
             Parameter.reset_id(self.strategy)
-        logger.debug('Running command: "%s"', self.command.command_string)
+        logger.debug('Running command: "{}"', self.command.command_string)
         logger.info(
-            'Backtesting %s with id "%s"', self.strategy, self.command.id or 'null'
+            'Backtesting {} with id "{}"', self.strategy, self.command.id or 'null'
         )
         try:
             self.process: sh.RunningCommand = sh.freqtrade(
@@ -103,5 +100,5 @@ class BacktestRunner(Runner):
         )
 
     def sub_process_log(self, text="", out=False, error=False):
-        # logger_exec.info(text.strip())
+        logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)

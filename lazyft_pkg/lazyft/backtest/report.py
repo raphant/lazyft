@@ -7,7 +7,6 @@ import pandas as pd
 import rapidjson
 
 from lazyft import regex, paths
-from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.paths import BACKTEST_RESULTS_FILE
 from lazyft.strategy import Strategy

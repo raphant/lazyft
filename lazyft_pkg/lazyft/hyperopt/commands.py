@@ -2,13 +2,11 @@ import pathlib
 from typing import Union
 
 from box import Box
+from loguru import logger
 
-from lazyft import logger
 from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools
-
-logger = logger.getChild("hyperopt.commands")
 
 command_map = dict(
     strategy='-s',
@@ -113,8 +111,8 @@ def create_commands(
     if 'interval' not in kwargs:
         kwargs['interval'] = '5m'
     args = Box(kwargs, default_box=True, default_box_attr=None)
-    logger.debug('creating commands for %s', strategies)
-    logger.debug('args: %s', args)
+    logger.debug('creating commands for {}', strategies)
+    logger.debug('args: {}', args)
     config = Config(config)
     if secret_config:
         secret_config = Config(secret_config)

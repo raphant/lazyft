@@ -8,12 +8,11 @@ import sh
 from arrow import Arrow
 from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
+from loguru import logger
 
-from lazyft import logger
 from lazyft.config import Config
 from lazyft.paths import USER_DATA_DIR
 
-logger = logger.getChild('quicktools')
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
 
 
@@ -62,7 +61,7 @@ class QuickTools:
         """
         pair: str = config.whitelist[0]
         pair = pair.replace('/', '_') + f'-{interval}' + '.json'
-        logger.debug('Getting time-ranges using %s', pair)
+        logger.debug('Getting time-ranges using {}', pair)
         exchange = config['exchange']['name']
         infile = Path(USER_DATA_DIR, f'data/{exchange}', pair)
         # load data
@@ -222,7 +221,7 @@ class QuickTools:
             days = days_between
 
         logger.info(
-            'Downloading %s days worth of market data for %s coins @ %s ticker-interval',
+            'Downloading {} days worth of market data for {} coins @ {} ticker-interval',
             days,
             len(config.whitelist),
             interval,

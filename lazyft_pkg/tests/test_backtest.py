@@ -1,9 +1,8 @@
 import pathlib
 
-from lazyft import backtest
+from lazyft import backtest, paths
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
-from lazyft import paths
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 

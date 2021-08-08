@@ -2,14 +2,12 @@ import pathlib
 from typing import Optional, Union
 
 import typer
+from loguru import logger
 
-from lazyft.backtest import logger
 from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools
 from lazyft.strategy import Strategy
-
-logger = logger.getChild('commands')
 
 
 class BacktestCommand:
@@ -115,7 +113,7 @@ def create_commands(
     config = Config(config)
     if secret_config:
         secret_config = Config(secret_config)
-    logger.debug('Using config: %s', config.path)
+    logger.debug('Using config: {}', config.path)
     commands = []
     if not skip_data_download:
         QuickTools.download_data(

@@ -16,20 +16,20 @@ def load(strategy_name: str):
     # print(params_file, params_file.exists())
     if not (params_file.exists() and id_file.exists()):
         logger.error(
-            'Params file or ID file does not exist \n %s | %s', id_file, params_file
+            'Params file or ID file does not exist \n {} | {}', id_file, params_file
         )
         return {}
     try:
         id = rapidjson.loads(id_file.read_text())[strategy_name]
     except KeyError:
-        logger.info('ID not found for %s', strategy_name)
-        logger.info('ID path: %s', str(id_file))
+        logger.info('ID not found for {}', strategy_name)
+        logger.info('ID path: {}', str(id_file))
         return {}
     params = rapidjson.loads(params_file.read_text())
     if strategy_name not in params:
-        logger.warning('No params found for %s', strategy_name)
+        logger.warning('No params found for {}', strategy_name)
         return {}
     params = params[strategy_name][id]['params']
-    logger.info('Loaded params from id %s', {id})
-    logger.info('Loaded params: %s', params)
+    logger.info('Loaded params from id {}', {id})
+    logger.info('Loaded params: {}', params)
     return params

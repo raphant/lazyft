@@ -1,5 +1,4 @@
 from collections import UserDict
-from pprint import pprint
 
 import pandas as pd
 import rapidjson

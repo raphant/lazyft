@@ -2,16 +2,14 @@ import pathlib
 
 import pandas as pd
 import sh
-from loguru import logger
 
-from lazyft import paths
+from lazyft import logger, paths
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReport
 from lazyft.parameters import Parameter
 from lazyft.runner import Runner
 
-logger_exec = logger.bind(name='backtest')
-logger_exec.remove()
+logger_exec = logger.bind(exec=True)
 logger_exec.add(
     pathlib.Path(paths.BASE_DIR, 'backtest.log'), mode='a', format='{message}'
 )

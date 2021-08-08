@@ -1,8 +1,7 @@
 import attr
 import rapidjson
-from loguru import logger
 
-from lazyft import util, regex
+from lazyft import logger, util, regex
 from lazyft.config import Config
 from lazyft.paths import PARAMS_FILE, STRATEGY_DIR, PARAMS_DIR
 from lazyft.strategy import Strategy
@@ -33,7 +32,7 @@ class HyperoptReport:
         strategy: str,
         secondary_config: dict = None,
     ) -> None:
-        self.id = util.rand_token()
+        self.id = util.rand_token(8)
         self.strategy = strategy
         self.config = config
         self.secondary_config = secondary_config

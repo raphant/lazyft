@@ -10,9 +10,9 @@ def escape_ansi(line):
     return ansi_escape.sub('', line).strip()
 
 
-def rand_token():
+def rand_token(n):
     return ''.join(
-        random.choice(string.ascii_letters + string.digits) for _ in range(6)
+        random.choice(string.ascii_letters + string.digits) for _ in range(n)
     )
 
 

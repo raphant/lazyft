@@ -1,6 +1,6 @@
 import rapidjson
 
-from lazyft import paths, logger
+from lazyft import logger, paths
 
 
 class Pairlist:

@@ -2,8 +2,8 @@ import pathlib
 from typing import Union
 
 from box import Box
-from loguru import logger
 
+from lazyft import logger
 from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools

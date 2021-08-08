@@ -8,8 +8,8 @@ import sh
 from arrow import Arrow
 from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
-from loguru import logger
 
+from lazyft import logger
 from lazyft.config import Config
 from lazyft.paths import USER_DATA_DIR
 

@@ -7,7 +7,7 @@ from typing import Iterable, Optional, Union
 
 import sh
 
-from lazyft import paths, logger
+from lazyft import logger, paths
 from lazyft.config import Config
 from lazyft.parameters import Parameter
 from lazyft.strategy import Strategy
@@ -169,12 +169,12 @@ class Remote:
             origin = f'{cls.REMOTE_ADDR}:{origin}'
         else:
             destination = f'{cls.REMOTE_ADDR}:{destination}'
-        command = [str(s) for s in ['-a', origin, destination]]
-        logger.debug('[sh] "rsync -v {}"', ' '.join(command))
+        command = [str(s) for s in ['-ai', origin, destination]]
+        logger.debug('[sh] "rsync {}"', ' '.join(command))
         sh.rsync(
             command,
-            _err=lambda o: logger.info(o.strip()),
-            _out=lambda o: logger.info(o.strip()),
+            _err=lambda o: logger.debug(o.strip()),
+            _out=lambda o: logger.debug(o.strip()),
         )
 
     @classmethod
@@ -191,7 +191,7 @@ class Remote:
 
     @classmethod
     def restart_bot(cls, bot_id: int):
-        logger.debug('[restart bot] {}' % bot_id)
+        logger.debug('[restart bot] {}', bot_id)
         project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
         command = (
             f'cd {project_dir} && docker-compose --no-ansi down; '
@@ -210,7 +210,7 @@ class Remote:
 
 
 if __name__ == '__main__':
-    logger.setLevel('DEBUG')
+    # logger.setLevel('DEBUG')
     # Remote.update_remote_strategy(4, 'BollingerBands2', 'bollingerbands2.py')
     # Remote.send_file(4, constants.BASE_DIR.joinpath('logs.log'), './')
     # Remote.restart_bot(4)

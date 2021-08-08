@@ -1,21 +1,18 @@
 import pathlib
-import pathlib
 import time
 from queue import Queue
 from threading import Thread
 
 import pandas as pd
 import sh
-from loguru import logger
 from rich.live import Live
 from rich.table import Table
 
-from lazyft import paths, hyperopt, runner
+from lazyft import logger, paths, hyperopt, runner
 from lazyft.parameters import Parameter
 from lazyft.regex import EPOCH_LINE_REGEX
 
-logger_exec = logger.bind(name='hyperopt')
-logger_exec.remove()
+logger_exec = logger.bind(exec=True)
 logger_exec.add(pathlib.Path(paths.BASE_DIR, 'hyperopt.log'), mode='a')
 columns = [
     "Epoch",

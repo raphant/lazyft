@@ -2,8 +2,8 @@ import pathlib
 from typing import Optional, Union
 
 import typer
-from loguru import logger
 
+from lazyft import logger
 from lazyft.config import Config
 from lazyft.pairlist import Pairlist
 from lazyft.quicktools import QuickTools
@@ -70,7 +70,6 @@ class BacktestCommand:
 
 def new_hyperopt_cli(
     strategies: list[str] = typer.Argument(...),
-    id: str = typer.Option(None),
     days: int = typer.Option(None, '-d', '--days'),
     timerange: str = typer.Option('', '-t', '--timerange'),
     interval: str = typer.Option('5m', '-i', '--interval'),

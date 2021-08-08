@@ -18,9 +18,10 @@ from arrow import Arrow, now
 from bullet import Bullet
 from dotenv import load_dotenv
 from halo import Halo
-from loguru import logger
 from quicktools.backtest import BacktestOutputExtractor
 from quicktools.quick_tools import PairListTools
+
+from lazyft import logger
 
 # region Config
 os.chdir('../../')

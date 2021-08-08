@@ -1,4 +1,5 @@
 from collections import UserDict
+from pathlib import Path
 
 import pandas as pd
 import rapidjson
@@ -91,7 +92,7 @@ class ResultBrowser(UserDict):
 
     def get_params(self, strategy: str, id: str):
         try:
-            return self[strategy][id]['params']
+            return rapidjson.loads(Path(self[strategy][id]['params_file']).read_text())
         except KeyError:
             raise KeyError('Could not load params for %s-%s' % (strategy, id))
 
@@ -101,10 +102,16 @@ class ResultBrowser(UserDict):
                 'Strategy "%s" not found in %s' % (strategy, BACKTEST_RESULTS_FILE.name)
             )
         performances = []
-        for id, id_dict in self.backtest_data[strategy].items():
-            perf = {'id': id}
-            perf.update(id_dict['performance'])
-            performances.append(perf)
+        for p in self.backtest_data[strategy]:
+            data = {'id': p.get('id')}
+            data.update(p['performance'])
+            data.update(
+                {
+                    'start_date': p.get('start_date'),
+                    'end_date': p.get('end_date'),
+                }
+            )
+            performances.append(data)
         df = pd.DataFrame(performances)
         return df
 
@@ -119,7 +126,7 @@ class ResultBrowser(UserDict):
 
 
 if __name__ == '__main__':
-    print(ResultBrowser().get_performances('TestBinH').to_string())
+    print(ResultBrowser().get_backtest_results('TestBinH').to_string())
     # print('Ln70qa:')
     # pprint(ResultBrowser().get_params('BollingerBands2', 'Ln70qa'))
     # print('c32vVv:')

@@ -12,3 +12,5 @@ numpy
 python-dateutil
 arrow
 python-dotenv
+pandas-ta
+

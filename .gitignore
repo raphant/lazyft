@@ -221,3 +221,6 @@ user_data/hyperopt_results
 .idea/sonarlint/
 configs/*
 !configs/config.json
+saved_params/*.json
+backtest_results.json
+*.bak

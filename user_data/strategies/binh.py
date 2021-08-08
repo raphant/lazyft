@@ -12,11 +12,7 @@ import talib.abstract as ta
 from pandas import DataFrame
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from freqtrade.strategy import (
-    RealParameter,
-    IntParameter,
-    CategoricalParameter
-)
+from freqtrade.strategy import RealParameter, IntParameter, CategoricalParameter
 from freqtrade.strategy.interface import IStrategy
 from freqtrade.persistence import Trade
 from rich import print
@@ -61,11 +57,6 @@ class BinH(IStrategy):
     from pathlib import Path
     import sys
 
-    sys.path.append(str(Path(__file__).parent))
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
     # endregion
 
     ticker_interval = '5m'

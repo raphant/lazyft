@@ -1,8 +1,11 @@
+import datetime
 import pathlib
+from collections import defaultdict
 from dataclasses import dataclass
 from pprint import pprint
 from typing import Union
 
+import dateutil.parser as parser
 import pandas as pd
 import rapidjson
 
@@ -22,20 +25,16 @@ class BacktestSaver:
     @staticmethod
     def add_to_existing_data(performance: 'Performance') -> dict:
         # grab all data
-        data = BacktestSaver.get_existing_data()
-        # get strategy data if available, else create empty dict
-        strategy_data = data.get(performance.strategy, {})
+        data = defaultdict(list, BacktestSaver.get_existing_data())
         # add the current params to id in strategy data
-        try:
-            pairlist = Pairlist.load_from_id(performance.strategy, performance.id)
-        except KeyError:
-            pairlist = []
-        strategy_data[performance.id] = {
-            "performance": performance.total,
-            "pairlist": pairlist,
-        }
-        # add strategy back to all data
-        data[performance.strategy] = strategy_data
+        data[performance.strategy].append(
+            {
+                "id": performance.id,
+                "performance": performance.total,
+                "start_date": performance.start_date,
+                "end_date": performance.end_date,
+            }
+        )
         return data
 
     @staticmethod
@@ -58,11 +57,11 @@ class BacktestReport:
         self.id = id
 
     def save(self):
-        if not self.id:
-            raise RuntimeError('Can not save backtest reports without a params ID.')
         to_dict = self.totals.to_dict(orient='records')[0]
         to_dict.pop('key')
-        performance = Performance(to_dict, self.id, self.strategy)
+        start_date = self.json_data['strategy'][self.strategy]['backtest_start']
+        end_date = self.json_data['strategy'][self.strategy]['backtest_end']
+        performance = Performance(to_dict, self.id, self.strategy, start_date, end_date)
         return BacktestSaver.save(performance)
 
     def add_super_earners_to_whitelist(self, pct: float):
@@ -190,3 +189,5 @@ class Performance:
     total: dict
     id: str
     strategy: str
+    start_date: str
+    end_date: str

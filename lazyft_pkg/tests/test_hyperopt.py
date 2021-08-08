@@ -1,12 +1,12 @@
 import pathlib
 
 from lazyft import paths
-from lazyft.config import Config
 from lazyft.hyperopt.commands import create_commands
 from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
+from lazyft.parameters import HyperoptParameters
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 
@@ -18,14 +18,18 @@ days = 5
 min_trades = 1
 
 
-def get_commands(strategy):
-    commands = create_commands(
+def get_commands(strategy, timerange=None, spaces=None):
+    hp = HyperoptParameters(
         strategies=strategy,
         config=config_name,
         epochs=epochs,
-        spaces='buy sell',
-        days=days,
+        spaces=spaces or 'buy sell',
         min_trades=min_trades,
+        days=days,
+        timerange=timerange,
+    )
+    commands = create_commands(
+        hp,
         skip_data_download=True,
         verbose=True,
     )
@@ -53,37 +57,15 @@ def test_hyperopt_with_id():
 
 
 def test_build_command():
-    config = Config(config_name)
-    commands = create_commands(
-        strategies=STRATEGY,
-        config=str(config),
-        epochs=epochs,
-        min_trades=min_trades,
-        spaces='buy sell',
-        timerange='20210601-',
-        skip_data_download=True,
-        verbose=True,
-        pairs=config.whitelist,
-    )
+    commands = get_commands(STRATEGY, timerange='20210601-')
     assert len(commands) == len(STRATEGY)
     print(commands[0].build_command())
 
 
 def test_build_command_with_days():
-    config = Config(config_name)
-    commands = create_commands(
-        strategies=STRATEGY,
-        config=str(config),
-        epochs=epochs,
-        spaces='buy sell',
-        days=days,
-        min_trades=min_trades,
-        skip_data_download=False,
-        verbose=True,
-        pairs=config.whitelist,
-    )
+    commands = get_commands(STRATEGY)
     assert any(commands)
-    print(commands[0].build_command())
+    print(commands[0].command_string)
 
 
 # def test_param_save():

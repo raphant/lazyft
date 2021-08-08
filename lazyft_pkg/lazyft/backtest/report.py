@@ -11,6 +11,7 @@ import rapidjson
 
 from lazyft import regex, paths
 from lazyft.pairlist import Pairlist
+from lazyft.reports import BacktestReportBrowser
 from lazyft.paths import BACKTEST_RESULTS_FILE
 from lazyft.strategy import Strategy
 
@@ -33,6 +34,8 @@ class BacktestSaver:
                 "performance": performance.total,
                 "start_date": performance.start_date,
                 "end_date": performance.end_date,
+                "json_file": performance.result_path,
+                "hash": performance.hash,
             }
         )
         return data
@@ -46,10 +49,16 @@ class BacktestSaver:
 
 class BacktestReport:
     def __init__(
-        self, strategy: str, min_win_rate: float, json_file: Union[str], id: str = None
+        self,
+        strategy: str,
+        json_file: Union[str],
+        hash: str,
+        id: str = None,
+        min_win_rate=1,
     ) -> None:
         self.strategy = strategy
         self.min_win_rate = min_win_rate
+        self.hash = hash
         self.json_file = pathlib.Path(
             paths.USER_DATA_DIR, 'backtest_results', json_file
         ).resolve()
@@ -57,12 +66,26 @@ class BacktestReport:
         self.id = id
 
     def save(self):
+        if self.hash in BacktestReportBrowser().get_hashes(self.strategy):
+            return
+        return BacktestSaver.save(self.performance)
+
+    @property
+    def performance(self):
         to_dict = self.totals.to_dict(orient='records')[0]
         to_dict.pop('key')
         start_date = self.json_data['strategy'][self.strategy]['backtest_start']
         end_date = self.json_data['strategy'][self.strategy]['backtest_end']
-        performance = Performance(to_dict, self.id, self.strategy, start_date, end_date)
-        return BacktestSaver.save(performance)
+        performance = Performance(
+            total=to_dict,
+            id=self.id,
+            strategy=self.strategy,
+            start_date=start_date,
+            end_date=end_date,
+            hash=self.hash,
+            result_path=str(self.json_file),
+        )
+        return performance
 
     def add_super_earners_to_whitelist(self, pct: float):
         Strategy.add_pairs_to_whitelist(self.strategy, *list(self.get_winners(pct).key))
@@ -143,7 +166,7 @@ class BacktestReport:
         pprint(self.winners)
 
     @classmethod
-    def from_output(cls, strategy: str, output: str, min_win_rate: float = 1, id=''):
+    def from_output(cls, strategy: str, output: str, min_win_rate=1, id=''):
         json_file = regex.backtest_json.findall(output)[0]
         return cls(strategy, min_win_rate=min_win_rate, json_file=json_file, id=id)
 
@@ -183,6 +206,15 @@ class BacktestReport:
             self._json_data = rapidjson.loads(self.json_file.read_text())
         return self._json_data
 
+    @classmethod
+    def from_dict(cls, strategy, backtest_data: dict):
+        return cls(
+            strategy,
+            backtest_data['json_file'],
+            backtest_data['hash'],
+            id=backtest_data.get('id'),
+        )
+
 
 @dataclass
 class Performance:
@@ -191,3 +223,5 @@ class Performance:
     strategy: str
     start_date: str
     end_date: str
+    hash: str
+    result_path: str

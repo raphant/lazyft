@@ -9,7 +9,7 @@ import sh
 
 from lazyft import logger, paths
 from lazyft.config import Config
-from lazyft.parameters import Parameter
+from lazyft.reports import Parameter
 from lazyft.strategy import Strategy
 
 

@@ -3,15 +3,18 @@ import pathlib
 import pandas as pd
 import sh
 
-from lazyft import logger, paths
+from lazyft import logger, paths, regex
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReport
-from lazyft.parameters import Parameter
+from lazyft.reports import Parameter, BacktestReportBrowser
 from lazyft.runner import Runner
 
 logger_exec = logger.bind(exec=True)
 logger_exec.add(
-    pathlib.Path(paths.BASE_DIR, 'backtest.log'), mode='a', format='{message}'
+    pathlib.Path(paths.BASE_DIR, 'backtest.log'),
+    retention="5 days",
+    rotation='1 MB',
+    format='{message}',
 )
 
 
@@ -20,16 +23,10 @@ class BacktestMultiRunner:
         self.runners: list[BacktestRunner] = []
         for c in commands:
             self.runners.append(BacktestRunner(c))
-        self.reports: list[BacktestReport] = []
 
     def execute(self):
         for r in self.runners:
             r.execute()
-
-    def generate_reports(self):
-        for r in self.runners:
-            report = r.generate_report()
-            self.reports.append(report)
 
     def get_totals(self):
         assert any(self.reports), "No reports found."
@@ -38,9 +35,11 @@ class BacktestMultiRunner:
 
     def save(self):
         for r in self.reports:
-            if not r.id:
-                continue
             r.save()
+
+    @property
+    def reports(self):
+        return [r.report for r in self.runners]
 
     def get_best_run(self):
         return max([r.total_profit for r in self.reports])
@@ -55,14 +54,29 @@ class BacktestRunner(Runner):
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
         self.min_win_rate = min_win_rate
+        self.report: BacktestReport = None
 
     def execute(self, background=False):
         self.reset()
+        if self.command.hash in BacktestReportBrowser().get_hashes(self.strategy):
+            logger.info(
+                '{}{}: Loading report with same hash...',
+                self.strategy,
+                '-' + self.command.id if self.command.id else '',
+            )
+            self.report = BacktestReport.from_dict(
+                self.strategy,
+                BacktestReportBrowser().get_backtest_by_hash(
+                    self.strategy, self.command.hash
+                ),
+            )
+            return
         if self.command.id:
             Parameter.set_params_file(self.strategy, self.command.id)
         else:
             Parameter.reset_id(self.strategy)
         logger.debug('Running command: "{}"', self.command.command_string)
+        logger.debug(self.command.params)
         logger.info(
             'Backtesting {} with id "{}"', self.strategy, self.command.id or 'null'
         )
@@ -88,13 +102,21 @@ class BacktestRunner(Runner):
     def on_finished(self, _, success, _2):
         if not success:
             self.error = True
+            raise RuntimeError('Backtest failed with errors')
+        else:
+            try:
+                logger.debug('Generating report...')
+                self.report = self.generate_report()
+                logger.debug('Report generated')
+
+            except Exception as e:
+                logger.exception(e)
+                raise
 
     def generate_report(self):
-        return BacktestReport.from_output(
-            self.strategy,
-            self.output,
-            self.min_win_rate,
-            id=self.command.id,
+        json_file = regex.backtest_json.findall(self.output)[0]
+        return BacktestReport(
+            self.strategy, json_file, self.command.hash, id=self.command.id
         )
 
     def sub_process_log(self, text="", out=False, error=False):

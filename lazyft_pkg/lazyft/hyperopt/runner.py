@@ -9,11 +9,16 @@ from rich.live import Live
 from rich.table import Table
 
 from lazyft import logger, paths, hyperopt, runner
-from lazyft.parameters import Parameter
+from lazyft.reports import Parameter
 from lazyft.regex import EPOCH_LINE_REGEX
 
 logger_exec = logger.bind(exec=True)
-logger_exec.add(pathlib.Path(paths.BASE_DIR, 'hyperopt.log'), mode='a')
+logger_exec.add(
+    pathlib.Path(paths.BASE_DIR, 'hyperopt.log'),
+    retention="5 days",
+    rotation='1 MB',
+    format='{message}',
+)
 columns = [
     "Epoch",
     "Trades",
@@ -76,7 +81,11 @@ class HyperoptRunner(runner.Runner):
         self.reset()
         if self.command.id:
             Parameter.set_params_file(self.strategy, self.command.id)
-        logger.info('Running command: "{}"', self.command.command_string)
+        logger.debug(self.command.params)
+        logger.debug('Running command: "{}"', self.command.command_string)
+        logger.info(
+            'Hyperopting {} with id "{}"', self.strategy, self.command.id or 'null'
+        )
         try:
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
@@ -123,15 +132,12 @@ class HyperoptRunner(runner.Runner):
 
     def generate_report(self):
         secondary_config = dict(
-            starting_balance=self.command.command_dict.get(
-                'starting_balance', self.command.config['dry_run_wallet']
-            ),
-            stake_amount=self.command.command_dict.get(
-                'stake_amount', self.command.config['stake_amount']
-            ),
-            max_open_trades=self.command.command_dict.get(
-                'max_open_trades', self.command.config['max_open_trades']
-            ),
+            starting_balance=self.command.params.starting_balance
+            or self.command.config['starting_balance'],
+            stake_amount=self.command.params.stake_amount
+            or self.command.config['stake_amount'],
+            max_open_trades=self.command.params.max_open_trades
+            or self.command.config['max_open_trades'],
         )
         return hyperopt.HyperoptReport(
             self.command.config,

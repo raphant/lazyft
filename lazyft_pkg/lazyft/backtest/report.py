@@ -1,60 +1,33 @@
-import datetime
 import pathlib
-from collections import defaultdict
-from dataclasses import dataclass
 from pprint import pprint
 from typing import Union
 
-import dateutil.parser as parser
 import pandas as pd
 import rapidjson
 
 from lazyft import regex, paths
-from lazyft.pairlist import Pairlist
-from lazyft.reports import BacktestReportBrowser
+from lazyft.models import (
+    BacktestPerformance,
+    BacktestReport,
+    BacktestRepo,
+    BalanceInfo,
+)
 from lazyft.paths import BACKTEST_RESULTS_FILE
 from lazyft.strategy import Strategy
 
 
-class BacktestSaver:
-    @staticmethod
-    def save(performance: 'Performance'):
-        data = BacktestSaver.add_to_existing_data(performance)
-        BACKTEST_RESULTS_FILE.write_text(rapidjson.dumps(data, indent=2))
-        return performance.id
-
-    @staticmethod
-    def add_to_existing_data(performance: 'Performance') -> dict:
-        # grab all data
-        data = defaultdict(list, BacktestSaver.get_existing_data())
-        # add the current params to id in strategy data
-        data[performance.strategy].append(
-            {
-                "id": performance.id,
-                "performance": performance.total,
-                "start_date": performance.start_date,
-                "end_date": performance.end_date,
-                "json_file": performance.result_path,
-                "hash": performance.hash,
-            }
-        )
-        return data
-
-    @staticmethod
-    def get_existing_data() -> dict:
-        if BACKTEST_RESULTS_FILE.exists():
-            return rapidjson.loads(BACKTEST_RESULTS_FILE.read_text())
-        return {}
-
-
-class BacktestReport:
+class BacktestReportExporter:
     def __init__(
         self,
         strategy: str,
         json_file: Union[str],
         hash: str,
+        balance_info: BalanceInfo,
         id: str = None,
         min_win_rate=1,
+        exchange: str = '',
+        pairlist=None,
+        tags=None,
     ) -> None:
         self.strategy = strategy
         self.min_win_rate = min_win_rate
@@ -62,13 +35,26 @@ class BacktestReport:
         self.json_file = pathlib.Path(
             paths.USER_DATA_DIR, 'backtest_results', json_file
         ).resolve()
+        self.exchange = exchange
         self._json_data = None
         self.id = id
+        self.balance_info = balance_info
+        self.pairs = pairlist
+        self.tags = tags
 
-    def save(self):
-        if self.hash in BacktestReportBrowser().get_hashes(self.strategy):
-            return
-        return BacktestSaver.save(self.performance)
+    @property
+    def export(self):
+        return BacktestReport(
+            strategy=self.strategy,
+            id=self.id,
+            performance=self.performance,
+            json_file=self.json_file,
+            hash=self.hash,
+            exchange=self.exchange,
+            balance_info=self.balance_info,
+            pairlist=self.pairs,
+            tags=self.tags,
+        )
 
     @property
     def performance(self):
@@ -76,14 +62,10 @@ class BacktestReport:
         to_dict.pop('key')
         start_date = self.json_data['strategy'][self.strategy]['backtest_start']
         end_date = self.json_data['strategy'][self.strategy]['backtest_end']
-        performance = Performance(
-            total=to_dict,
-            id=self.id,
-            strategy=self.strategy,
+        performance = BacktestPerformance(
+            **to_dict,
             start_date=start_date,
             end_date=end_date,
-            hash=self.hash,
-            result_path=str(self.json_file),
         )
         return performance
 
@@ -165,11 +147,6 @@ class BacktestReport:
         print(f'\n{len(self.winners)} Winner(s) (>{self.min_win_rate}%):')
         pprint(self.winners)
 
-    @classmethod
-    def from_output(cls, strategy: str, output: str, min_win_rate=1, id=''):
-        json_file = regex.backtest_json.findall(output)[0]
-        return cls(strategy, min_win_rate=min_win_rate, json_file=json_file, id=id)
-
     @staticmethod
     def create_dataframe(pairs: list):
         def get_sec(time_str):
@@ -214,14 +191,3 @@ class BacktestReport:
             backtest_data['hash'],
             id=backtest_data.get('id'),
         )
-
-
-@dataclass
-class Performance:
-    total: dict
-    id: str
-    strategy: str
-    start_date: str
-    end_date: str
-    hash: str
-    result_path: str

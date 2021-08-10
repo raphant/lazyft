@@ -38,7 +38,12 @@ class BacktestCommand(Command):
     @property
     def hash(self):
         """To help avoid running the same backtest"""
-        return util.hash(self.command_string + self.id)
+        # sort for consistency
+        return util.hash(
+            ''.join(sorted(self.command_string))
+            + self.id
+            + self.config['exchange']['name']
+        )
 
 
 def new_hyperopt_cli(
@@ -70,10 +75,14 @@ def create_commands(
         backtest_params.secrets_config = Config(backtest_params.secrets_config)
     logger.debug('Using config: {}', backtest_params.config.path)
     commands = []
+    if backtest_params.pairs:
+        backtest_params.config = backtest_params.config.tmp()
+        backtest_params.config.update_whitelist(backtest_params.pairs)
+        backtest_params.config.save()
     if not skip_data_download:
         QuickTools.download_data(
             backtest_params.config,
-            interval=backtest_params.interval,
+            interval=backtest_params.intervals_to_download,
             days=backtest_params.days,
             timerange=backtest_params.timerange,
         )

@@ -5,16 +5,18 @@ from threading import Thread
 
 import pandas as pd
 import sh
+from pydantic import ValidationError
 from rich.live import Live
 from rich.table import Table
 
 from lazyft import logger, paths, hyperopt, runner
+from lazyft.models import BalanceInfo
 from lazyft.reports import Parameter
 from lazyft.regex import EPOCH_LINE_REGEX
 
 logger_exec = logger.bind(exec=True)
 logger_exec.add(
-    pathlib.Path(paths.BASE_DIR, 'hyperopt.log'),
+    pathlib.Path(paths.LOG_DIR, 'hyperopt.log'),
     retention="5 days",
     rotation='1 MB',
     format='{message}',
@@ -35,7 +37,7 @@ class HyperoptManager:
     def __init__(self, commands: list[hyperopt.HyperoptCommand]) -> None:
         self.runners: list[HyperoptRunner] = []
         self.commands = commands
-        self.reports: list[hyperopt.HyperoptReport] = []
+        self.reports: list[hyperopt.HyperoptReportExporter] = []
 
     def create_runners(self):
         for c in self.commands:
@@ -64,7 +66,6 @@ class HyperoptRunner(runner.Runner):
     ) -> None:
         super().__init__(verbose)
         self.command = command
-        self.strategy = command.strategy
         self.verbose = verbose or command.verbose
         self.current_epoch = 0
         self.auto_generate_report = auto_generate_report
@@ -72,7 +73,11 @@ class HyperoptRunner(runner.Runner):
         self._report = None
 
     @property
-    def report(self) -> hyperopt.HyperoptReport:
+    def strategy(self):
+        return self.command.strategy
+
+    @property
+    def report(self) -> hyperopt.HyperoptReportExporter:
         return self._report
 
     def execute(self, background=False):
@@ -131,7 +136,7 @@ class HyperoptRunner(runner.Runner):
                 self._report = self.generate_report()
 
     def generate_report(self):
-        secondary_config = dict(
+        secondary_config = BalanceInfo(
             starting_balance=self.command.params.starting_balance
             or self.command.config['starting_balance'],
             stake_amount=self.command.params.stake_amount
@@ -139,11 +144,13 @@ class HyperoptRunner(runner.Runner):
             max_open_trades=self.command.params.max_open_trades
             or self.command.config['max_open_trades'],
         )
-        return hyperopt.HyperoptReport(
+
+        return hyperopt.HyperoptReportExporter(
             self.command.config,
             self.output,
             self.strategy,
-            secondary_config=secondary_config,
+            balance_info=secondary_config,
+            tags=self.command.params.tags,
         )
 
     def get_results(self):

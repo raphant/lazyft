@@ -7,15 +7,15 @@ from lazyft.config import Config
 
 
 def to_config(config_name: str):
-    if not config_name:
-        return
+    if isinstance(config_name, Config) or not config_name:
+        return config_name
     return Config(config_name)
 
 
 @attr.s
 class GlobalParameters:
     strategies: list[str] = attr.ib()
-    config: Union[Config, str] = attr.ib(converter=to_config, metadata={'arg': '-c'})
+    config: Config = attr.ib(converter=to_config, metadata={'arg': '-c'})
     secrets_config: str = attr.ib(default='', metadata={'arg': '-c'})
 
     @property
@@ -42,6 +42,15 @@ class CommandParameters(GlobalParameters):
     )
     max_open_trades: int = attr.ib(default=5, metadata={'arg': '--max-open-trades'})
     interval: str = attr.ib(default='5m', metadata={'arg': '-i'})
+    inf_interval: str = attr.ib(default='')
+    tags: list[str] = attr.ib(default=list())
+
+    @property
+    def intervals_to_download(self):
+        intervals = self.interval
+        if self.inf_interval:
+            intervals += ' ' + self.inf_interval
+        return intervals
 
 
 @attr.s
@@ -53,6 +62,8 @@ class HyperoptParameters(CommandParameters):
         default='SortinoHyperOptLossDaily', metadata={'arg': '--hyperopt-loss'}
     )
     seed: int = attr.ib(default=None, metadata={'arg': '--random-state'})
+    jobs: int = attr.ib(default=-1, metadata={'arg': '--jobs'})
+    print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
 
 
 command_map = {

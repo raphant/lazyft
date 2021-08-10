@@ -26,10 +26,7 @@ def test_backtest_command_no_id():
     runner.execute()
     if runner.error:
         raise RuntimeError('Error in backtest runner')
-    report = runner.report
-    assert any(report.winners)
-    report.print_winners()
-    print(report.winners_as_pairlist)
+    assert bool(runner.report)
 
 
 def test_backtest_command_with_id():
@@ -38,10 +35,7 @@ def test_backtest_command_with_id():
     runner.execute()
     if runner.error:
         raise RuntimeError('Error in backtest runner')
-    report = runner.report
-    assert any(report.winners)
-    report.print_winners()
-    print(report.winners_as_pairlist)
+    assert bool(runner.report)
 
 
 # def test_backtest_with_generated_pairlist():
@@ -54,7 +48,7 @@ def test_backtest_command_with_id():
 #     report.print_winners()
 
 
-def test_save_backtesting_data():
+def test_save_backtesting_report():
     commands = get_commands(STRATEGY)
     runner = BacktestRunner(commands[0])
     runner.execute()
@@ -68,4 +62,4 @@ def test_multi_runner():
     mr.execute()
     assert any(mr.reports)
     for r in mr.reports:
-        assert isinstance(r, backtest.BacktestReport)
+        assert isinstance(r, backtest.BacktestReportExporter)

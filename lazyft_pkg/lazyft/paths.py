@@ -5,6 +5,7 @@ BASE_DIR = SCRIPT_DIRECTORY.joinpath('../../').resolve()
 
 PARAMS_FILE = BASE_DIR.joinpath("lazy_params.json")
 PARAMS_DIR = BASE_DIR.joinpath('saved_params')
+LOG_DIR = BASE_DIR.joinpath('logs')
 PARAMS_DIR.mkdir(exist_ok=True)
 BACKTEST_RESULTS_FILE = BASE_DIR.joinpath('backtest_results.json')
 CONFIG_DIR = BASE_DIR.joinpath('configs')

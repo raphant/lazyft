@@ -37,9 +37,13 @@ def create_commands(
     Returns:
     """
     """Create `HyperoptCommand` for each strategy in strategies."""
+    if hyperopt_parameters.pairs:
+        hyperopt_parameters.config = hyperopt_parameters.config.tmp()
+        hyperopt_parameters.config.update_whitelist(hyperopt_parameters.pairs)
+        hyperopt_parameters.config.save()
     if not skip_data_download:
         QuickTools.download_data(
-            hyperopt_parameters.config,
+            config=hyperopt_parameters.config,
             interval=hyperopt_parameters.interval,
             days=hyperopt_parameters.days,
             timerange=hyperopt_parameters.timerange,

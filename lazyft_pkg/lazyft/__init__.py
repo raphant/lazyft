@@ -1,10 +1,11 @@
 import dotenv
 from rich.console import Console
-
+from rich import traceback
 from . import paths
 
 dotenv.load_dotenv()
 console = Console(width=200)
+traceback.install(console=console)
 
 
 import sys
@@ -26,7 +27,7 @@ std_sink, file_sink = logger.configure(
             filter=non_exec_only,
         ),
         dict(
-            sink=paths.BASE_DIR.joinpath("logs.log"),
+            sink=paths.LOG_DIR.joinpath("logs.log"),
             backtrace=True,
             diagnose=True,
             level='DEBUG',

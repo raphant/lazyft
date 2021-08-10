@@ -55,11 +55,11 @@ class Strategy:
 
     @staticmethod
     def init_config(config: Config, strategy: str):
-        temp_path = tempfile.mkdtemp()
 
         whitelist = Strategy.get_whitelist(strategy)
         blacklist = Strategy.get_blacklist(strategy)
 
+        temp_path = tempfile.mkdtemp()
         tmp = Path(temp_path, 'config.json')
         tmp_config = Config(config.save(save_as=tmp))
         tmp_config.update_whitelist(whitelist, True)
@@ -70,11 +70,15 @@ class Strategy:
     @staticmethod
     def get_file_name(strategy: str) -> str:
         """Returns the file name of a strategy"""
+        to_dict = Strategy.get_all_strategies()
+        return to_dict.get(strategy)
+
+    @staticmethod
+    def get_all_strategies():
         text = sh.freqtrade(
             'list-strategies', no_color=True, userdir=str(USER_DATA_DIR)
         )
-        to_dict = dict(strategy_files_pattern.findall('\n'.join(text)))
-        return to_dict.get(strategy)
+        return dict(strategy_files_pattern.findall('\n'.join(text)))
 
     @staticmethod
     def create_strategy_params_filepath(strategy: str) -> Path:

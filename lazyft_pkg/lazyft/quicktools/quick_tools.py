@@ -14,6 +14,14 @@ from lazyft.config import Config
 from lazyft.paths import USER_DATA_DIR
 
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
+blacklist = [
+    "^(BNB|BTC|ETH)/.*",
+    "^(.*USD.*|PAX|PAXG|DAI|IDRT|AUD|BRZ|CAD|CHF|EUR|GBP|HKD|JPY|NGN|RUB|SGD|TRY|UAH|VAI|ZAR)/.*",
+    ".*(_PREMIUM|BEAR|BULL|DOWN|HALF|HEDGE|UP|[1235][SL])/.*",
+    ".*(ACM|AFA|ALA|ALL|APL|ASR|ATM|BAR|CAI|CITY|FOR|GAL|GOZ|IBFK|JUV|LEG|LOCK-1|NAVI|NOV|OG|PFL|PSG|ROUSH|STV|TH|TRA|UCH|UFC|YBO)/.*",
+    "^(CVP|NMR)/.*",
+    "^(ATOM)/.*",
+]
 
 
 class QuickTools:
@@ -116,6 +124,7 @@ class QuickTools:
             RangeStabilityFilter=True,
             VolatilityFilter=True,
         )
+        logger.info('Refreshing pairlist...')
         default_kwargs.update(kwargs)
         QuickTools.set_pairlist_settings(config, n_coins, age_limit, **default_kwargs)
         exchange = Exchange(config.data)
@@ -127,6 +136,7 @@ class QuickTools:
             config['pairlists'].clear()
             config['pairlists'].append({"method": "StaticPairList"})
             config.save(save_as)
+        logger.info('Finished refreshing pairlist')
         return manager.whitelist
 
     @staticmethod
@@ -153,12 +163,10 @@ class QuickTools:
                 {"method": "AgeFilter", "min_days_listed": age_limit}
             )
         if filter_kwargs['PriceFilter']:
-            config['pairlists'].append(
-                {"method": "PriceFilter", "low_price_ratio": 0.10, "min_price": 0.001}
-            )
+            config['pairlists'].append({"method": "PriceFilter", "min_price": 0.001})
         if filter_kwargs['SpreadFilter']:
             config['pairlists'].append(
-                {"method": "SpreadFilter", "low_price_ratio": 0.10, "min_price": 0.001}
+                {"method": "SpreadFilter", "max_spread_ratio": 0.005}
             )
         if filter_kwargs['RangeStabilityFilter']:
             config['pairlists'].append(
@@ -166,7 +174,7 @@ class QuickTools:
                     "method": "RangeStabilityFilter",
                     "lookback_days": 3,
                     "min_rate_of_change": 0.1,
-                    "refresh_period": 1800,
+                    "refresh_period": 1440,
                 }
             )
         if filter_kwargs['VolatilityFilter']:
@@ -176,17 +184,13 @@ class QuickTools:
                     "lookback_days": 3,
                     "min_volatility": 0.02,
                     "max_volatility": 0.75,
-                    "refresh_period": 43200,
+                    "refresh_period": 86400,
                 }
             )
 
         # set blacklist
         if config['stake_currency'] in STABLE_COINS:
-            config['exchange']['pair_blacklist'] = [
-                f'{s}/{config["stake_currency"]}'
-                for s in STABLE_COINS
-                if config['stake_currency'] != s
-            ]
+            config['exchange']['pair_blacklist'] = blacklist
 
     @staticmethod
     def download_data(
@@ -234,6 +238,7 @@ class QuickTools:
             _err=print_,
             _out=print_,
         )
+        logger.info('Finished downloading data')
 
 
 class PairListTools:

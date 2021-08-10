@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from typing import Union, Iterable
 
@@ -49,6 +50,11 @@ class Config:
                 path.write_text(self.to_json)
         self._config_path = path
         return path
+
+    def tmp(self):
+        temp_path = tempfile.mkdtemp()
+        tmp = Path(temp_path, 'config.json')
+        return Config(self.save(save_as=tmp))
 
     def update_whitelist(self, whitelist: Iterable[str], append=False) -> list[str]:
         if append:

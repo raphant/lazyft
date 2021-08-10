@@ -2,11 +2,14 @@ import pathlib
 
 from lazyft import paths
 from lazyft.hyperopt.commands import create_commands
-from lazyft.hyperopt.report import HyperoptPerformance, HyperoptReport
+from lazyft.hyperopt.report import HyperoptReportExporter
+from lazyft.models import HyperoptPerformance
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
 from lazyft.parameters import HyperoptParameters
+from rich import traceback
+
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 
@@ -37,11 +40,13 @@ def get_commands(strategy, timerange=None, spaces=None):
 
 
 def test_hyperopt():
+    traceback.install()
+
     commands = get_commands(STRATEGY)
     runner = HyperoptRunner(commands[0])
     runner.execute()
     report = runner.report
-    assert isinstance(report, HyperoptReport)
+    assert isinstance(report, HyperoptReportExporter)
     assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
     assert isinstance(report.params_file, pathlib.Path)

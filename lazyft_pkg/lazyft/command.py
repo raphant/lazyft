@@ -23,15 +23,21 @@ class Command:
 
         args = self.args.copy()
         if not params.timerange:
-            params.timerange, _ = QuickTools.get_timerange(
+            hyperopt_range, backtest_range = QuickTools.get_timerange(
                 self.config, params.days, params.interval
             )
+            if isinstance(self.params, HyperoptParameters):
+                params.timerange = hyperopt_range
+            else:
+                params.timerange = backtest_range
 
         for key, value in params.__dict__.items():
             if not value or key not in command_map or key == 'days':
                 continue
+            if value is True:
+                value = ''
             if key == 'pairs':
                 value = ' '.join(value)
-            arg_line = f"{command_map[key]} {value}"
+            arg_line = f"{command_map[key]} {value}".strip()
             args.append(arg_line)
         return ' '.join(args)

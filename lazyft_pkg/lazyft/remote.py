@@ -97,6 +97,7 @@ class Remote:
             )
         env = RemoteBotInfo(bot_id).env
         env.data['STRATEGY'] = strategy_name
+        env.data['STRATEGY_ID'] = strategy_id
         new_text = '\n'.join([f'{k}={v}' for k, v in env.data.items()]) + '\n'
         env.file.write_text(new_text)
         cls.send_file(bot_id, env.file, '.env')

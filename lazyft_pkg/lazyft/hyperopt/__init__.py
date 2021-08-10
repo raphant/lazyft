@@ -1,6 +1,6 @@
 from .commands import HyperoptCommand, create_commands
 from .report import (
-    HyperoptPerformance,
-    HyperoptReport,
+    HyperoptReportExporter,
 )
+from ..models import HyperoptPerformance
 from .runner import HyperoptRunner

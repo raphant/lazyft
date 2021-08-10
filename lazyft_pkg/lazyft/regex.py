@@ -41,5 +41,7 @@ backtest_json = re.compile(r'(backtest-result[^\"]+)')
 # endregion
 
 # region Misc
-strategy_files_pattern = re.compile(r'(\w+)[^\w]+(\w+.py)')
+strategy_files_pattern = re.compile(
+    r'(\w+)[^\w]+(\w+.py)(?!.+LOAD FAILED)(?!.+DUPLICATE NAME)'
+)
 # endregion

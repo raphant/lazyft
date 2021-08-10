@@ -170,11 +170,6 @@ class Solipsis(IStrategy):
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
-
     """
     Informative Pair Definitions
     """

@@ -219,10 +219,6 @@ class CombinedBinHClucAndMADV9(IStrategy):
     buy_macd_2 = DecimalParameter(
         0.01, 0.09, default=0.03, space='buy', decimals=2, optimize=False, load=True
     )
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     def custom_stoploss(
         self,

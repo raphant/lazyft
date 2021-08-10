@@ -3137,14 +3137,6 @@ class Combined_NFIv7_SMA(IStrategy):
     )
     # endregion
     #############################################################
-    from pathlib import Path
-    import sys
-
-    sys.path.append(str(Path(__file__).parent))
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     def get_ticker_indicator(self):
         return int(self.timeframe[:-1])

@@ -43,10 +43,6 @@ class BollingerBands2(IStrategy):
     stoploss = -0.147
     minimal_roi = {'0': 0.188, '21': 0.095, '35': 0.033, '130': 0}
 
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     # endregion
 

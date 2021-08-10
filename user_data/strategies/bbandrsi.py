@@ -32,15 +32,6 @@ class BbandRsi(IStrategy):
 
     # region Params
     stoploss = -0.25
-
-    from pathlib import Path
-    import sys
-
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
-
     # endregion
 
     # Optimal timeframe for the strategy

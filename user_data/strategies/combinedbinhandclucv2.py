@@ -60,10 +60,6 @@ class CombinedBinHAndClucV2(IStrategy):
     ]
 
     startup_candle_count = 200
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()

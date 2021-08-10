@@ -95,14 +95,6 @@ class MADisplaceV3(IStrategy):
     trailing_stop_positive_offset = 0.025
     trailing_only_offset_is_reached = True
 
-    from pathlib import Path
-
-    sys.path.append(str(Path(__file__).parent))
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
-
     timeframe = '5m'
 
     use_sell_signal = True

@@ -24,14 +24,6 @@ class StudyAdxSmas(IStrategy):
     sell_adx = IntParameter(15, 75, default=25, space='sell', load=True)
 
     stoploss = -0.25
-    from pathlib import Path
-    import sys
-
-    sys.path.append(str(Path(__file__).parent))
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     # Optimal ticker interval for the strategy
     ticker_interval = '5m'

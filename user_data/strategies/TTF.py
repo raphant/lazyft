@@ -52,14 +52,6 @@ class TTF(IStrategy):
     ttf_length = IntParameter(1, 50, default=15)
     ttf_upperTrigger = IntParameter(1, 400, default=100)
     ttf_lowerTrigger = IntParameter(1, -400, default=-100)
-    from pathlib import Path
-    import sys
-
-    sys.path.append(str(Path(__file__).parent))
-    from custom_util import load
-
-    if locals()['__module__'] == locals()['__qualname__']:
-        locals().update(load(locals()['__qualname__']))
 
     # Optional order type mapping
     order_types = {

@@ -4,10 +4,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Union
-
 import sh
 
-from lazyft import logger, paths
+from lazyft import logger, paths, console
 from lazyft.config import Config
 from lazyft.reports import Parameter
 from lazyft.strategy import Strategy
@@ -191,6 +190,16 @@ class Remote:
         )
 
     @classmethod
+    def get_logs(cls, bot_id: int, n_lines: int = 20):
+        project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
+        command = f'cd {project_dir} && docker-compose logs --tail {n_lines}'
+        sh.ssh(
+            [cls.REMOTE_ADDR, ' '.join(command.split())],
+            _err=lambda o: console.print(o.strip()),
+            _out=lambda o: console.print(o.strip()),
+        )
+
+    @classmethod
     def restart_bot(cls, bot_id: int):
         logger.debug('[restart bot] {}', bot_id)
         project_dir = cls.FT_MAIN_FOLDER + cls.FORMATTABLE_BOT_STRING.format(bot_id)
@@ -215,5 +224,6 @@ if __name__ == '__main__':
     # Remote.update_remote_strategy(4, 'BollingerBands2', 'bollingerbands2.py')
     # Remote.send_file(4, constants.BASE_DIR.joinpath('logs.log'), './')
     # Remote.restart_bot(4)
-    Remote.update_remote_strategy(2, 'TestBinH', 'jTc6jx')
+    # Remote.update_remote_strategy(2, 'TestBinH', 'jTc6jx')
     # Remote.delete_strategy_params(2, 'TestBinH')
+    Remote.get_logs(1, 20)

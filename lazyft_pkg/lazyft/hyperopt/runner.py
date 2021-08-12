@@ -5,14 +5,12 @@ from threading import Thread
 
 import pandas as pd
 import sh
-from pydantic import ValidationError
 from rich.live import Live
 from rich.table import Table
 
-from lazyft import logger, paths, hyperopt, runner
+from lazyft import logger, paths, hyperopt, runner, regex
 from lazyft.models import BalanceInfo
 from lazyft.reports import Parameter
-from lazyft.regex import EPOCH_LINE_REGEX
 
 logger_exec = logger.bind(exec=True)
 logger_exec.add(
@@ -154,11 +152,11 @@ class HyperoptRunner(runner.Runner):
         )
 
     def get_results(self):
-        data = EPOCH_LINE_REGEX.findall(self.output)
+        data = regex.EPOCH_LINE_REGEX.findall(self.output)
         return pd.DataFrame(data, columns=columns)
 
     def get_results_as_table(self):
-        data = EPOCH_LINE_REGEX.findall(self.output)
+        data = regex.EPOCH_LINE_REGEX.findall(self.output)
         table = Printer.create_new_table()
         for d in data:
             table.add_row(*d)
@@ -183,7 +181,7 @@ class Extractor(Thread):
                 with self.queue.mutex:
                     self.queue.queue.clear()
                 break
-            search = EPOCH_LINE_REGEX.search(line)
+            search = regex.EPOCH_LINE_REGEX.search(line)
             if not search:
                 continue
             line_info = search.groupdict()

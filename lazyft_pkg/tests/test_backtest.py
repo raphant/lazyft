@@ -1,6 +1,6 @@
 import pathlib
 
-from lazyft import backtest, paths
+from lazyft import backtest, paths, models
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.parameters import CommandParameters
@@ -53,7 +53,7 @@ def test_save_backtesting_report():
     runner = BacktestRunner(commands[0])
     runner.execute()
     assert bool(runner.report)
-    runner.report.save()
+    runner.save()
 
 
 def test_multi_runner():
@@ -62,4 +62,4 @@ def test_multi_runner():
     mr.execute()
     assert any(mr.reports)
     for r in mr.reports:
-        assert isinstance(r, backtest.BacktestReportExporter)
+        assert isinstance(r, models.BacktestReport)

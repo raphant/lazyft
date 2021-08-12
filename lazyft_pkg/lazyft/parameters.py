@@ -62,7 +62,7 @@ class HyperoptParameters(CommandParameters):
         default='SortinoHyperOptLossDaily', metadata={'arg': '--hyperopt-loss'}
     )
     seed: int = attr.ib(default=None, metadata={'arg': '--random-state'})
-    jobs: int = attr.ib(default=-1, metadata={'arg': '--jobs'})
+    jobs: int = attr.ib(default=-1, metadata={'arg': '-j'})
     print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
 
 

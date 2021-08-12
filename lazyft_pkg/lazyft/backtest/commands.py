@@ -68,7 +68,7 @@ def new_hyperopt_cli(
 def create_commands(
     backtest_params: CommandParameters,
     verbose=False,
-    skip_data_download=False,
+    skip_data_download=True,
 ):
     """Create `HyperoptCommand` for each strategy in strategies."""
     if backtest_params.secrets_config:

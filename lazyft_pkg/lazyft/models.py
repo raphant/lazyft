@@ -1,7 +1,11 @@
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Union
 
+import pandas as pd
+import rapidjson
+from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from pydantic import BaseModel, Field
 
 
@@ -12,13 +16,22 @@ class BalanceInfo(BaseModel):
 
 
 class Report(BaseModel):
-    id: str
+    report_id: str = Field(default_factory=uuid.uuid4)
+    param_id: str = Field(alias='id')
+    # id: str
     strategy: str
     exchange: str
     balance_info: Optional[BalanceInfo] = None
     date: datetime = Field(default_factory=datetime.now)
     pairlist: list[str] = []
     tags: list[str] = []
+
+    @property
+    def id(self):
+        return self.param_id
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class BacktestPerformance(BaseModel):
@@ -46,6 +59,21 @@ class BacktestReport(Report):
     performance: BacktestPerformance
     json_file: Path
     hash: str
+
+    @property
+    def trades(self):
+        data = self.backtest_data
+        return pd.DataFrame(data['strategy'][self.strategy]['trades'])
+
+    @property
+    def pair_performance(self):
+        return pd.DataFrame(
+            self.backtest_data['strategy'][self.strategy]['results_per_pair']
+        )
+
+    @property
+    def backtest_data(self):
+        return rapidjson.loads(self.json_file.read_text())
 
 
 class BacktestRepo(BaseModel):
@@ -75,6 +103,7 @@ class HyperoptPerformance(BaseModel):
 class HyperoptReport(Report):
     performance: HyperoptPerformance
     params_file: str
+    hyperopt_file: Path = ''
 
 
 class HyperoptRepo(BaseModel):

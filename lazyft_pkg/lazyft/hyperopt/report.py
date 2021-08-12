@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import rapidjson
 
-from lazyft import logger, util, regex
+from lazyft import logger, util, regex, paths
 from lazyft.config import Config
 from lazyft.models import HyperoptPerformance, BalanceInfo, HyperoptRepo, HyperoptReport
 from lazyft.paths import PARAMS_FILE, STRATEGY_DIR, PARAMS_DIR
@@ -26,6 +28,12 @@ class HyperoptReportExporter:
         if not extracted:
             raise ValueError('Report is empty')
         self.performance = extracted
+        self.hyperopt_file = Path(
+            paths.LAST_HYPEROPT_RESULTS_FILE.parent,
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
+                'latest_hyperopt'
+            ],
+        ).resolve()
 
     def get_params_file(self, strategy):
         strategy_json = Strategy.get_file_name(strategy).rstrip('.py') + '.json'
@@ -54,7 +62,7 @@ class HyperoptReportExporter:
     @property
     def to_model(self):
         return HyperoptReport(
-            id=self.id,
+            param_id=self.id,
             strategy=self.strategy,
             params_file=str(self.params_file),
             performance=self.performance,
@@ -62,6 +70,7 @@ class HyperoptReportExporter:
             balance_info=self.balance_info,
             exchange=self.config['exchange']['name'],
             tags=self.tags,
+            hyperopt_file=self.hyperopt_file,
         )
 
     @staticmethod

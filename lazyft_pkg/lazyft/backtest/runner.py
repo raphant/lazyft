@@ -9,7 +9,7 @@ from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReportExporter
 from lazyft.models import BalanceInfo, BacktestReport, BacktestRepo
 from lazyft.paths import BACKTEST_RESULTS_FILE
-from lazyft.reports import Parameter, BacktestReportBrowser, BacktestRepoExplorer
+from lazyft.reports import Parameter, BacktestRepoExplorer
 from lazyft.runner import Runner
 
 logger_exec = logger.bind(exec=True)
@@ -72,13 +72,13 @@ class BacktestRunner(Runner):
 
     def execute(self, background=False):
         self.reset()
-        if self.command.hash in BacktestRepoExplorer().get_hashes():
+        if self.command.hash in BacktestRepoExplorer.get_hashes():
             logger.info(
                 '{}{}: Loading report with same hash...',
                 self.strategy,
                 '-' + self.command.id if self.command.id else '',
             )
-            self.report = BacktestRepoExplorer().get_using_hash(self.command.hash)
+            self.report = BacktestRepoExplorer.get_using_hash(self.command.hash)
             return
         if self.command.id:
             Parameter.set_params_file(self.strategy, self.command.id)
@@ -152,7 +152,7 @@ class BacktestRunner(Runner):
     def save(self):
         if not self.report:
             raise ValueError('No report to save.')
-        if self.report.hash in BacktestRepoExplorer().get_hashes():
+        if self.report.hash in BacktestRepoExplorer.get_hashes():
             logger.info('Skipping save - hash already exists - {}', self.report.hash)
             return self.report.id
         if not BACKTEST_RESULTS_FILE.exists():

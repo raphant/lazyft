@@ -226,5 +226,8 @@ backtest_results.json
 *.bak
 rabbitmq_data
 remotes.json
-tests/saved_params
-!tests/saved_params/test.json
+lazyft_pkg/tests/saved_params/*
+!lazyft_pkg/tests/saved_params/test.json
+redis_data/
+*.db
+*temp*

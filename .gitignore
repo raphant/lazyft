@@ -224,3 +224,7 @@ configs/*
 saved_params/*.json
 backtest_results.json
 *.bak
+rabbitmq_data
+remotes.json
+tests/saved_params
+!tests/saved_params/test.json

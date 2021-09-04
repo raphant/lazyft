@@ -3,20 +3,23 @@ import pathlib
 from lazyft import backtest, paths, models
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
-from lazyft.parameters import CommandParameters
+from lazyft.command_parameters import BacktestParameters
+from lazyft.config import Config
+from lazyft.quicktools import QuickTools
+from lazyft.reports import get_hyperopt_repo
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
-
-STRATEGY = ['TestBinH-g1As75']
-STRATEGIES = ['TestBinH-g1As75', 'TestBinH']
+paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
+STRATEGY = ['TestStrategy-test']
+STRATEGIES = ['TestStrategy-test', 'TestStrategy']
 config_name = 'config_test.json'
 
-days = 10
+days = 5
 
 
 def get_commands(strategies):
-    cp = CommandParameters(strategies=strategies, config=config_name, days=days)
-    commands = create_commands(cp, verbose=True, skip_data_download=True)
+    cp = BacktestParameters(strategies=strategies, config_path=config_name, days=days)
+    commands = create_commands(cp, verbose=True)
     return commands
 
 
@@ -36,6 +39,7 @@ def test_backtest_command_with_id():
     if runner.error:
         raise RuntimeError('Error in backtest runner')
     assert bool(runner.report)
+    runner.report.json_file.unlink(missing_ok=True)
 
 
 # def test_backtest_with_generated_pairlist():

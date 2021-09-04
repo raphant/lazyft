@@ -7,70 +7,76 @@ from lazyft.models import HyperoptPerformance
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
-from lazyft.parameters import HyperoptParameters
+from lazyft.command_parameters import HyperoptParameters
 from rich import traceback
 
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
+paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 
-STRATEGY = ['TestBinH']
-STRATEGY_WITH_ID = ['TestBinH-fcOsWD']
+STRATEGY = ['TestStrategy']
+STRATEGY_WITH_ID = ['TestStrategy-test']
 config_name = 'config_test.json'
-epochs = 60
-days = 5
+epochs = 1
+days = 2
 min_trades = 1
 
 
-def get_commands(strategy, timerange=None, spaces=None):
+def get_commands(strategy, timerange=None, spaces='roi'):
+    hp = get_parameters(spaces, strategy, timerange)
+    commands = create_commands(
+        hp,
+        verbose=True,
+    )
+    return commands
+
+
+def get_parameters(spaces, strategy, timerange):
     hp = HyperoptParameters(
         strategies=strategy,
-        config=config_name,
+        config_path=config_name,
         epochs=epochs,
         spaces=spaces or 'buy sell',
         min_trades=min_trades,
         days=days,
         timerange=timerange,
     )
-    commands = create_commands(
-        hp,
-        skip_data_download=True,
-        verbose=True,
-    )
-    return commands
+    return hp
 
 
 def test_hyperopt():
-    traceback.install()
-
     commands = get_commands(STRATEGY)
-    runner = HyperoptRunner(commands[0])
+    runner = HyperoptRunner(commands[0], notify=False)
     runner.execute()
-    report = runner.report
+    report = runner.report_exporter
     assert isinstance(report, HyperoptReportExporter)
     assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
     assert isinstance(report.params_file, pathlib.Path)
 
-    print(report.save())
+    print(runner.save())
+    runner.report.params_file.unlink()
 
 
 def test_hyperopt_with_id():
     commands = get_commands(STRATEGY_WITH_ID)
-    runner = HyperoptRunner(commands[0])
+    runner = HyperoptRunner(commands[0], notify=False)
     runner.execute()
-    assert bool(runner.report)
-
-
-def test_build_command():
-    commands = get_commands(STRATEGY, timerange='20210601-')
-    assert len(commands) == len(STRATEGY)
-    print(commands[0].build_command())
+    assert bool(runner.report_exporter)
 
 
 def test_build_command_with_days():
     commands = get_commands(STRATEGY)
     assert any(commands)
     print(commands[0].command_string)
+
+
+# def test_celery():
+#     hp = get_parameters('buy', ['BinH'], '20210801-')
+#     from lazyft.background.tasks import do_hyperopt
+#
+#     res = do_hyperopt.delay(hp.__dict__)
+#     print(res)
 
 
 # def test_param_save():

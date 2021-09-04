@@ -1,11 +1,8 @@
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 import dateutil.parser
-import rapidjson
 import sh
-from arrow import Arrow
 from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
 
@@ -26,63 +23,32 @@ blacklist = [
 
 class QuickTools:
     @staticmethod
-    def get_timerange(config: Config, days: int, interval: str) -> Tuple[str, str]:
+    def get_timerange(days: int) -> Tuple[str, str]:
         """
 
         Args:
-            config: A config file object
             days: How many days to split
-            interval: The ticker interval. Default: 5m
-
-
         Returns: Tuple of a hyperopt timerange and a backtest timerange
 
         Takes N days and splits those days into ranges of 2/3rds for hyperopt and 1/3rd for
         backtesting
         """
-        first_date, last_date = QuickTools.get_first_last_date_of_pair_data(
-            config, interval
+        today = datetime.now()
+        start_day = datetime.now() - timedelta(days=days)
+        hyperopt_days = round(days - days / 3)
+        backtest_days = round(days / 3) - 1
+        hyperopt_start, hyperopt_end = start_day, start_day + timedelta(
+            days=hyperopt_days
         )
-        if days and last_date.shift(days=-days) > first_date:
-            first_date = last_date.shift(days=-days)
-        days_between = abs((first_date - last_date).days)
+        backtest_start, backtest_end = (today - timedelta(days=backtest_days), today)
 
-        two_thirds = round(days_between * (2 / 3))
-        start_range = (first_date, first_date.shift(days=two_thirds))
-        end_range = (start_range[1].shift(days=0), last_date)
-        hyperopt_range = f"{'-'.join([s.format('YYYYMMDD') for s in start_range])}"
-        backtest_range = f"{'-'.join([s.format('YYYYMMDD') for s in end_range])}"
+        hyperopt_range = (
+            f'{hyperopt_start.strftime("%Y%m%d")}-{hyperopt_end.strftime("%Y%m%d")}'
+        )
+        backtest_range = (
+            f'{backtest_start.strftime("%Y%m%d")}-{backtest_end.strftime("%Y%m%d")}'
+        )
         return hyperopt_range, backtest_range
-
-    @staticmethod
-    def get_first_last_date_of_pair_data(
-        config: Config, interval: str
-    ) -> Tuple[Arrow, Arrow]:
-        """
-
-        Args:
-            config: A config file object
-            interval: The ticker interval. Default: 5m
-
-        Returns: The first and last day of data stored as Arrow objects
-
-        """
-        pair: str = config.whitelist[0]
-        pair = pair.replace('/', '_') + f'-{interval}' + '.json'
-        logger.debug('Getting time-ranges using {}', pair)
-        exchange = config['exchange']['name']
-        infile = Path(USER_DATA_DIR, f'data/{exchange}', pair)
-        # load data
-        data = rapidjson.load(infile.open(), number_mode=rapidjson.NM_NATIVE)
-        import pandas as pd
-
-        df = pd.DataFrame(
-            data=data, columns=['open_time', 'open', 'high', 'low', 'close', 'volume']
-        )
-        df['open_time'] = df['open_time'] / 1000
-        last_date = Arrow.fromtimestamp(df.iloc[-1]['open_time'], tzinfo='utc')
-        first_date = Arrow.fromtimestamp(df.iloc[0]['open_time'], tzinfo='utc')
-        return first_date, last_date
 
     # @staticmethod
     # def change_pairs(
@@ -115,9 +81,9 @@ class QuickTools:
 
     @staticmethod
     def refresh_pairlist(
-        config: Config, n_coins: int, save_as=None, age_limit=14, **kwargs
+        config: Config, n_coins: int, save_as=None, age_limit=7, **kwargs
     ) -> list[str]:
-        default_kwargs = dict(
+        filter_kwargs = dict(
             PriceFilter=True,
             AgeFilter=True,
             SpreadFilter=True,
@@ -125,14 +91,14 @@ class QuickTools:
             VolatilityFilter=True,
         )
         logger.info('Refreshing pairlist...')
-        default_kwargs.update(kwargs)
-        QuickTools.set_pairlist_settings(config, n_coins, age_limit, **default_kwargs)
+        filter_kwargs.update(kwargs)
+        QuickTools.set_pairlist_settings(config, n_coins, age_limit, **filter_kwargs)
         exchange = Exchange(config.data)
         manager = PairListManager(exchange, config.data)
         try:
             manager.refresh_pairlist()
         finally:
-            config.update_whitelist(manager.whitelist)
+            config.update_whitelist_and_save(manager.whitelist)
             config['pairlists'].clear()
             config['pairlists'].append({"method": "StaticPairList"})
             config.save(save_as)
@@ -195,15 +161,18 @@ class QuickTools:
     @staticmethod
     def download_data(
         config: Config,
-        interval: Optional[str],
+        interval: str,
         days=None,
+        pairs: list[str] = None,
         timerange: Optional[str] = None,
         verbose=False,
+        secrets_config=None,
     ):
         """
 
         Args:
             config: A config file object
+            pairs: A list of pairs
             interval: The ticker interval. Default: 5m
             days: How many days worth of data to download
             timerange: Optional timerange parameter
@@ -211,13 +180,13 @@ class QuickTools:
 
         Returns: None
         """
-
-        def print_(text: str):
-            if verbose:
-                logger.info(text.strip())
+        log = logger.debug
+        if verbose:
+            log = logger.info
 
         assert days or timerange
-
+        if not pairs:
+            pairs = config.whitelist
         if timerange:
             start, finish = timerange.split('-')
             start_dt = dateutil.parser.parse(start)
@@ -230,13 +199,18 @@ class QuickTools:
             len(config.whitelist),
             interval,
         )
-        command = 'download-data --days {} -c {} -t {} --userdir {}'.format(
-            days, config, interval, USER_DATA_DIR
+        command = 'download-data --days {} -c {} -p {} -t {} --userdir {} {}'.format(
+            days,
+            config,
+            ' '.join(pairs),
+            interval,
+            USER_DATA_DIR,
+            f'-c {secrets_config}' if secrets_config else '',
         ).split()
         sh.freqtrade(
             *command,
-            _err=print_,
-            _out=print_,
+            _err=lambda o: log(o.strip()),
+            _out=lambda o: log(o.strip()),
         )
         logger.info('Finished downloading data')
 

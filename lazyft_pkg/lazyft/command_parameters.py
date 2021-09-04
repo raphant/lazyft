@@ -1,38 +1,48 @@
-from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Union
 
 import attr
 
 from lazyft.config import Config
+from lazyft.models import Strategy
+from lazyft.quicktools import QuickTools
 
 
-def to_config(config_name: str):
-    if isinstance(config_name, Config) or not config_name:
-        return config_name
-    return Config(config_name)
+def format_config(config_name: str):
+    if not config_name:
+        return
+    return str(Config(str(config_name)))
 
 
 @attr.s
 class GlobalParameters:
-    strategies: list[str] = attr.ib()
-    config: Config = attr.ib(converter=to_config, metadata={'arg': '-c'})
-    secrets_config: str = attr.ib(default='', metadata={'arg': '-c'})
+    config_path: str = attr.ib(converter=format_config, metadata={'arg': '-c'})
+    secrets_config: str = attr.ib(
+        default=None, converter=format_config, metadata={'arg': '-c'}
+    )
+    strategies: list[Union[Strategy, str]] = attr.ib(default=None)
+    download_data: bool = attr.ib(default=False)
+
+    @property
+    def config(self) -> Config:
+        return Config(self.config_path)
 
     @property
     def strategy_id_pairs(self) -> list[tuple[str, ...]]:
         pairs = []
         for s in self.strategies:
-            if '-' in s:
-                pairs.append((tuple(s.split('-'))))
+            if isinstance(s, Strategy):
+                pairs.append(s.as_pair())
+            elif '-' in s:
+                pairs.append((tuple(s.split('-', 1))))
             else:
                 pairs.append((s, ''))
         return pairs
 
 
 @attr.s
-class CommandParameters(GlobalParameters):
+class BacktestParameters(GlobalParameters):
+    timerange = attr.ib(default='', metadata={'arg': '--timerange'})
     pairs: list[str] = attr.ib(default=None, metadata={'arg': '--pairs'})
-    timerange: str = attr.ib(default='', metadata={'arg': '--timerange'})
     days: int = attr.ib(default=45, metadata={'arg': '--days'})
     starting_balance: float = attr.ib(
         default=500, metadata={'arg': '--starting-balance'}
@@ -43,7 +53,11 @@ class CommandParameters(GlobalParameters):
     max_open_trades: int = attr.ib(default=5, metadata={'arg': '--max-open-trades'})
     interval: str = attr.ib(default='5m', metadata={'arg': '-i'})
     inf_interval: str = attr.ib(default='')
-    tags: list[str] = attr.ib(default=list())
+    tag: str = attr.ib(default='')
+
+    def __attrs_post_init__(self):
+        if not self.timerange:
+            self.timerange = QuickTools.get_timerange(days=self.days)[1]
 
     @property
     def intervals_to_download(self):
@@ -54,20 +68,22 @@ class CommandParameters(GlobalParameters):
 
 
 @attr.s
-class HyperoptParameters(CommandParameters):
+class HyperoptParameters(BacktestParameters):
     epochs: int = attr.ib(default=500, metadata={'arg': '-e'})
     min_trades: int = attr.ib(default=100, metadata={'arg': '--min-trades'})
     spaces: str = attr.ib(default='default', metadata={'arg': '--spaces'})
     loss: str = attr.ib(
-        default='SortinoHyperOptLossDaily', metadata={'arg': '--hyperopt-loss'}
+        default='WinRatioAndProfitRatioLoss', metadata={'arg': '--hyperopt-loss'}
     )
     seed: int = attr.ib(default=None, metadata={'arg': '--random-state'})
     jobs: int = attr.ib(default=-1, metadata={'arg': '-j'})
     print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
 
+    def __attrs_post_init__(self):
+        if not self.timerange:
+            self.timerange = QuickTools.get_timerange(days=self.days)[0]
+
 
 command_map = {
-    a.name: a.metadata.get('arg')
-    for a in attr.fields(HyperoptParameters) + attr.fields(GlobalParameters)
-    if a.metadata
+    a.name: a.metadata.get('arg') for a in attr.fields(HyperoptParameters) if a.metadata
 }

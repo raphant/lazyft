@@ -5,15 +5,12 @@ from typing import Union
 import pandas as pd
 import rapidjson
 
-from lazyft import regex, paths
+from lazyft import paths
 from lazyft.models import (
     BacktestPerformance,
     BacktestReport,
-    BacktestRepo,
-    BalanceInfo,
 )
-from lazyft.paths import BACKTEST_RESULTS_FILE
-from lazyft.strategy import Strategy
+from lazyft.strategy import StrategyTools
 
 
 class BacktestReportExporter:
@@ -22,12 +19,12 @@ class BacktestReportExporter:
         strategy: str,
         json_file: Union[str],
         hash: str,
-        balance_info: BalanceInfo,
+        balance_info: dict,
         id: str = None,
         min_win_rate=1,
         exchange: str = '',
         pairlist=None,
-        tags=None,
+        tag=None,
     ) -> None:
         self.strategy = strategy
         self.min_win_rate = min_win_rate
@@ -40,20 +37,20 @@ class BacktestReportExporter:
         self.id = id
         self.balance_info = balance_info
         self.pairs = pairlist
-        self.tags = tags
+        self.tag = tag
 
     @property
     def export(self):
         return BacktestReport(
             strategy=self.strategy,
-            id=self.id,
+            param_id=self.id,
             performance=self.performance,
             json_file=self.json_file,
             hash=self.hash,
             exchange=self.exchange,
             balance_info=self.balance_info,
             pairlist=self.pairs,
-            tags=self.tags,
+            tag=self.tag,
         )
 
     @property
@@ -70,10 +67,14 @@ class BacktestReportExporter:
         return performance
 
     def add_super_earners_to_whitelist(self, pct: float):
-        Strategy.add_pairs_to_whitelist(self.strategy, *list(self.get_winners(pct).key))
+        StrategyTools.add_pairs_to_whitelist(
+            self.strategy, *list(self.get_winners(pct).key)
+        )
 
     def add_super_losers_to_blacklist(self, pct: float):
-        Strategy.add_pairs_to_blacklist(self.strategy, *list(self.get_losers(pct).key))
+        StrategyTools.add_pairs_to_blacklist(
+            self.strategy, *list(self.get_losers(pct).key)
+        )
 
     def get_losers(self, pct: float):
         df = self.df.loc[self.df['profit_total_pct'] < pct].copy()
@@ -182,12 +183,3 @@ class BacktestReportExporter:
         if not self._json_data:
             self._json_data = rapidjson.loads(self.json_file.read_text())
         return self._json_data
-
-    @classmethod
-    def from_dict(cls, strategy, backtest_data: dict):
-        return cls(
-            strategy,
-            backtest_data['json_file'],
-            backtest_data['hash'],
-            id=backtest_data.get('id'),
-        )

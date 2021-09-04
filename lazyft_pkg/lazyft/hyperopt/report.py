@@ -1,12 +1,13 @@
+import uuid
 from pathlib import Path
 
 import rapidjson
 
-from lazyft import logger, util, regex, paths
+from lazyft import logger, regex, paths
 from lazyft.config import Config
-from lazyft.models import HyperoptPerformance, BalanceInfo, HyperoptRepo, HyperoptReport
-from lazyft.paths import PARAMS_FILE, STRATEGY_DIR, PARAMS_DIR
-from lazyft.strategy import Strategy
+from lazyft.models import HyperoptPerformance, HyperoptRepo, HyperoptReport
+from lazyft.paths import PARAMS_FILE
+from lazyft.util import ParameterTools
 
 
 class HyperoptReportExporter:
@@ -15,15 +16,15 @@ class HyperoptReportExporter:
         config: Config,
         output: str,
         strategy: str,
-        balance_info: BalanceInfo = None,
-        tags: list[str] = None,
+        balance_info: dict = None,
+        tag: str = None,
     ) -> None:
-        self.id = util.rand_token(8)
+        self.id = str(uuid.uuid4())
         self.strategy = strategy
         self.config = config
         self.balance_info = balance_info
-        self.tags = tags
-        self.params_file = self.get_params_file(strategy)
+        self.tag = tag
+        self.params_file = ParameterTools.save_params_file(strategy, self.id)
         extracted = self._extract_output(output)
         if not extracted:
             raise ValueError('Report is empty')
@@ -35,23 +36,17 @@ class HyperoptReportExporter:
             ],
         ).resolve()
 
-    def get_params_file(self, strategy):
-        strategy_json = Strategy.get_file_name(strategy).rstrip('.py') + '.json'
-        strat_file = STRATEGY_DIR.joinpath(strategy_json)
-        moved = strat_file.replace(PARAMS_DIR.joinpath(self.id + '.json'))
-        strat_file.unlink(missing_ok=True)
-        return moved
-
-    def save(self) -> str:
+    def save(self) -> HyperoptReport:
         """
         Returns: ID of report
         """
         if not PARAMS_FILE.exists():
             PARAMS_FILE.write_text('{}')
         repo = HyperoptRepo.parse_file(PARAMS_FILE)
-        repo.reports.append(self.to_model)
+        model = self.to_model
+        repo.reports.append(model)
         PARAMS_FILE.write_text(repo.json())
-        return self.id
+        return model
 
     @classmethod
     def get_existing_data(cls) -> dict:
@@ -64,12 +59,12 @@ class HyperoptReportExporter:
         return HyperoptReport(
             param_id=self.id,
             strategy=self.strategy,
-            params_file=str(self.params_file),
+            params_file=self.params_file,
             performance=self.performance,
             pairlist=self.config.whitelist,
             balance_info=self.balance_info,
             exchange=self.config['exchange']['name'],
-            tags=self.tags,
+            tag=self.tag,
             hyperopt_file=self.hyperopt_file,
         )
 

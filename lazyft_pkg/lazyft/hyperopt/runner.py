@@ -1,4 +1,3 @@
-import pathlib
 import time
 from queue import Queue
 from threading import Thread
@@ -9,16 +8,12 @@ from rich.live import Live
 from rich.table import Table
 
 from lazyft import logger, paths, hyperopt, runner, regex
-from lazyft.models import BalanceInfo
-from lazyft.reports import Parameter
+from lazyft.hyperopt import HyperoptReportExporter
+from lazyft.models import HyperoptReport
+from lazyft.notify import notify
+from lazyft.util import ParameterTools
 
-logger_exec = logger.bind(exec=True)
-logger_exec.add(
-    pathlib.Path(paths.LOG_DIR, 'hyperopt.log'),
-    retention="5 days",
-    rotation='1 MB',
-    format='{message}',
-)
+logger_exec = logger.bind(type='hyperopt')
 columns = [
     "Epoch",
     "Trades",
@@ -59,23 +54,25 @@ class HyperoptRunner(runner.Runner):
     def __init__(
         self,
         command: hyperopt.HyperoptCommand,
-        auto_generate_report=True,
         verbose: bool = False,
+        notify: bool = True,
     ) -> None:
         super().__init__(verbose)
         self.command = command
         self.verbose = verbose or command.verbose
         self.current_epoch = 0
-        self.auto_generate_report = auto_generate_report
+        self.notify = notify
 
         self._report = None
+        self.report_exporter: HyperoptReportExporter = None
+        self.start_time = None
 
     @property
     def strategy(self):
         return self.command.strategy
 
     @property
-    def report(self) -> hyperopt.HyperoptReportExporter:
+    def report(self) -> HyperoptReport:
         return self._report
 
     def execute(self, background=False):
@@ -83,12 +80,16 @@ class HyperoptRunner(runner.Runner):
             raise RuntimeError('Hyperopt is already running')
         self.reset()
         if self.command.id:
-            Parameter.set_params_file(self.strategy, self.command.id)
+            ParameterTools.set_params_file(self.strategy, self.command.id)
+        else:
+            ParameterTools.remove_params_file(self.strategy)
         logger.debug(self.command.params)
         logger.debug('Running command: "{}"', self.command.command_string)
+        logger_exec.info('Running command: "{}"', self.command.command_string)
         logger.info(
             'Hyperopting {} with id "{}"', self.strategy, self.command.id or 'null'
         )
+        self.start_time = time.time()
         try:
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
@@ -121,20 +122,44 @@ class HyperoptRunner(runner.Runner):
             logger.error('\n'.join(self.error_list[-5:]))
 
     def on_finished(self, _, success, _2):
-        logger.info("Finished")
         self.running = False
-
         if not success:
+            logger.error("Finished with errors")
             self.error = True
             logger.error(self.output)
+            if self.notify:
+                notify('Hyperopt Failed', 'Hyperopt finished with errors')
+
         else:
-            if 'epochs saved' in self.output_list[-1]:
-                del self.output_list[-1]
-            if self.auto_generate_report:
-                self._report = self.generate_report()
+            logger.success("Finished successfully.")
+            if self.notify and not self.manually_stopped:
+                notify(
+                    'Hyperopt Finished',
+                    'Hyperopt finished successfully. Elapsed time: %sminutes '
+                    % ((time.time() - self.start_time) // 60),
+                )
+            self.report_exporter = self.generate_report()
+
+    def save(self):
+        model = self.report_exporter.save()
+        self._report = model
+        return model.report_id
+
+    # @staticmethod
+    # def get_report_backtest(idx=0):
+    #     hyperopt_file = pathlib.Path(
+    #         paths.LAST_HYPEROPT_RESULTS_FILE.parent,
+    #         rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
+    #             'latest_hyperopt'
+    #         ],
+    #     ).resolve()
+    #     results = HyperoptTools.load_previous_results(hyperopt_file)
+    #     result = results[idx]
+    #
+    #     return pd.DataFrame(result['results_metrics']['results_per_pair'])
 
     def generate_report(self):
-        secondary_config = BalanceInfo(
+        secondary_config = dict(
             starting_balance=self.command.params.starting_balance
             or self.command.config['starting_balance'],
             stake_amount=self.command.params.stake_amount
@@ -148,7 +173,7 @@ class HyperoptRunner(runner.Runner):
             self.output,
             self.strategy,
             balance_info=secondary_config,
-            tags=self.command.params.tags,
+            tag=self.command.params.tag,
         )
 
     def get_results(self):
@@ -196,6 +221,6 @@ class Printer:
             show_header=True,
             header_style="bold magenta",
             show_lines=True,
-            expand=True
+            expand=True,
         )
         return table

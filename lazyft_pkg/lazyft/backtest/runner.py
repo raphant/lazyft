@@ -1,4 +1,7 @@
-import pathlib
+import uuid
+from typing import Optional
+
+import uuid
 from typing import Optional
 
 import pandas as pd
@@ -7,26 +10,29 @@ import sh
 from lazyft import logger, paths, regex
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReportExporter
-from lazyft.models import BalanceInfo, BacktestReport, BacktestRepo
+from lazyft.models import BacktestReport, BacktestRepo
 from lazyft.paths import BACKTEST_RESULTS_FILE
-from lazyft.reports import Parameter, BacktestRepoExplorer
+from lazyft.reports import get_backtest_repo
 from lazyft.runner import Runner
+from lazyft.util import ParameterTools
 
-logger_exec = logger.bind(exec=True)
-logger_exec.add(
-    pathlib.Path(paths.LOG_DIR, 'backtest.log'),
-    retention="5 days",
-    rotation='1 MB',
-    format='{message}',
-)
+logger_exec = logger.bind(type='backtest')
 
 
 class BacktestMultiRunner:
     def __init__(self, commands: list[BacktestCommand]) -> None:
         self.runners: list[BacktestRunner] = []
+        download_list = []
         for c in commands:
+            if (
+                c.params.download_data
+                and (sort := ' '.join(sorted(c.pairs))) not in download_list
+            ):
+                download_list.append(sort)
+                c.download_data()
             self.runners.append(BacktestRunner(c))
         self.errors = []
+        self.session_id = str(uuid.uuid4())
 
     def execute(self):
         self.errors.clear()
@@ -48,6 +54,7 @@ class BacktestMultiRunner:
 
     def save(self):
         for r in [r for r in self.runners if r.report]:
+            r.report.session_id = self.session_id
             r.save()
 
     @property
@@ -70,21 +77,23 @@ class BacktestRunner(Runner):
         self.report: Optional[BacktestReport] = None
         self.exception = None
 
+    @logger.catch(reraise=True)
     def execute(self, background=False):
         self.reset()
-        if self.command.hash in BacktestRepoExplorer.get_hashes():
+        if self.command.hash in get_backtest_repo().get_hashes():
             logger.info(
                 '{}{}: Loading report with same hash...',
                 self.strategy,
                 '-' + self.command.id if self.command.id else '',
             )
-            self.report = BacktestRepoExplorer.get_using_hash(self.command.hash)
+            self.report = get_backtest_repo().get_using_hash(self.command.hash)
             return
         if self.command.id:
-            Parameter.set_params_file(self.strategy, self.command.id)
+            ParameterTools.set_params_file(self.strategy, self.command.id)
         else:
-            Parameter.reset_id(self.strategy)
+            ParameterTools.remove_params_file(self.strategy)
         logger.debug('Running command: "{}"', self.command.command_string)
+        logger_exec.info('Running command: "{}"', self.command.command_string)
         logger.debug(self.command.params)
         logger.info(
             'Backtesting {} with id "{}" - {}',
@@ -116,6 +125,7 @@ class BacktestRunner(Runner):
             self.error = True
             logger.error('{} backtest failed with errors', self.strategy)
         else:
+            logger.success('{} backtest completed successfully', self.strategy)
             try:
                 logger.debug('Generating report...')
                 self.report = self.generate_report()
@@ -126,7 +136,7 @@ class BacktestRunner(Runner):
 
     def generate_report(self):
         json_file = regex.backtest_json.findall(self.output)[0]
-        balance_info = BalanceInfo(
+        balance_info = dict(
             starting_balance=self.command.params.starting_balance
             or self.command.config['starting_balance'],
             stake_amount=self.command.params.stake_amount
@@ -142,7 +152,7 @@ class BacktestRunner(Runner):
             exchange=self.command.config['exchange']['name'],
             balance_info=balance_info,
             pairlist=self.command.pairs,
-            tags=self.command.params.tags,
+            tag=self.command.params.tag,
         ).export
 
     def sub_process_log(self, text="", out=False, error=False):
@@ -152,7 +162,7 @@ class BacktestRunner(Runner):
     def save(self):
         if not self.report:
             raise ValueError('No report to save.')
-        if self.report.hash in BacktestRepoExplorer.get_hashes():
+        if self.report.hash in get_backtest_repo().get_hashes():
             logger.info('Skipping save - hash already exists - {}', self.report.hash)
             return self.report.id
         if not BACKTEST_RESULTS_FILE.exists():

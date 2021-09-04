@@ -1,7 +1,6 @@
-from lazyft import logger
 from lazyft.command import Command
-from lazyft.pairlist import Pairlist
-from lazyft.parameters import HyperoptParameters
+from lazyft.command_parameters import HyperoptParameters
+from lazyft.pairlist import load_pairlist_from_id
 from lazyft.quicktools import QuickTools
 
 
@@ -9,23 +8,24 @@ class HyperoptCommand(Command):
     def __init__(
         self,
         strategy: str,
-        hyperopt_parameters: HyperoptParameters,
+        params: HyperoptParameters,
         id=None,
         verbose: bool = False,
     ) -> None:
-        super().__init__(strategy=strategy, params=hyperopt_parameters, id=id)
+        super().__init__(strategy=strategy, params=params, id=id)
         self.verbose = verbose
-        self.secret_config = hyperopt_parameters.secrets_config
-        self.pairs = hyperopt_parameters.pairs
+        self.secret_config = params.secrets_config
+        self.pairs = params.pairs
         if id and not self.pairs:
             # load pairs from ID if pairs not already provided.
-            self.pairs = Pairlist.load_from_id(strategy=strategy, id=id)
+            self.pairs = load_pairlist_from_id(id=id)
+        if params.download_data:
+            self.download_data()
 
 
 def create_commands(
     hyperopt_parameters: HyperoptParameters,
     verbose=False,
-    skip_data_download=False,
 ):
     """
 
@@ -33,27 +33,17 @@ def create_commands(
         hyperopt_parameters:
         pairs:
         verbose:
-        skip_data_download:
     Returns:
     """
     """Create `HyperoptCommand` for each strategy in strategies."""
     if hyperopt_parameters.pairs:
-        hyperopt_parameters.config = hyperopt_parameters.config.tmp()
-        hyperopt_parameters.config.update_whitelist(hyperopt_parameters.pairs)
-        hyperopt_parameters.config.save()
-    if not skip_data_download:
-        QuickTools.download_data(
-            config=hyperopt_parameters.config,
-            interval=hyperopt_parameters.interval,
-            days=hyperopt_parameters.days,
-            timerange=hyperopt_parameters.timerange,
-            verbose=verbose,
-        )
+        hyperopt_parameters.config_path = str(hyperopt_parameters.config.tmp())
+        hyperopt_parameters.config.update_whitelist_and_save(hyperopt_parameters.pairs)
     commands = []
     for s, id in hyperopt_parameters.strategy_id_pairs:
         command = HyperoptCommand(
             s,
-            hyperopt_parameters=hyperopt_parameters,
+            params=hyperopt_parameters,
             verbose=verbose,
             id=id,
         )

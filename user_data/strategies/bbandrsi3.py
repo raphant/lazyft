@@ -71,6 +71,20 @@ class BbandRsi3(IStrategy):
 
         return -0.99
 
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        return super().confirm_trade_entry(
+            pair, order_type, amount, rate, time_in_force, current_time, **kwargs
+        )
+
     # def informative_pairs(self):
     #     # add all whitelisted pairs on informative timeframe
     #     pairs = self.dp.current_whitelist()

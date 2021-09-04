@@ -100,7 +100,7 @@ else:
 ###########################################################################################################
 
 
-class NostalgiaForInfinityNext(IStrategy):
+class NostalgiaForInfinityNext2(IStrategy):
     INTERFACE_VERSION = 2
 
     # ROI table:
@@ -242,7 +242,7 @@ class NostalgiaForInfinityNext(IStrategy):
             "ema_fast": False,
             "ema_fast_len": "26",
             "ema_slow": True,
-            "ema_slow_len": "100",
+            "ema_slow_len": "12",
             "close_above_ema_fast": False,
             "close_above_ema_fast_len": "200",
             "close_above_ema_slow": False,
@@ -251,8 +251,8 @@ class NostalgiaForInfinityNext(IStrategy):
             "sma200_rising_val": "28",
             "sma200_1h_rising": False,
             "sma200_1h_rising_val": "50",
-            "safe_dips": False,
-            "safe_dips_type": "80",
+            "safe_dips": True,
+            "safe_dips_type": "130",
             "safe_pump": False,
             "safe_pump_type": "70",
             "safe_pump_period": "24",
@@ -822,9 +822,9 @@ class NostalgiaForInfinityNext(IStrategy):
             "ema_fast": False,
             "ema_fast_len": "50",
             "ema_slow": True,
-            "ema_slow_len": "100",
+            "ema_slow_len": "12",
             "close_above_ema_fast": False,
-            "close_above_ema_fast_len": "50",
+            "close_above_ema_fast_len": "200",
             "close_above_ema_slow": False,
             "close_above_ema_slow_len": "200",
             "sma200_rising": False,
@@ -832,7 +832,7 @@ class NostalgiaForInfinityNext(IStrategy):
             "sma200_1h_rising": False,
             "sma200_1h_rising_val": "50",
             "safe_dips": False,
-            "safe_dips_type": "50",
+            "safe_dips_type": "130",
             "safe_pump": False,
             "safe_pump_type": "110",
             "safe_pump_period": "36",
@@ -1159,7 +1159,7 @@ class NostalgiaForInfinityNext(IStrategy):
             "btc_1h_not_downtrend": True,
         },
     }
-    # region dips
+
     # Strict dips - level 10
     buy_dip_threshold_10_1 = 0.015
     buy_dip_threshold_10_2 = 0.1
@@ -1225,8 +1225,7 @@ class NostalgiaForInfinityNext(IStrategy):
     buy_dip_threshold_130_2 = 0.3
     buy_dip_threshold_130_3 = 0.48
     buy_dip_threshold_130_4 = 0.9
-    # endregion
-    # region pump and dumps
+
     # 24 hours - level 10
     buy_pump_pull_threshold_10_24 = 2.2
     buy_pump_threshold_10_24 = 0.42
@@ -1364,22 +1363,21 @@ class NostalgiaForInfinityNext(IStrategy):
 
     # 5 hours - level 60
     buy_dump_protection_60_5 = 0.74
-    # endregion
 
-    # buy vars
-    buy_min_inc_1 = 0.022
-    buy_rsi_1h_min_1 = 20.0
-    buy_rsi_1h_max_1 = 84.0
-    buy_rsi_1 = 36.0
-    buy_mfi_1 = 50.0
-    buy_cti_1 = -0.92
+    buy_1_min_inc = 0.022
+    buy_1_rsi_1h_min = 20.0
+    buy_1_rsi_1h_max = 84.0
+    buy_1_rsi = 36.0
+    buy_1_mfi = 50.0
+    buy_1_cti = -0.92
+    buy_1_ma_low_offset = 0.945
 
-    buy_rsi_1h_min_2 = 32.0
-    buy_rsi_1h_max_2 = 84.0
-    buy_rsi_1h_diff_2 = 38.8
-    buy_mfi_2 = 49.0
-    buy_bb_offset_2 = 0.983
-    buy_volume_2 = 1.6
+    buy_2_rsi_1h_diff = 36.0
+    buy_2_mfi = 49.0
+    buy_2_bb_offset = 0.985
+    buy_2_cti = -0.62
+    buy_2_cti_1h = 0.9
+    buy_2_volume = 1.6
 
     buy_bb40_bbdelta_close_3 = 0.045
     buy_bb40_closedelta_close_3 = 0.023
@@ -1521,10 +1519,10 @@ class NostalgiaForInfinityNext(IStrategy):
     buy_29_ewo = -4.0
     buy_29_cti = -0.95
 
-    buy_30_ma_offset = 0.97
+    buy_30_ma_offset = 0.945
     buy_30_ewo = 7.4
     buy_30_rsi = 40.0
-    buy_30_cti = -0.88
+    buy_30_cti = -0.87
 
     buy_31_ma_offset = 0.962
     buy_31_ewo = -10.4
@@ -1612,10 +1610,9 @@ class NostalgiaForInfinityNext(IStrategy):
     buy_46_bb_offset = 0.992
     buy_46_ma_offset_low = 0.9
     buy_46_cti_1h_max = 0.85
-    # endregion
 
-    # region sell vars
     # Sell
+
     sell_condition_1_enable = True
     sell_condition_2_enable = True
     sell_condition_3_enable = True
@@ -1702,10 +1699,10 @@ class NostalgiaForInfinityNext(IStrategy):
     sell_custom_rsi_over_bear_6 = 78.0
     sell_custom_profit_bear_7 = 0.08
     sell_custom_rsi_under_bear_7 = 54.0
-    sell_custom_rsi_over_bear_7 = 80.0
+    sell_custom_rsi_over_bear_7 = 77.0
     sell_custom_profit_bear_8 = 0.09
-    sell_custom_rsi_under_bear_8 = 52.0
-    sell_custom_rsi_over_bear_8 = 82.0
+    sell_custom_rsi_under_bear_8 = 55.0
+    sell_custom_rsi_over_bear_8 = 75.5
     sell_custom_profit_bear_9 = 0.1
     sell_custom_rsi_under_bear_9 = 46.0
     sell_custom_profit_bear_10 = 0.12
@@ -1910,7 +1907,7 @@ class NostalgiaForInfinityNext(IStrategy):
     sell_custom_long_profit_min_1 = 0.03
     sell_custom_long_profit_max_1 = 0.04
     sell_custom_long_duration_min_1 = 900
-    # endregion
+
     # Profit Target Signal
     profit_target_1_enable = False
     #############################################################
@@ -2033,9 +2030,6 @@ class NostalgiaForInfinityNext(IStrategy):
         (e.g. gather some remote resource for comparison)
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         """
-        if self.config["runmode"].value not in ("live", "dry_run"):
-            return super().bot_loop_start(**kwargs)
-
         if self.target_profit_cache is None:
             self.target_profit_cache = Cache(
                 self.config["user_data_dir"] / "data-nfi-profit_target_by_pair.json"
@@ -2043,6 +2037,9 @@ class NostalgiaForInfinityNext(IStrategy):
 
         # If the cached data hasn't changed, it's a no-op
         self.target_profit_cache.save()
+
+        if self.config["runmode"].value not in ("live", "dry_run"):
+            return super().bot_loop_start(**kwargs)
 
         if self.holdSupportEnabled:
             self.load_hold_trades_config()
@@ -4699,17 +4696,21 @@ class NostalgiaForInfinityNext(IStrategy):
                             (dataframe['close'] - dataframe['open'].rolling(36).min())
                             / dataframe['open'].rolling(36).min()
                         )
-                        > self.buy_min_inc_1
+                        > self.buy_1_min_inc
                     )
                     item_buy_logic.append(
-                        dataframe['rsi_14_1h'] > self.buy_rsi_1h_min_1
+                        dataframe['rsi_14_1h'] > self.buy_1_rsi_1h_min
                     )
                     item_buy_logic.append(
-                        dataframe['rsi_14_1h'] < self.buy_rsi_1h_max_1
+                        dataframe['rsi_14_1h'] < self.buy_1_rsi_1h_max
                     )
-                    item_buy_logic.append(dataframe['rsi_14'] < self.buy_rsi_1)
-                    item_buy_logic.append(dataframe['mfi'] < self.buy_mfi_1)
-                    item_buy_logic.append(dataframe['cti'] < self.buy_cti_1)
+                    item_buy_logic.append(dataframe['rsi_14'] < self.buy_1_rsi)
+                    item_buy_logic.append(dataframe['mfi'] < self.buy_1_mfi)
+                    item_buy_logic.append(dataframe['cti'] < self.buy_1_cti)
+                    item_buy_logic.append(
+                        dataframe['close']
+                        > dataframe['sma_30'] * self.buy_1_ma_low_offset
+                    )
 
                 # Condition #2
                 elif index == 2:
@@ -4718,17 +4719,19 @@ class NostalgiaForInfinityNext(IStrategy):
                     # Logic
                     item_buy_logic.append(
                         dataframe['rsi_14']
-                        < dataframe['rsi_14_1h'] - self.buy_rsi_1h_diff_2
+                        < dataframe['rsi_14_1h'] - self.buy_2_rsi_1h_diff
                     )
-                    item_buy_logic.append(dataframe['mfi'] < self.buy_mfi_2)
+                    item_buy_logic.append(dataframe['mfi'] < self.buy_2_mfi)
                     item_buy_logic.append(
                         dataframe['close']
-                        < (dataframe['bb20_2_low'] * self.buy_bb_offset_2)
+                        < (dataframe['bb20_2_low'] * self.buy_2_bb_offset)
                     )
                     item_buy_logic.append(
                         dataframe['volume']
-                        < (dataframe['volume_mean_4'] * self.buy_volume_2)
+                        < (dataframe['volume_mean_4'] * self.buy_2_volume)
                     )
+                    item_buy_logic.append(dataframe['cti'] < self.buy_2_cti)
+                    item_buy_logic.append(dataframe['cti_1h'] < self.buy_2_cti_1h)
 
                 # Condition #3
                 elif index == 3:

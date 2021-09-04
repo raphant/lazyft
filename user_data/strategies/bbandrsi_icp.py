@@ -19,7 +19,7 @@ import custom_indicators as cta
 # --------------------------------
 
 
-class BbandRsi(IStrategy):
+class BbandRsi_ICP(IStrategy):
     """
     author@: Gert Wohlgemuth
 
@@ -47,6 +47,29 @@ class BbandRsi(IStrategy):
     use_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
+    coin_profiles = {
+        'VRA/USDT': {
+            'buy': {'buy_rsi': 41},
+            'sell': {'sell_rsi': 50},
+            'protection': {},
+            'roi': {'0': 0.247, '15': 0.05499999999999999, '75': 0.036, '187': 0},
+            'stoploss': {'stoploss': -0.262},
+        },
+        'HTR/USDT': {
+            "buy": {"buy_rsi": 39},
+            "sell": {"sell_rsi": 50},
+            "protection": {},
+            "roi": {"0": 0.08499999999999999, "38": 0.033, "98": 0.018, "186": 0},
+            "stoploss": {"stoploss": -0.246},
+        },
+        'KSM/USDT': {
+            'buy': {'buy_rsi': 41},
+            'sell': {'sell_rsi': 53},
+            'protection': {},
+            'roi': {'0': 0.191, '31': 0.024, '90': 0.011, '205': 0},
+            'stoploss': {'stoploss': -0.216},
+        },
+    }
 
     def custom_stoploss(
         self,
@@ -57,13 +80,9 @@ class BbandRsi(IStrategy):
         current_profit: float,
         **kwargs,
     ) -> float:
-        if (
-            current_profit < -0.04
-            and current_time - timedelta(minutes=35) > trade.open_date_utc
-        ):
-            return -0.01
-
-        return -0.99
+        if pair not in self.coin_profiles:
+            return self.stoploss
+        return self.coin_profiles[pair]['stoploss']['stoploss']
 
     def custom_sell(
         self,
@@ -81,7 +100,28 @@ class BbandRsi(IStrategy):
     def min_roi_reached(
         self, trade: Trade, current_profit: float, current_time: datetime
     ) -> bool:
-        return super().min_roi_reached(trade, current_profit, current_time)
+        trade_dur = int(
+            (current_time.timestamp() - trade.open_date_utc.timestamp()) // 60
+        )
+        _, roi = self.min_roi_reached_entry(trade_dur, trade.pair)
+        if roi is None:
+            return False
+        else:
+            return current_profit > roi
+
+    # noinspection PyMethodOverriding
+    def min_roi_reached_entry(
+        self, trade_dur: int, pair: str
+    ) -> Tuple[Optional[int], Optional[float]]:
+        roi_list = list(
+            filter(
+                lambda x: int(x) <= trade_dur, self.coin_profiles[pair]['roi'].keys()
+            )
+        )
+        if not roi_list:
+            return None, None
+        roi_entry = max(roi_list)
+        return roi_entry, self.coin_profiles[pair]['roi'][roi_entry]
 
     # def informative_pairs(self):
     #     # add all whitelisted pairs on informative timeframe
@@ -122,7 +162,10 @@ class BbandRsi(IStrategy):
 
         conditions.append(
             (
-                (dataframe['rsi'] < self.buy_rsi.value)
+                (
+                    dataframe['rsi']
+                    < self.coin_profiles[metadata['pair']]['buy']['buy_rsi']
+                )
                 & (dataframe['close'] < dataframe['bb_lowerband'])
             )
         )
@@ -133,5 +176,11 @@ class BbandRsi(IStrategy):
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[(dataframe['rsi'] > self.sell_rsi.value), 'sell'] = 1
+        dataframe.loc[
+            (
+                dataframe['rsi']
+                > self.coin_profiles[metadata['pair']]['sell']['sell_rsi']
+            ),
+            'sell',
+        ] = 1
         return dataframe

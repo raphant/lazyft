@@ -46,6 +46,7 @@ class BacktestCommand(Command):
             ''.join(sorted(self.command_string.split()))
             + self.id
             + self.config['exchange']['name']
+            + self.params.tag
         )
         logger.debug('Hashing "{}"', command_string)
         self._hash = util.hash(command_string)

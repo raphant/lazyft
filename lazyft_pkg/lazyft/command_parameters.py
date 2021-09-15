@@ -1,8 +1,10 @@
+import datetime
 from typing import Union
 
 import attr
 
 from lazyft.config import Config
+from lazyft.ensemble import set_ensemble_strategies
 from lazyft.models import Strategy
 from lazyft.quicktools import QuickTools
 
@@ -13,6 +15,26 @@ def format_config(config_name: str):
     return str(Config(str(config_name)))
 
 
+def get_strategy_id_pairs(strategies: list[str]):
+    pairs = []
+    for s in strategies:
+        if isinstance(s, Strategy):
+            pairs.append(s.as_pair())
+        elif '-' in s:
+            pairs.append((tuple(s.split('-', 1))))
+        else:
+            pairs.append((s, ''))
+    return pairs
+
+
+def pairs_to_strategy(pairs: list[str]):
+    return [Strategy(*p.split('-')) for p in pairs]
+
+
+def init_ensemble(strategies: str):
+    pass
+
+
 @attr.s
 class GlobalParameters:
     config_path: str = attr.ib(converter=format_config, metadata={'arg': '-c'})
@@ -21,6 +43,9 @@ class GlobalParameters:
     )
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=False)
+    ensemble: list[Strategy] = attr.ib(
+        factory=lambda s: set_ensemble_strategies(pairs_to_strategy(s))
+    )
 
     @property
     def config(self) -> Config:
@@ -28,15 +53,7 @@ class GlobalParameters:
 
     @property
     def strategy_id_pairs(self) -> list[tuple[str, ...]]:
-        pairs = []
-        for s in self.strategies:
-            if isinstance(s, Strategy):
-                pairs.append(s.as_pair())
-            elif '-' in s:
-                pairs.append((tuple(s.split('-', 1))))
-            else:
-                pairs.append((s, ''))
-        return pairs
+        return get_strategy_id_pairs(self.strategies)
 
 
 @attr.s
@@ -58,6 +75,11 @@ class BacktestParameters(GlobalParameters):
     def __attrs_post_init__(self):
         if not self.timerange:
             self.timerange = QuickTools.get_timerange(days=self.days)[1]
+        if not self.tag:
+            open_, close = self.timerange.split('-')
+            if not close:
+                close = datetime.datetime.now().strftime('%Y%m%d')
+            self.tag = f'{open_}-{close}'
 
     @property
     def intervals_to_download(self):
@@ -82,6 +104,8 @@ class HyperoptParameters(BacktestParameters):
     def __attrs_post_init__(self):
         if not self.timerange:
             self.timerange = QuickTools.get_timerange(days=self.days)[0]
+        if not self.tag:
+            self.tag = self.timerange
 
 
 command_map = {

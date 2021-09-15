@@ -13,6 +13,8 @@
             <excludedPath local="true" path="$PROJECT_DIR$/configs" />
             <excludedPath local="true" path="$PROJECT_DIR$/lazy_params.json" />
             <excludedPath local="true" path="$PROJECT_DIR$/backtest_results.json" />
+            <excludedPath local="true" path="$PROJECT_DIR$/.direnv" />
+            <excludedPath local="true" path="$PROJECT_DIR$/lazyft_pkg/lazyft/loss_functions" />
           </excludedPaths>
         </serverdata>
       </paths>

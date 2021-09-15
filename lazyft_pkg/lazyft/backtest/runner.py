@@ -39,8 +39,10 @@ class BacktestMultiRunner:
         for r in self.runners:
             try:
                 r.execute()
-            except Exception as e:
-                self.errors.append((r, r.strategy, r.exception or e))
+            finally:
+                if r.error:
+                    self.errors.append((r, r.strategy, r.exception))
+                    logger.error('Output:\n{}', '\n'.join(r.output_list[-10:]))
 
         if any(self.errors):
             logger.info('Completed with {} errors', len(self.errors))
@@ -81,12 +83,8 @@ class BacktestRunner(Runner):
     def execute(self, background=False):
         self.reset()
         if self.command.hash in get_backtest_repo().get_hashes():
-            logger.info(
-                '{}{}: Loading report with same hash...',
-                self.strategy,
-                '-' + self.command.id if self.command.id else '',
-            )
             self.report = get_backtest_repo().get_using_hash(self.command.hash)
+            logger.info('Loaded report with same hash - {}', self.command.hash)
             return
         if self.command.id:
             ParameterTools.set_params_file(self.strategy, self.command.id)

@@ -15,3 +15,4 @@ ID_TO_LOAD_FILE = STRATEGY_DIR.joinpath('strategy_ids.json')
 LAST_HYPEROPT_RESULTS_FILE = USER_DATA_DIR.joinpath(
     'hyperopt_results', '.last_result.json'
 )
+ENSEMBLE_FILE = STRATEGY_DIR.joinpath('ensemble.json')

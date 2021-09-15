@@ -18,7 +18,9 @@ days = 5
 
 
 def get_commands(strategies):
-    cp = BacktestParameters(strategies=strategies, config_path=config_name, days=days)
+    cp = BacktestParameters(
+        strategies=strategies, config_path=config_name, days=days, download_data=True
+    )
     commands = create_commands(cp, verbose=True)
     return commands
 

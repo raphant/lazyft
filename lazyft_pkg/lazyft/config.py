@@ -6,6 +6,7 @@ from typing import Union, Iterable
 import rapidjson
 
 from lazyft.paths import CONFIG_DIR
+from lazyft import logger
 
 
 class Config:
@@ -14,18 +15,18 @@ class Config:
     Can be used like `config[key] = value` to get and set values.
     """
 
-    def __init__(self, config: Union[os.PathLike, str]) -> None:
+    def __init__(self, path: Union[os.PathLike, str]) -> None:
         """
         Args:
-            config: A path to or the name of an existing config file.
+            path: A path to or the name of an existing config file.
                 MAIN_DIR/config/ directory will be prepended to the config file name if no
                 path is included.
         """
-        temp = Path(config)
+        temp = Path(path)
         if temp.exists():
             self._config_path = temp.resolve()
         else:
-            self._config_path = Path(CONFIG_DIR, config).resolve()
+            self._config_path = Path(CONFIG_DIR, path).resolve()
             assert self._config_path.exists(), f'"{self._config_path}" doesn\'t exist'
         self._data: dict = rapidjson.loads(self._config_path.read_text())
 
@@ -56,16 +57,19 @@ class Config:
         tmp = Path(temp_path, 'config.json')
         return Config(self.save(save_as=tmp))
 
-    def update_whitelist(self, whitelist: Iterable[str], append=False) -> list[str]:
+    def update_whitelist_and_save(
+        self, whitelist: Iterable[str], append=False
+    ) -> list[str]:
         if append:
             existing = set(self['exchange']['pair_whitelist'])
             existing.update(whitelist)
             self['exchange']['pair_whitelist'] = list(existing)
         else:
             self['exchange']['pair_whitelist'] = whitelist
+        self.save()
         return self['exchange']['pair_whitelist']
 
-    def update_blacklist(self, blacklist: list[str], append=False) -> list[str]:
+    def update_blacklist(self, blacklist: Iterable[str], append=False) -> list[str]:
         if append:
             existing = set(self['exchange'].get('pair_blacklist', []))
             existing.update(blacklist)
@@ -119,9 +123,17 @@ class Config:
         self._data.update(update)
 
     def __getitem__(self, key: str):
+        if key == 'starting_balance':
+            logger.warning('"{}" -> "dry_run_wallet"', key)
+            key = 'dry_run_wallet'
+
         return self._data[key]
 
     def __setitem__(self, key: str, item: object):
+        if key == 'starting_balance':
+            logger.warning('"{}" -> "dry_run_wallet"', key)
+            key = 'dry_run_wallet'
+
         self._data[key] = item
 
     def __str__(self) -> str:

@@ -2,22 +2,13 @@
 78/100:    245 trades. Avg profit   1.40%. Total profit  0.03034187 BTC ( 342.11Σ%). Avg duration 301.9 min. Objective: -154.45381
 """
 # --- Do not remove these libs ---
-import json
-import pathlib
-import sys
-from datetime import datetime, timedelta
-from functools import reduce
+from datetime import datetime
 
-import rapidjson
-import talib.abstract as ta
-from pandas import DataFrame
-
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-from freqtrade.strategy import RealParameter, IntParameter, CategoricalParameter
-from freqtrade.strategy.interface import IStrategy
 from freqtrade.persistence import Trade
-from rich import print
-from custom_util import load
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
+from finta import TA as ta
+import pandas_ta
 
 
 class TestStrategy(IStrategy):

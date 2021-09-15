@@ -13,4 +13,7 @@ python-dateutil
 arrow
 python-dotenv
 pandas-ta
-
+nb_black
+pydantic
+celery
+pushbullet.py

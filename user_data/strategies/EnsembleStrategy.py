@@ -1,3 +1,4 @@
+import rapidjson
 from freqtrade.strategy import (
     IStrategy,
     DecimalParameter,
@@ -14,64 +15,91 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-STRATEGIES = [
-    "NotAnotherSMAOffsetStrategyHOv3",
-    "NotAnotherSMAOffsetStrategyModHO",
-    "ElliotV5",
-    "NFI5MOHO_WIP",
-    "NASOSv4",
-]
+try:
+    STRATEGIES = rapidjson.loads('ensemble.json')
+except rapidjson.JSONDecodeError:
+    STRATEGIES = []
 
 STRAT_COMBINATIONS = reduce(
     lambda x, y: list(combinations(STRATEGIES, y)) + x, range(len(STRATEGIES) + 1), []
 )
 
-MAX_COMBINATIONS = len(STRAT_COMBINATIONS) - 1
+MAX_COMBINATIONS = len(STRAT_COMBINATIONS) - 2
 
 
-class EnsembleStrategyV2(IStrategy):
+class EnsembleStrategy(IStrategy):
     loaded_strategies = {}
+    informative_timeframe = "1h"
+    buy_action_diff_threshold = DecimalParameter(
+        0, 1, default=0, decimals=2, optimize=True, load=True
+    )
+    buy_strategies = IntParameter(
+        0, MAX_COMBINATIONS, default=0, optimize=True, load=True
+    )
 
-    use_sell_signal = True
-    sell_profit_only = False
+    # trailing stoploss hyperopt parameters
+    # hard stoploss profit
+    sell_HSL = DecimalParameter(
+        -0.200, -0.040, default=-0.08, decimals=3, optimize=True, load=True
+    )
+    # profit threshold 1, trigger point, SL_1 is used
+    sell_PF_1 = DecimalParameter(
+        0.008, 0.020, default=0.016, decimals=3, optimize=True, load=True
+    )
+    sell_SL_1 = DecimalParameter(
+        0.008, 0.020, default=0.011, decimals=3, optimize=True, load=True
+    )
+
+    # profit threshold 2, SL_2 is used
+    sell_PF_2 = DecimalParameter(
+        0.040, 0.100, default=0.080, decimals=3, optimize=True, load=True
+    )
+    sell_SL_2 = DecimalParameter(
+        0.020, 0.070, default=0.040, decimals=3, optimize=True, load=True
+    )
+
+    stoploss = -0.99  # effectively disabled.
+    sell_profit_offset = (
+        0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
+    )
+    use_sell_signal = False
     ignore_roi_if_buy_signal = False
+    sell_profit_only = False
 
-    informative_timeframe = '1h'
-    buy_mean_threshold = DecimalParameter(0.0, 1, default=0.032, load=True)
-    sell_mean_threshold = DecimalParameter(0.0, 1, default=0.059, load=True)
-    buy_strategies = IntParameter(0, MAX_COMBINATIONS, default=0, load=True)
-    sell_strategies = IntParameter(0, MAX_COMBINATIONS, default=0, load=True)
+    # Trailing stoploss
+    trailing_stop = False
+    trailing_only_offset_is_reached = False
+    trailing_stop_positive = 0.01
+    trailing_stop_positive_offset = 0.025
 
-    # Buy hyperspace params:
-    buy_params = {
-        "buy_mean_threshold": 0.032,
-        "buy_strategies": 0,
-    }
+    # Custom stoploss
+    use_custom_stoploss = True
 
-    # Sell hyperspace params:
-    sell_params = {
-        "sell_mean_threshold": 0.059,
-        "sell_strategies": 0,
-    }
+    # Run "populate_indicators()" only for new candle.
+    process_only_new_candles = True
 
-    # ROI table:
-    minimal_roi = {"0": 0.22, "37": 0.073, "86": 0.016, "195": 0}
+    # Number of candles the strategy requires before producing valid signals
+    startup_candle_count: int = 200
 
-    # Stoploss:
-    stoploss = -0.148
+    minimal_roi = {"0": 100.0}
 
-    # Trailing stop:
-    trailing_stop = True
-    trailing_stop_positive = 0.068
-    trailing_stop_positive_offset = 0.081
-    trailing_only_offset_is_reached = True
+    buy_params = {}
+    sell_params = {}
+
+    protections = [
+        {"method": "CooldownPeriod", "stop_duration_candles": 2},
+        {
+            "method": "StoplossGuard",
+            "lookback_period_candles": 100,
+            "trade_limit": 4,
+            "stop_duration_candles": 10,
+            "only_per_pair": True,
+        },
+    ]
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
         logger.info(f"Buy strategies: {STRAT_COMBINATIONS[self.buy_strategies.value]}")
-        logger.info(
-            f"Sell strategies: {STRAT_COMBINATIONS[self.sell_strategies.value]}"
-        )
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()
@@ -91,24 +119,20 @@ class EnsembleStrategyV2(IStrategy):
         return strategy
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # TODO: move all strats signals to here, add mean and difference mean for buy and sell
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
         for strategy_name in strategies:
             strategy = self.get_strategy(strategy_name)
-            try:
-                strategy_indicators = strategy.advise_indicators(dataframe, metadata)
-                dataframe[f"strat_buy_signal_{strategy_name}"] = strategy.advise_buy(
-                    strategy_indicators, metadata
-                )["buy"]
-            except Exception as e:
-                logger.exception(e)
+            strategy_indicators = strategy.advise_indicators(dataframe, metadata)
+            dataframe[f"strat_buy_signal_{strategy_name}"] = strategy.advise_buy(
+                strategy_indicators, metadata
+            )["buy"]
 
         dataframe['buy'] = (
-            dataframe.filter(like='strat_buy_signal_').fillna(0).mean(axis=1)
-            > self.buy_mean_threshold.value
+            dataframe.filter(like='strat_buy_signal_').mean(axis=1)
+            > self.buy_action_diff_threshold.value
         ).astype(int)
         return dataframe
 
@@ -116,37 +140,41 @@ class EnsembleStrategyV2(IStrategy):
         dataframe["sell"] = 0
         return dataframe
 
-    def custom_sell(
+    def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
-        current_time: 'datetime',
+        trade: Trade,
+        current_time: datetime,
         current_rate: float,
         current_profit: float,
         **kwargs,
     ) -> float:
-        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-        last_candle = dataframe.iloc[-1].squeeze()
-        if last_candle is not None:
-            strategies = STRAT_COMBINATIONS[self.sell_strategies.value]
-            metadata = {"pair": pair}
-            for strategy_name in strategies:
-                strategy = self.get_strategy(strategy_name)
-                try:
-                    strategy_indicators = strategy.advise_indicators(
-                        dataframe, metadata
-                    )
-                    dataframe[
-                        f"strat_sell_signal_{strategy_name}"
-                    ] = strategy.advise_sell(strategy_indicators, metadata)["sell"]
-                except Exception as e:
-                    logger.exception(e)
+        """
+        new custom stoploss, both hard and trailing functions. Trailing stoploss first rises at a slower
+        rate than the current rate until a profit threshold is reached, after which it rises at a constant
+        percentage as per a normal trailing stoploss. This allows more margin for pull-backs during a rise.
+        """
 
-            dataframe['sell'] = (
-                dataframe.filter(like='strat_sell_signal_').fillna(0).mean(axis=1)
-                > self.sell_mean_threshold.value
-            ).astype(int)
-            last_candle = dataframe.iloc[-1].squeeze()
-            return last_candle.sell
+        # hard stoploss profit
+        HSL = self.sell_HSL.value
+        PF_1 = self.sell_PF_1.value
+        SL_1 = self.sell_SL_1.value
+        PF_2 = self.sell_PF_2.value
+        SL_2 = self.sell_SL_2.value
 
-        return None
+        # For profits between PF_1 and PF_2 the stoploss (sl_profit) used is linearly interpolated
+        # between the values of SL_1 and SL_2. For all profits above PL_2 the sl_profit value
+        # rises linearly with current profit, for profits below PF_1 the hard stoploss profit is used.
+        if current_profit > PF_2:
+            sl_profit = SL_2 + (current_profit - PF_2)
+        elif current_profit > PF_1:
+            sl_profit = SL_1 + ((current_profit - PF_1) * (SL_2 - SL_1) / (PF_2 - PF_1))
+        else:
+            sl_profit = HSL
+
+        if current_profit > PF_1:
+            stoploss = stoploss_from_open(sl_profit, current_profit)
+        else:
+            stoploss = stoploss_from_open(HSL, current_profit)
+
+        return stoploss or stoploss_from_open(HSL, current_profit) or 1

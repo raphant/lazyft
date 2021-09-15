@@ -17,10 +17,12 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         self.process: Optional[RunningCommand] = None
         self.running = False
         self.error = False
+        self.manually_stopped = False
         self.error_list = []
         self.output_list = []
 
     def reset(self):
+        logger.info('Resetting')
         self.running = False
         self.error = False
         self.error_list = []
@@ -34,6 +36,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         if not self.running:
             logger.warning("The command is not currently running")
             return False
+        self.manually_stopped = True
         self.process.signal_group(signal.SIGINT)
         return True
 

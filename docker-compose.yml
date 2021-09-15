@@ -1,0 +1,22 @@
+version: "3.2"
+services:
+  redis:
+    image: redis
+    restart: unless-stopped
+    container_name: 'redis'
+    ports:
+      - "6379:6379"
+    networks:
+      - net
+    volumes:
+      - hd:/data
+networks:
+    net:
+        driver: bridge
+volumes:
+    hd:
+        driver: local
+        driver_opts:
+            type: 'none'
+            o: 'bind'
+            device: './redis_data'

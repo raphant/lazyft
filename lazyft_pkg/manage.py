@@ -89,7 +89,7 @@ def save_backtest_results(pairs_name, results):
     existing_data[dt] = {
         'pairs_name': pairs_name,
         'logfile': str(logfile.resolve()),
-        'result': results.df.to_csv(index=False).splitlines(),
+        'result': results.df.trades_to_csv(index=False).splitlines(),
         'winners': list(results.winners['Pair'].values),
     }
     result_file.write_text(rapidjson.dumps(existing_data))

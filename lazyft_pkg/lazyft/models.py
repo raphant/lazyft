@@ -6,16 +6,16 @@ from typing import Optional, Union
 
 import pandas as pd
 import rapidjson
-from freqtrade.optimize.hyperopt_loss_sharpe import SharpeHyperOptLoss
-from freqtrade.optimize.hyperopt_loss_sortino import (
-    SortinoHyperOptLoss,
-)
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 
 from lazyft import logger, paths
-from lazyft.loss_functions.ROIAndProfitHyperOptLoss import ROIAndProfitHyperOptLoss
-from lazyft.loss_functions.WinRatioAndProfitRatioLoss import WinRatioAndProfitRatioLoss
+from lazyft.loss_functions import (
+    win_ratio_and_profit_ratio_loss,
+    roi_and_profit_hyperopt_loss,
+    sharpe_hyperopt_loss,
+    sortino_hyperopt_loss,
+)
 
 
 class Performance(BaseModel):
@@ -160,32 +160,37 @@ class BacktestReport(Report):
     @property
     def df(self):
         df = super().df
-        df.insert(
-            10,
-            'roiloss',
-            self.roi_loss,
-        )
-        df.insert(
-            11,
-            'sortino',
-            self.sortino_loss,
-        )
-        df.insert(
-            11,
-            'winratioloss',
-            self.win_ratio_loss,
-        )
-        df.insert(
-            12,
-            'sharpe_loss',
-            self.sharp_loss,
-        )
+
+        try:
+            df.insert(
+                10,
+                'roiloss',
+                self.roi_loss,
+            )
+            df.insert(
+                11,
+                'sortino',
+                self.sortino_loss,
+            )
+            df.insert(
+                11,
+                'winratioloss',
+                self.win_ratio_loss,
+            )
+            df.insert(
+                12,
+                'sharpe_loss',
+                self.sharp_loss,
+            )
+        except Exception as e:
+            logger.exception(e)
 
         return df
 
     @property
     def sortino_loss(self):
-        return SortinoHyperOptLoss.hyperopt_loss_function(
+
+        return sortino_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
             min_date=self.performance.start_date,
@@ -194,7 +199,8 @@ class BacktestReport(Report):
 
     @property
     def sharp_loss(self):
-        return SharpeHyperOptLoss.hyperopt_loss_function(
+
+        return sharpe_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
             min_date=self.performance.start_date,
@@ -203,7 +209,8 @@ class BacktestReport(Report):
 
     @property
     def roi_loss(self):
-        return ROIAndProfitHyperOptLoss.hyperopt_loss_function(
+
+        return roi_and_profit_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
             min_date=self.performance.start_date,
@@ -212,7 +219,8 @@ class BacktestReport(Report):
 
     @property
     def win_ratio_loss(self):
-        return WinRatioAndProfitRatioLoss.hyperopt_loss_function(
+
+        return win_ratio_and_profit_ratio_loss(
             results=self.trades,
             trade_count=self.performance.trades,
             min_date=self.performance.start_date,

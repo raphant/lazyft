@@ -28,11 +28,13 @@ def get_strategy_id_pairs(strategies: list[str]):
 
 
 def pairs_to_strategy(pairs: list[str]):
-    return [Strategy(*p.split('-')) for p in pairs]
-
-
-def init_ensemble(strategies: str):
-    pass
+    strategies = []
+    for p in pairs:
+        if isinstance(p, Strategy):
+            strategies.append(p)
+            continue
+        strategies.append(Strategy(*p.split('-', 1)))
+    return strategies
 
 
 @attr.s
@@ -43,8 +45,8 @@ class GlobalParameters:
     )
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=False)
-    ensemble: list[Strategy] = attr.ib(
-        factory=lambda s: set_ensemble_strategies(pairs_to_strategy(s))
+    ensemble: list[Union[Strategy, str]] = attr.ib(
+        default=[], converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s))
     )
 
     @property

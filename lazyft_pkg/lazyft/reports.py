@@ -127,11 +127,13 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
                 frames.append(r.df)
             except FileNotFoundError:
                 failed.append(r)
-        if any(failed):
-            logger.error(
-                'Failed to find backtest_results for: {}',
-                ', '.join([f'"{f.report_id}"' for f in failed]),
-            )
+                logger.error(
+                    'Failed to find backtest_results for: {}',
+                    ', '.join([f'"{f.report_id}"' for f in failed]),
+                )
+            except Exception as e:
+                failed.append(r)
+                logger.exception(e)
         if not len(frames):
             return None
         return pd.DataFrame(pd.concat(frames))

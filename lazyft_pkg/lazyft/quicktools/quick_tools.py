@@ -169,7 +169,6 @@ class QuickTools:
         secrets_config=None,
     ):
         """
-
         Args:
             config: A config file object
             pairs: A list of pairs
@@ -192,7 +191,7 @@ class QuickTools:
             start_dt = dateutil.parser.parse(start)
             days_between = (datetime.now() - start_dt).days
             days = days_between
-
+        pairs.append('BTC/USDT')
         logger.info(
             'Downloading {} days worth of market data for {} coins @ {} ticker-interval',
             days,

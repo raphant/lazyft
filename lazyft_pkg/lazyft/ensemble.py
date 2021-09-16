@@ -10,13 +10,17 @@ from lazyft.util import ParameterTools
 
 def set_ensemble_strategies(strategies: list[Strategy]):
     """Updates the ensemble json file with the designated strategies."""
+    if not strategies:
+        return
     for strategy in strategies:
         if strategy.id:
             ParameterTools.set_params_file(strategy.name, strategy.id)
         else:
             ParameterTools.remove_params_file(strategy.name)
+
     paths.ENSEMBLE_FILE.write_text(rapidjson.dumps([s.name for s in strategies]))
+    return strategies
 
 
 if __name__ == '__main__':
-    set_ensemble_strategies(Strategy('TestStrategy'), Strategy('BinH'))
+    set_ensemble_strategies([Strategy('TestStrategy'), Strategy('BinH')])

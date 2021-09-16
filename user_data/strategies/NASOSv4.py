@@ -76,16 +76,16 @@ class NASOSv4(IStrategy):
 
     # SMAOffset
     base_nb_candles_buy = IntParameter(
-        2, 20, default=buy_params['base_nb_candles_buy'], space='buy', optimize=True
+        2, 20, default=buy_params['base_nb_candles_buy'], space='buy', optimize=False
     )
     base_nb_candles_sell = IntParameter(
-        2, 25, default=sell_params['base_nb_candles_sell'], space='sell', optimize=True
+        2, 25, default=sell_params['base_nb_candles_sell'], space='sell', optimize=False
     )
     low_offset = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset'], space='buy', optimize=False
+        0.9, 0.99, default=buy_params['low_offset'], space='buy', optimize=True
     )
     low_offset_2 = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset_2'], space='buy', optimize=False
+        0.9, 0.99, default=buy_params['low_offset_2'], space='buy', optimize=True
     )
     high_offset = DecimalParameter(
         0.95, 1.1, default=sell_params['high_offset'], space='sell', optimize=True
@@ -107,18 +107,18 @@ class NASOSv4(IStrategy):
     )
 
     ewo_low = DecimalParameter(
-        -20.0, -8.0, default=buy_params['ewo_low'], space='buy', optimize=False
+        -20.0, -8.0, default=buy_params['ewo_low'], space='buy', optimize=True
     )
     ewo_high = DecimalParameter(
-        2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=False
+        2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
     )
 
     ewo_high_2 = DecimalParameter(
-        -6.0, 12.0, default=buy_params['ewo_high_2'], space='buy', optimize=False
+        -6.0, 12.0, default=buy_params['ewo_high_2'], space='buy', optimize=True
     )
 
     rsi_buy = IntParameter(
-        50, 100, default=buy_params['rsi_buy'], space='buy', optimize=False
+        50, 100, default=buy_params['rsi_buy'], space='buy', optimize=True
     )
 
     # trailing stoploss hyperopt parameters
@@ -129,23 +129,23 @@ class NASOSv4(IStrategy):
         default=-0.15,
         decimals=3,
         space='sell',
-        optimize=False,
+        optimize=True,
         load=True,
     )
     # profit threshold 1, trigger point, SL_1 is used
     pPF_1 = DecimalParameter(
-        0.008, 0.020, default=0.016, decimals=3, space='sell', optimize=False, load=True
+        0.008, 0.020, default=0.016, decimals=3, space='sell', optimize=True, load=True
     )
     pSL_1 = DecimalParameter(
-        0.008, 0.020, default=0.014, decimals=3, space='sell', optimize=False, load=True
+        0.008, 0.020, default=0.014, decimals=3, space='sell', optimize=True, load=True
     )
 
     # profit threshold 2, SL_2 is used
     pPF_2 = DecimalParameter(
-        0.040, 0.100, default=0.024, decimals=3, space='sell', optimize=False, load=True
+        0.040, 0.100, default=0.024, decimals=3, space='sell', optimize=True, load=True
     )
     pSL_2 = DecimalParameter(
-        0.020, 0.070, default=0.022, decimals=3, space='sell', optimize=False, load=True
+        0.020, 0.070, default=0.022, decimals=3, space='sell', optimize=True, load=True
     )
 
     # Trailing stop:

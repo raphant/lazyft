@@ -16,9 +16,8 @@ def test(arg):
 @app.task
 def do_hyperopt(command_dict: dict):
     commands = hyperopt.create_commands(HyperoptParameters(**command_dict))
-    runner = HyperoptRunner(commands[0])
+    runner = HyperoptRunner(commands[0], autosave=True)
     runner.execute()
-    runner.save()
     return runner.report.report_id
 
 

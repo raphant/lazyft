@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import rapidjson
 from freqtrade.strategy import (
     IStrategy,
@@ -16,13 +18,16 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 try:
-    STRATEGIES = rapidjson.loads('ensemble.json')
+    STRATEGIES = rapidjson.loads(
+        Path('user_data/strategies/ensemble.json').resolve().read_text()
+    )
 except rapidjson.JSONDecodeError:
     STRATEGIES = []
-
+logger.info('loaded strategies: %s', STRATEGIES)
 STRAT_COMBINATIONS = reduce(
     lambda x, y: list(combinations(STRATEGIES, y)) + x, range(len(STRATEGIES) + 1), []
 )
+logger.info('\nStrat combinations: %s\n', list(enumerate(STRAT_COMBINATIONS)))
 
 MAX_COMBINATIONS = len(STRAT_COMBINATIONS) - 2
 
@@ -129,6 +134,8 @@ class EnsembleStrategy(IStrategy):
             dataframe[f"strat_buy_signal_{strategy_name}"] = strategy.advise_buy(
                 strategy_indicators, metadata
             )["buy"]
+        # signals = dataframe.filter(like='strat_buy_signal_')
+        # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
 
         dataframe['buy'] = (
             dataframe.filter(like='strat_buy_signal_').mean(axis=1)

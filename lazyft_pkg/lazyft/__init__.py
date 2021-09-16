@@ -1,14 +1,9 @@
-import pathlib
-
 import dotenv
 import pandas as pd
-from rich.console import Console
 
 from . import paths, util
 
 dotenv.load_dotenv()
-console = Console(width=200)
-# traceback.install(console=console)
 
 pd.set_option('display.float_format', lambda x: util.human_format(x))
 import sys

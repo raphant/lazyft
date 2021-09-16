@@ -26,7 +26,7 @@ class TestStrategy(IStrategy):
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['buy'] = 1
+        dataframe.loc[(dataframe['close'] > 0), ['buy', 'buy_tag']] = (1, 'test')
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

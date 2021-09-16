@@ -56,6 +56,7 @@ class HyperoptRunner(runner.Runner):
         command: hyperopt.HyperoptCommand,
         verbose: bool = False,
         notify: bool = True,
+        autosave=False
     ) -> None:
         super().__init__(verbose)
         self.command = command
@@ -66,6 +67,7 @@ class HyperoptRunner(runner.Runner):
         self._report = None
         self.report_exporter: HyperoptReportExporter = None
         self.start_time = None
+        self.autosave = autosave
 
     @property
     def strategy(self):
@@ -139,11 +141,13 @@ class HyperoptRunner(runner.Runner):
                     % ((time.time() - self.start_time) // 60),
                 )
             self.report_exporter = self.generate_report()
+            if self.autosave:
+                logger.info('Auto-saved: {}', self.save())
 
     def save(self):
         model = self.report_exporter.save()
         self._report = model
-        return model.report_id
+        return model
 
     # @staticmethod
     # def get_report_backtest(idx=0):

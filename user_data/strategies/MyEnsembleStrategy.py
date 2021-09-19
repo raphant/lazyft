@@ -66,7 +66,7 @@ class MyEnsembleStrategy(IStrategy):
         0.020, 0.070, default=0.040, decimals=3, optimize=True, load=True
     )
 
-    stoploss = -0.20  # effectively disabled.
+    stoploss = -0.99  # effectively disabled.
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
@@ -120,7 +120,7 @@ class MyEnsembleStrategy(IStrategy):
             config = self.config
             config["strategy"] = strategy_name
             strategy = StrategyResolver.load_strategy(config)
-            strategy.process_only_new_candles = True
+            strategy.process_only_new_candles = self.process_only_new_candles
 
         strategy.dp = self.dp
         strategy.wallets = self.wallets
@@ -128,16 +128,34 @@ class MyEnsembleStrategy(IStrategy):
         return strategy
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['ensemble_buy'] = ''
-        dataframe['ensemble_sell'] = ''
+        strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
+        inf_frames: list[pd.DataFrame] = []
+        for strategy_name in strategies:
+            strategy = self.get_strategy(strategy_name)
+            dataframe = strategy.advise_indicators(dataframe, metadata)
+            # remove inf data from dataframe to avoid duplicates
+            # _x or _y gets added to the inf columns that already exist
+            inf_frames.append(dataframe.filter(regex=r'\w+_\d{1,2}[mhd]'))
+            dataframe = dataframe[
+                dataframe.columns.drop(
+                    list(dataframe.filter(regex=r'\w+_\d{1,2}[mhd]'))
+                )
+            ]
+
+        # add informative data back to dataframe
+        for frame in inf_frames:
+            for col, series in frame.iteritems():
+                if col in dataframe:
+                    continue
+                dataframe[col] = series
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
+        dataframe['ensemble_buy'] = ''
         for strategy_name in strategies:
             strategy = self.get_strategy(strategy_name)
-            strategy_indicators = strategy.advise_indicators(dataframe.copy(), metadata)
-            strategy_indicators = strategy.advise_buy(strategy_indicators, metadata)
+            strategy_indicators = strategy.advise_buy(dataframe, metadata)
             strategy_indicators['strategy'] = ''
             strategy_indicators.loc[
                 strategy_indicators.buy == 1, 'strategy'
@@ -154,25 +172,38 @@ class MyEnsembleStrategy(IStrategy):
 
         dataframe.loc[dataframe.ensemble_buy != '', 'buy'] = 1
         dataframe.loc[dataframe.buy == 1, 'buy_tag'] = dataframe['ensemble_buy']
+        dataframe.drop(
+            ['ensemble_buy', 'existing_buy', 'strategy'], axis=1, inplace=True
+        )
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
-        # for strategy_name in strategies:
-        #     strategy = self.get_strategy(strategy_name)
-        #     strategy_indicators = strategy.advise_indicators(dataframe, metadata)
-        #     temp = strategy.advise_sell(strategy_indicators, metadata)
-        #     temp['strategy'] = ''
-        #     temp.loc[temp.sell == 1, 'strategy'] = strategy_name
-        #     temp['existing_sell'] = dataframe['ensemble_sell']
-        #     temp['ensemble_sell'] = temp.apply(
-        #         lambda x: concat_strategy(x['strategy'], x['existing_sell']), axis=1
-        #     )
-        #     dataframe['ensemble_sell'] = temp['ensemble_sell']
-        #
-        # dataframe.loc[dataframe.ensemble_sell != '', 'sell'] = 1
-        # dataframe.loc[dataframe.sell == 1, 'sell_tag'] = dataframe['ensemble_sell']
+        dataframe['ensemble_sell'] = ''
+        strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
+        for strategy_name in strategies:
+            strategy = self.get_strategy(strategy_name)
+            strategy_indicators = strategy.advise_sell(dataframe, metadata)
+            strategy_indicators['strategy'] = ''
+            strategy_indicators.loc[
+                strategy_indicators.sell == 1, 'strategy'
+            ] = strategy_name
+
+            strategy_indicators['existing_sell'] = dataframe['ensemble_sell']
+            strategy_indicators['ensemble_sell'] = strategy_indicators.apply(
+                lambda x: concat_strategy(x['strategy'], x['existing_sell']), axis=1
+            )
+            dataframe['ensemble_sell'] = strategy_indicators['ensemble_sell']
+            # dataframe[f"ensemble_sell"] = ["sell"]
+        # signals = dataframe.filter(like='strat_sell_signal_')
+        # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
+
+        dataframe.loc[dataframe.ensemble_sell != '', 'sell'] = 1
+        dataframe['sell_tag'] = ''
+        dataframe.loc[dataframe.sell == 1, 'sell_tag'] = dataframe['ensemble_sell']
         dataframe['sell'] = 0
+        dataframe.drop(
+            ['ensemble_sell', 'existing_sell', 'strategy'], axis=1, inplace=True
+        )
         return dataframe
 
     def custom_stoploss(
@@ -224,17 +255,22 @@ class MyEnsembleStrategy(IStrategy):
         **kwargs,
     ) -> Optional[Union[str, bool]]:
         strategies = STRAT_COMBINATIONS[self.buy_strategies.value]
-        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = (
+            self.dp.get_analyzed_dataframe(pair, self.timeframe)[0].iloc[-1].squeeze()
+        )
 
         for strategy_name in strategies:
             if strategy_name not in trade.buy_tag:
                 continue
             strategy = self.get_strategy(strategy_name)
-            strategy_indicators = strategy.advise_indicators(
-                dataframe.copy(), {'pair': pair}
-            )
-            temp = strategy.advise_sell(strategy_indicators, {'pair': pair})
-            last_candle = temp.iloc[-1].squeeze()
+            # regular buy signal. this does not cover custom_sells
+            if (
+                strategy_name in last_candle['sell_tag']
+                and strategy_name in trade.buy_tag
+            ):
+                return strategy_name + '-sell_signal'
+
+            # roi/stoploss/custom_sell
             should_sell = strategy.should_sell(
                 trade,
                 current_rate,

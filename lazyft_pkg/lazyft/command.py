@@ -18,6 +18,8 @@ class Command:
         self.params = params
         self.args = ['hyperopt', f'-s {strategy}']
         self.pairs = None
+        if params.download_data:
+            self.download_data()
 
     @property
     def command_string(self):

@@ -14,6 +14,7 @@ from itertools import combinations
 from functools import reduce
 from freqtrade.persistence import Trade
 from datetime import datetime
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,12 @@ try:
     STRATEGIES = rapidjson.loads(
         Path('user_data/strategies/ensemble.json').resolve().read_text()
     )
-except rapidjson.JSONDecodeError:
+except (rapidjson.JSONDecodeError, FileNotFoundError):
     STRATEGIES = []
-logger.info('loaded strategies: %s', STRATEGIES)
 STRAT_COMBINATIONS = reduce(
     lambda x, y: list(combinations(STRATEGIES, y)) + x, range(len(STRATEGIES) + 1), []
 )
-logger.info('\nStrat combinations: %s\n', list(enumerate(STRAT_COMBINATIONS)))
+# logger.info('\nStrat combinations: %s\n', list(enumerate(STRAT_COMBINATIONS)))
 
 MAX_COMBINATIONS = len(STRAT_COMBINATIONS) - 2
 

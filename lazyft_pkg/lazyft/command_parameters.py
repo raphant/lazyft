@@ -19,7 +19,7 @@ def get_strategy_id_pairs(strategies: list[str]):
     pairs = []
     for s in strategies:
         if isinstance(s, Strategy):
-            pairs.append(s.as_pair())
+            pairs.append(s.as_pair)
         elif '-' in s:
             pairs.append((tuple(s.split('-', 1))))
         else:
@@ -46,7 +46,8 @@ class GlobalParameters:
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=False)
     ensemble: list[Union[Strategy, str]] = attr.ib(
-        default=[], converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s))
+        default=[],
+        converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s or [])),
     )
 
     @property
@@ -107,7 +108,7 @@ class HyperoptParameters(BacktestParameters):
         if not self.timerange:
             self.timerange = QuickTools.get_timerange(days=self.days)[0]
         if not self.tag:
-            self.tag = self.timerange
+            self.tag = self.timerange + ',' + self.spaces
 
 
 command_map = {

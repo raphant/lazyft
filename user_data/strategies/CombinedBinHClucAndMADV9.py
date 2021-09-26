@@ -143,81 +143,81 @@ class CombinedBinHClucAndMADV9(IStrategy):
     # Buy
 
     buy_condition_0_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_1_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_2_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_3_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_4_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_5_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_6_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_7_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_8_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_9_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
     buy_condition_10_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space='buy', optimize=True, load=True
     )
 
     buy_bb20_close_bblowerband_safe_1 = DecimalParameter(
-        0.7, 1.1, default=0.99, space='buy', optimize=False, load=True
+        0.7, 1.1, default=0.99, space='buy', optimize=True, load=True
     )
     buy_bb20_close_bblowerband_safe_2 = DecimalParameter(
-        0.7, 1.1, default=0.982, space='buy', optimize=False, load=True
+        0.7, 1.1, default=0.982, space='buy', optimize=True, load=True
     )
 
     buy_volume_pump_1 = DecimalParameter(
-        0.1, 0.9, default=0.4, space='buy', decimals=1, optimize=False, load=True
+        0.1, 0.9, default=0.4, space='buy', decimals=1, optimize=True, load=True
     )
     buy_volume_drop_1 = DecimalParameter(
-        1, 10, default=4, space='buy', decimals=1, optimize=False, load=True
+        1, 10, default=4, space='buy', decimals=1, optimize=True, load=True
     )
 
     buy_rsi_1h_1 = DecimalParameter(
-        10.0, 40.0, default=16.5, space='buy', decimals=1, optimize=False, load=True
+        10.0, 40.0, default=16.5, space='buy', decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_2 = DecimalParameter(
-        10.0, 40.0, default=15.0, space='buy', decimals=1, optimize=False, load=True
+        10.0, 40.0, default=15.0, space='buy', decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_3 = DecimalParameter(
-        10.0, 40.0, default=20.0, space='buy', decimals=1, optimize=False, load=True
+        10.0, 40.0, default=20.0, space='buy', decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_4 = DecimalParameter(
-        10.0, 40.0, default=35.0, space='buy', decimals=1, optimize=False, load=True
+        10.0, 40.0, default=35.0, space='buy', decimals=1, optimize=True, load=True
     )
 
     buy_rsi_1 = DecimalParameter(
-        10.0, 40.0, default=28.0, space='buy', decimals=1, optimize=False, load=True
+        10.0, 40.0, default=28.0, space='buy', decimals=1, optimize=True, load=True
     )
     buy_rsi_2 = DecimalParameter(
-        7.0, 40.0, default=10.0, space='buy', decimals=1, optimize=False, load=True
+        7.0, 40.0, default=10.0, space='buy', decimals=1, optimize=True, load=True
     )
     buy_rsi_3 = DecimalParameter(
-        7.0, 40.0, default=14.2, space='buy', decimals=1, optimize=False, load=True
+        7.0, 40.0, default=14.2, space='buy', decimals=1, optimize=True, load=True
     )
 
     buy_macd_1 = DecimalParameter(
-        0.01, 0.09, default=0.02, space='buy', decimals=2, optimize=False, load=True
+        0.01, 0.09, default=0.02, space='buy', decimals=2, optimize=True, load=True
     )
     buy_macd_2 = DecimalParameter(
-        0.01, 0.09, default=0.03, space='buy', decimals=2, optimize=False, load=True
+        0.01, 0.09, default=0.03, space='buy', decimals=2, optimize=True, load=True
     )
 
     def custom_stoploss(

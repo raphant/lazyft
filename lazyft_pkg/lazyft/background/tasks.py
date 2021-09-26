@@ -1,23 +1,28 @@
 import time
 
+import rapidjson
+from celery.contrib.abortable import AbortableTask
+from loguru import logger
+
 from .celery import app
-from .. import hyperopt
+from .. import hyperopt, paths
 from ..hyperopt import HyperoptRunner
 from ..command_parameters import HyperoptParameters
 
 
-@app.task
-def test(arg):
-    time.sleep(5)
-    print(arg)
-    return arg
-
-
-@app.task
-def do_hyperopt(command_dict: dict):
-    commands = hyperopt.create_commands(HyperoptParameters(**command_dict))
-    runner = HyperoptRunner(commands[0], autosave=True)
-    runner.execute()
+@app.task(bind=True, base=AbortableTask)
+def do_hyperopt(self, task_info: dict):
+    parameters_dict, task_id = task_info.values()
+    data = {}
+    if not paths.CELERY_TASKS_FILE.exists():
+        paths.CELERY_TASKS_FILE.write_text('{}')
+    else:
+        data = rapidjson.loads(paths.CELERY_TASKS_FILE.read_text())
+    data[task_id] = {'parameters': parameters_dict, 'running': True}
+    paths.CELERY_TASKS_FILE.write_text(rapidjson.dumps(data))
+    commands = hyperopt.create_commands(HyperoptParameters(**parameters_dict))
+    runner = HyperoptRunner(commands[0], task_id=task_id, celery=True, autosave=True)
+    runner.execute(background=False)
     return runner.report.report_id
 
 

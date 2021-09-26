@@ -1,3 +1,6 @@
+import copy
+import pathlib
+import time
 import uuid
 from typing import Optional
 
@@ -39,6 +42,9 @@ class BacktestMultiRunner:
         for r in self.runners:
             try:
                 r.execute()
+            except Exception as e:
+                logger.exception(e)
+                logger.info('Continuing onto next execution')
             finally:
                 if r.error:
                     self.errors.append((r, r.strategy, r.exception))
@@ -72,12 +78,14 @@ class BacktestRunner(Runner):
         self, command: BacktestCommand, min_win_rate=1, verbose: bool = False
     ) -> None:
         super().__init__(verbose)
+        self.report_id = str(uuid.uuid4())
         self.command = command
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
         self.min_win_rate = min_win_rate
         self.report: Optional[BacktestReport] = None
         self.exception = None
+        self.start_time = None
 
     @logger.catch(reraise=True)
     def execute(self, background=False):
@@ -94,14 +102,18 @@ class BacktestRunner(Runner):
         logger_exec.info('Running command: "{}"', self.command.command_string)
         logger.debug(self.command.params)
         logger.info(
-            'Backtesting {} with id "{}" - {}',
+            'Backtesting {} with params id "{}" - {}',
             self.strategy,
             self.command.id or 'null',
             self.command.hash,
         )
+        self.start_time = time.time()
+        # remove interval from CLI to let strategy handle it
+        new_command = copy.copy(self.command)
+        new_command.params.interval = ''
         try:
             self.process: sh.RunningCommand = sh.freqtrade(
-                self.command.command_string.split(' '),
+                new_command.command_string.split(' '),
                 _out=lambda log: self.sub_process_log(log, False),
                 _err=lambda log: self.sub_process_log(log, False),
                 _cwd=str(paths.BASE_DIR),
@@ -109,6 +121,7 @@ class BacktestRunner(Runner):
                 _done=self.on_finished,
             )
             self.running = True
+            self.write_worker.start()
             if not background:
                 try:
                     self.process.wait()
@@ -119,6 +132,8 @@ class BacktestRunner(Runner):
             self.exception = e
 
     def on_finished(self, _, success, _2):
+        logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
+        self.running = False
         if not success:
             self.error = True
             logger.error('{} backtest failed with errors', self.strategy)
@@ -146,14 +161,21 @@ class BacktestRunner(Runner):
             self.strategy,
             json_file,
             self.command.hash,
-            id=self.command.id,
+            report_id=self.report_id,
+            hyperopt_id=self.command.id,
             exchange=self.command.config['exchange']['name'],
             balance_info=balance_info,
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
+            ensemble=['-'.join(s.as_pair) for s in self.command.params.ensemble],
         ).export
 
+    @property
+    def log_path(self) -> pathlib.Path:
+        return paths.BACKTEST_LOG_PATH.joinpath(self.report_id + '.log')
+
     def sub_process_log(self, text="", out=False, error=False):
+        self.write_queue.put(text)
         logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 

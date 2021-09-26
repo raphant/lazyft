@@ -1,99 +1,35 @@
 # --- Do not remove these libs ---
-# --- Do not remove these libs ---
+from typing import DefaultDict
 from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
 from functools import reduce
 from pandas import DataFrame
 
 # --------------------------------
 import talib.abstract as ta
-import numpy as np
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import datetime
-from technical.util import resample_to_interval, resampled_merge
-from datetime import datetime, timedelta
+from datetime import datetime
 from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    stoploss_from_open,
-    merge_informative_pair,
-    DecimalParameter,
-    IntParameter,
-    CategoricalParameter,
-)
-import technical.indicators as ftt
+from freqtrade.strategy import DecimalParameter, IntParameter
 
-# @Rallipanos
 
-# # Buy hyperspace params:
-# buy_params = {
-#     "base_nb_candles_buy": 14,
-#     "ewo_high": 2.327,
-#     "ewo_high_2": -2.327,
-#     "ewo_low": -20.988,
-#     "low_offset": 0.975,
-#     "low_offset_2": 0.955,
-#     "rsi_buy": 69
-# }
+# @Rallipanos mod. Uzirox
 
-# # Buy hyperspace params:
-# buy_params = {
-#     "base_nb_candles_buy": 18,
-#     "ewo_high": 3.422,
-#     "ewo_high_2": -3.436,
-#     "ewo_low": -8.562,
-#     "low_offset": 0.966,
-#     "low_offset_2": 0.959,
-#     "rsi_buy": 66,
-# }
 
-# # # Sell hyperspace params:
-# # sell_params = {
-# #     "base_nb_candles_sell": 17,
-# #     "high_offset": 0.997,
-# #     "high_offset_2": 1.01,
-# # }
+def zlema2(dataframe, fast):
+    df = dataframe.copy()
+    zema1 = ta.EMA(df['close'], fast)
+    zema2 = ta.EMA(zema1, fast)
+    d1 = zema1 - zema2
+    df['zlema2'] = zema1 + d1
+    return df['zlema2']
 
-# # Sell hyperspace params:
-# sell_params = {
-#     "base_nb_candles_sell": 7,
-#     "high_offset": 1.014,
-#     "high_offset_2": 0.995,
-# }
 
-# # Buy hyperspace params:
-# buy_params = {
-#     "ewo_high_2": -5.642,
-#     "low_offset_2": 0.951,
-#     "rsi_buy": 54,
-#     "base_nb_candles_buy": 16,  # value loaded from strategy
-#     "ewo_high": 3.422,  # value loaded from strategy
-#     "ewo_low": -8.562,  # value loaded from strategy
-#     "low_offset": 0.966,  # value loaded from strategy
-# }
-
-# # Sell hyperspace params:
-# sell_params = {
-#     "base_nb_candles_sell": 8,
-#     "high_offset_2": 1.002,
-#     "high_offset": 1.014,  # value loaded from strategy
-# }
-
-# Buy hyperspace params:
-buy_params = {
-    "base_nb_candles_buy": 7,
-    "ewo_high": 4.042,
-    "ewo_low": -17.268,
-    "low_offset": 0.986,
-    "ewo_high_2": -2.609,  # value loaded from strategy
-    "low_offset_2": 0.944,  # value loaded from strategy
-    "rsi_buy": 67,  # value loaded from strategy
-}
-
-# Sell hyperspace params:
-sell_params = {
-    "base_nb_candles_sell": 15,
-    "high_offset": 1.012,
-    "high_offset_2": 1.018,  # value loaded from strategy
+order_types = {
+    'buy': 'limit',
+    'sell': 'market',
+    'stoploss': 'market',
+    'stoploss_on_exchange': False,
 }
 
 
@@ -101,61 +37,27 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
     ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['low'] * 100
+    emadif = (ema1 - ema2) / df['close'] * 100
     return emadif
 
 
-class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
+class NotAnotherSMAOffsetStrategy_uzi3(IStrategy):
     INTERFACE_VERSION = 2
 
     # ROI table:
     minimal_roi = {
-        # "0": 0.283,
-        # "40": 0.086,
-        # "99": 0.036,
-        "0": 10
+        "0": 0.215,
+        "40": 0.032,
+        "87": 0.016,
+        # "201": 0
     }
 
     # Stoploss:
-    stoploss = -0.3
-
-    # SMAOffset
-    base_nb_candles_buy = IntParameter(
-        5, 10, default=buy_params['base_nb_candles_buy'], space='buy', optimize=True
-    )
-    base_nb_candles_sell = IntParameter(
-        10, 15, default=sell_params['base_nb_candles_sell'], space='sell', optimize=True
-    )
-    low_offset = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset'], space='buy', optimize=True
-    )
-    low_offset_2 = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset_2'], space='buy', optimize=True
-    )
-    high_offset = DecimalParameter(
-        0.95, 1.1, default=sell_params['high_offset'], space='sell', optimize=True
-    )
-    high_offset_2 = DecimalParameter(
-        0.99, 1.5, default=sell_params['high_offset_2'], space='sell', optimize=True
-    )
+    stoploss = -0.1
 
     # Protection
     fast_ewo = 50
     slow_ewo = 200
-    ewo_low = DecimalParameter(
-        -20.0, -8.0, default=buy_params['ewo_low'], space='buy', optimize=True
-    )
-    ewo_high = DecimalParameter(
-        2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
-    )
-
-    ewo_high_2 = DecimalParameter(
-        -6.0, 12.0, default=buy_params['ewo_high_2'], space='buy', optimize=True
-    )
-
-    rsi_buy = IntParameter(
-        30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True
-    )
 
     # Trailing stop:
     trailing_stop = True
@@ -166,26 +68,14 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
     # Sell signal
     use_sell_signal = True
     sell_profit_only = False
-    sell_profit_offset = 0.01
+    sell_profit_offset = 0.005
     ignore_roi_if_buy_signal = False
-
-    # Optional order time in force.
-    # order_time_in_force = {'buy': 'gtc', 'sell': 'ioc'}
 
     # Optimal timeframe for the strategy
     timeframe = '5m'
-    inf_1h = '1h'
 
     process_only_new_candles = True
-    startup_candle_count = 200
-    use_custom_stoploss = False
-
-    plot_config = {
-        'main_plot': {
-            'ma_buy': {'color': 'orange'},
-            'ma_sell': {'color': 'orange'},
-        },
-    }
+    startup_candle_count = 400
 
     slippage_protection = {'retries': 3, 'max_slippage': -0.02}
 
@@ -235,6 +125,85 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
+        if (
+            (
+                (dataframe['close'].iloc[-1] - dataframe['close'].iloc[-2])
+                / dataframe['close'].iloc[-2]
+            )
+            * 100
+        ) < -2:
+            # si scende pesante
+
+            self.stoploss = -0.3  # stoploss
+
+            # buy params
+            self.trailing_stop_positive_offset = 0.03
+            self.base_nb_candles_buy = IntParameter(
+                5, 80, default=14, space='buy', optimize=False
+            )
+            self.low_offset = DecimalParameter(
+                0.9, 0.99, default=0.975, space='buy', optimize=False
+            )
+            self.low_offset_2 = DecimalParameter(
+                0.9, 0.99, default=0.955, space='buy', optimize=False
+            )
+            self.ewo_low = DecimalParameter(
+                -20.0, -8.0, default=-20.988, space='buy', optimize=False
+            )
+            self.ewo_high = DecimalParameter(
+                2.0, 12.0, default=2.327, space='buy', optimize=False
+            )
+            self.ewo_high_2 = DecimalParameter(
+                -6.0, 12.0, default=-2.327, space='buy', optimize=False
+            )
+            self.rsi_buy = IntParameter(30, 70, default=69, space='buy', optimize=False)
+
+            # sell params
+            self.base_nb_candles_sell = IntParameter(
+                5, 80, default=16, space='sell', optimize=True
+            )
+            self.high_offset = DecimalParameter(
+                0.95, 1.1, default=0.991, space='sell', optimize=True
+            )
+            self.high_offset_2 = DecimalParameter(
+                0.99, 1.5, default=0.997, space='sell', optimize=True
+            )
+
+        else:
+            # normale - si sale
+
+            # buy params
+            self.base_nb_candles_buy = IntParameter(
+                5, 80, default=14, space='buy', optimize=False
+            )
+            self.low_offset = DecimalParameter(
+                0.9, 0.99, default=0.986, space='buy', optimize=False
+            )
+            self.low_offset_2 = DecimalParameter(
+                0.9, 0.99, default=0.944, space='buy', optimize=False
+            )
+            self.ewo_low = DecimalParameter(
+                -20.0, -8.0, default=-16.917, space='buy', optimize=False
+            )
+            self.ewo_high = DecimalParameter(
+                2.0, 12.0, default=4.179, space='buy', optimize=False
+            )
+            self.ewo_high_2 = DecimalParameter(
+                -6.0, 12.0, default=-2.609, space='buy', optimize=False
+            )
+            self.rsi_buy = IntParameter(30, 70, default=58, space='buy', optimize=False)
+
+            # sell params
+            self.base_nb_candles_sell = IntParameter(
+                5, 80, default=16, space='sell', optimize=True
+            )
+            self.high_offset = DecimalParameter(
+                0.95, 1.1, default=1.054, space='sell', optimize=True
+            )
+            self.high_offset_2 = DecimalParameter(
+                0.99, 1.5, default=1.018, space='sell', optimize=True
+            )
+
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
             dataframe[f'ma_buy_{val}'] = ta.EMA(dataframe, timeperiod=val)
@@ -243,10 +212,12 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
         for val in self.base_nb_candles_sell.range:
             dataframe[f'ma_sell_{val}'] = ta.EMA(dataframe, timeperiod=val)
 
+        # *MAs
         dataframe['hma_50'] = qtpylib.hull_moving_average(dataframe['close'], window=50)
         dataframe['ema_100'] = ta.EMA(dataframe, timeperiod=100)
-
+        dataframe['ema_10'] = zlema2(dataframe, 10)
         dataframe['sma_9'] = ta.SMA(dataframe, timeperiod=9)
+
         # Elliot
         dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
@@ -254,6 +225,26 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
         dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
         dataframe['rsi_fast'] = ta.RSI(dataframe, timeperiod=4)
         dataframe['rsi_slow'] = ta.RSI(dataframe, timeperiod=20)
+
+        # strategy BinHV45
+        bb_40 = qtpylib.bollinger_bands(dataframe['close'], window=40, stds=2)
+        dataframe['lower'] = bb_40['lower']
+        dataframe['mid'] = bb_40['mid']
+        dataframe['bbdelta'] = (bb_40['mid'] - dataframe['lower']).abs()
+        dataframe['closedelta'] = (
+            dataframe['close'] - dataframe['close'].shift()
+        ).abs()
+        dataframe['tail'] = (dataframe['close'] - dataframe['low']).abs()
+
+        # strategy ClucMay72018
+        bollinger = qtpylib.bollinger_bands(
+            qtpylib.typical_price(dataframe), window=20, stds=2
+        )
+        dataframe['bb_lowerband'] = bollinger['lower']
+        dataframe['bb_middleband'] = bollinger['mid']
+        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe['ema_slow'] = ta.EMA(dataframe, timeperiod=50)
+        dataframe['volume_mean_slow'] = dataframe['volume'].rolling(window=30).mean()
 
         return dataframe
 
@@ -331,6 +322,35 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
             ['buy', 'buy_tag'],
         ] = (1, 'ewolow')
 
+        # buy in bull market
+        dataframe.loc[
+            (
+                (
+                    dataframe['ema_10'].rolling(10).mean()
+                    > dataframe['ema_100'].rolling(10).mean()
+                )
+                & (dataframe['lower'].shift().gt(0))
+                & (dataframe['bbdelta'].gt(dataframe['close'] * 0.031))
+                & (dataframe['closedelta'].gt(dataframe['close'] * 0.018))
+                & (dataframe['tail'].lt(dataframe['bbdelta'] * 0.233))
+                & (dataframe['close'].lt(dataframe['lower'].shift()))
+                & (dataframe['close'].le(dataframe['close'].shift()))
+                & (dataframe['volume'] > 0)
+            )
+            | (
+                (
+                    dataframe['ema_10'].rolling(10).mean()
+                    > dataframe['ema_100'].rolling(10).mean()
+                )
+                & (dataframe['close'] > dataframe['ema_100'])
+                & (dataframe['close'] < dataframe['ema_slow'])
+                & (dataframe['close'] < 0.993 * dataframe['bb_lowerband'])
+                & (dataframe['volume'] < (dataframe['volume_mean_slow'].shift(1) * 21))
+                & (dataframe['volume'] > 0)
+            ),
+            ['buy', 'buy_tag'],
+        ] = (1, 'bb_bull')
+
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -351,7 +371,14 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
                 & (dataframe['rsi_fast'] > dataframe['rsi_slow'])
             )
             | (
-                (dataframe['close'] < dataframe['hma_50'])
+                (
+                    dataframe['sma_9']
+                    > (
+                        dataframe['sma_9'].shift(1)
+                        + dataframe['sma_9'].shift(1) * 0.005
+                    )
+                )
+                & (dataframe['close'] < dataframe['hma_50'])
                 & (
                     dataframe['close']
                     > (
@@ -368,3 +395,5 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
 
         return dataframe
+
+    plot_config = {'main_plot': {'ema_100': {}, 'ema_10': {}, 'sma_9': {}}}

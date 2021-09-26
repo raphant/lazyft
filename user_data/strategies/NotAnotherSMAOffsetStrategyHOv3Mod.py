@@ -16,6 +16,7 @@ from freqtrade.strategy import (
 )
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
+from finta import TA
 
 # @Rallipanos
 
@@ -95,8 +96,8 @@ sell_params = {
 
 def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
-    ema1 = ta.EMA(df, timeperiod=ema_length)
-    ema2 = ta.EMA(df, timeperiod=ema2_length)
+    ema1 = TA.EMA(df, period=ema_length)
+    ema2 = TA.EMA(df, period=ema2_length)
     emadif = (ema1 - ema2) / df["low"] * 100
     return emadif
 
@@ -228,9 +229,9 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
         )
 
         # EMA
-        # informative["btc_ema_fast"] = ta.EMA(informative, timeperiod=9)
-        # informative["btc_ema_slow"] = ta.EMA(informative, timeperiod=26)
-        informative["btc_ema_med_slow"] = ta.EMA(informative, timeperiod=50)
+        # informative["btc_ema_fast"] = TA.EMA(informative, period=9)
+        # informative["btc_ema_slow"] = TA.EMA(informative, period=26)
+        informative["btc_ema_med_slow"] = TA.EMA(informative, period=50)
         # HMA
         # informative["btc_hma_fast"] = qtpylib.hull_moving_average(
         #     dataframe['close'], window=9
@@ -294,14 +295,14 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
 
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
-            dataframe[f"ma_buy_{val}"] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_buy_{val}"] = TA.EMA(dataframe, period=val)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f"ma_sell_{val}"] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_sell_{val}"] = TA.EMA(dataframe, period=val)
 
         dataframe["hma_50"] = qtpylib.hull_moving_average(dataframe["close"], window=50)
-        dataframe["ema_100"] = ta.EMA(dataframe, timeperiod=100)
+        dataframe["ema_100"] = TA.EMA(dataframe, period=100)
 
         dataframe["sma_9"] = ta.SMA(dataframe, timeperiod=9)
         # Elliot

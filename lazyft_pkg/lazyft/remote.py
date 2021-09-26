@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Iterable, Optional, Union
 
 import attr
@@ -11,7 +12,7 @@ from freqtrade.data.btanalysis import load_trades_from_db
 
 from lazyft import logger, paths
 from lazyft.config import Config
-from lazyft.models import RemotePreset, Environment, RemoteBotInfo
+from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy
 from lazyft.strategy import StrategyTools
 from lazyft.util import ParameterTools
 
@@ -165,6 +166,13 @@ class RemoteBot:
         self.config.update_blacklist(blacklist, append=append)
         self.config.save()
         self.tools.send_file(self.bot_id, str(self.config), "user_data")
+
+    def update_ensemble(self, strategies: Iterable[Strategy]):
+        tmp_path = TemporaryDirectory()
+        path = Path(tmp_path.name, 'ensemble.json')
+        path.write_text(rapidjson.dumps([s.name for s in strategies]))
+        logger.info('New ensemble is %s', strategies)
+        self.tools.send_file(self.bot_id, path, 'user_data/strategies/ensemble.json')
 
 
 @attr.s

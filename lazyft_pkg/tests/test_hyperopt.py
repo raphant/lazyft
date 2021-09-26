@@ -1,15 +1,15 @@
 import pathlib
+import time
 
 from lazyft import paths
+from lazyft.command_parameters import HyperoptParameters
+from lazyft.hyperopt.celery_tools import CeleryRunner
 from lazyft.hyperopt.commands import create_commands
 from lazyft.hyperopt.report import HyperoptReportExporter
-from lazyft.models import HyperoptPerformance
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
-from lazyft.command_parameters import HyperoptParameters
-from rich import traceback
-
+from lazyft.models import HyperoptPerformance
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
@@ -17,7 +17,7 @@ paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 STRATEGY = ['TestStrategy']
 STRATEGY_WITH_ID = ['TestStrategy-test']
 config_name = 'config_test.json'
-epochs = 1
+epochs = 10
 days = 2
 min_trades = 1
 
@@ -55,6 +55,7 @@ def test_hyperopt():
     assert isinstance(report.params_file, pathlib.Path)
 
     print(runner.save())
+    print(runner.epoch_text)
     runner.report.params_file.unlink()
 
 
@@ -72,11 +73,12 @@ def test_build_command_with_days():
 
 
 # def test_celery():
-#     hp = get_parameters('buy', ['BinH'], '20210801-')
-#     from lazyft.background.tasks import do_hyperopt
-#
-#     res = do_hyperopt.delay(hp.__dict__)
-#     print(res)
+#     hp = get_parameters('roi stoploss', ['TestStrategy'], '20210801-')
+#     task_id = CeleryRunner.celery_execute(hp)
+#     time.sleep(3)
+#     runner = CeleryRunner.load(task_id)
+#     assert runner.report_id == task_id
+#     print(runner.output)
 
 
 # def test_param_save():

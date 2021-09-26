@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import pandas as pd
 import rapidjson
+import sh
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 
@@ -113,7 +114,6 @@ class Report(BaseModel):
     exchange: str
     balance_info: Optional[dict]
     date: datetime = Field(default_factory=datetime.now)
-    pairlist: list[str] = []
     tag: str = ''
     performance: 'Union[HyperoptPerformance, BacktestPerformance]'
 
@@ -156,6 +156,14 @@ class BacktestReport(Report):
     json_file: Path
     hash: str
     session_id: Optional[str]
+    ensemble: list[str] = []
+
+    @property
+    def logs(self) -> str:
+        log_path = paths.BACKTEST_LOG_PATH.joinpath(self.report_id + '.log')
+        if not log_path.exists():
+            return ''
+        return log_path.read_text()
 
     @property
     def df(self):
@@ -229,20 +237,40 @@ class BacktestReport(Report):
 
     @property
     def trades(self):
-        df = pd.DataFrame(self.backtest_data['strategy'][self.strategy]['trades'])
+        df = pd.DataFrame(self.backtest_data['trades'])
         df.open_date = pd.to_datetime(df.open_date)
         df.close_date = pd.to_datetime(df.open_date)
         return df
 
     @property
-    def pair_performance(self):
-        return pd.DataFrame(
-            self.backtest_data['strategy'][self.strategy]['results_per_pair']
-        )
+    def pairlist(self) -> list[str]:
+        return self.backtest_data['pairlist']
+
+    def as_df(self, key: str):
+        """Get a key from the backtest data as a DataFrame"""
+        if key not in self.backtest_data:
+            raise KeyError(
+                '%s not found in backtest data. Available keys are: %s'
+                % (key, ', '.join(self.backtest_data.keys()))
+            )
+        return pd.DataFrame(self.backtest_data[key])
 
     @property
-    def backtest_data(self):
-        return rapidjson.loads(self.json_file.read_text())
+    def pair_performance(self):
+        return pd.DataFrame(self.backtest_data['results_per_pair'])
+
+    @property
+    def backtest_data(self) -> dict:
+        file = self.json_file
+        # this is so that this data can be retrieved from any PC
+        # it makes the backtest_data relative to the current user_data directory
+        path_from_user_data = str(file).split('/user_data/')[1]
+        file = paths.USER_DATA_DIR.joinpath(path_from_user_data).resolve()
+        return rapidjson.loads(file.read_text())['strategy'][self.strategy]
+
+    @property
+    def sell_reason_summary(self):
+        return pd.DataFrame(self.backtest_data['sell_reason_summary'])
 
     def trades_to_csv(self, name=''):
         path = paths.BASE_DIR.joinpath('exports/')
@@ -272,6 +300,7 @@ class HyperoptReport(Report):
     performance: HyperoptPerformance
     params_file: Path
     hyperopt_file: Path = ''
+    pairlist: list[str] = []
 
     def parameters(self):
         return rapidjson.loads(self.params_file.read_text())
@@ -279,6 +308,32 @@ class HyperoptReport(Report):
     def delete(self):
         self.hyperopt_file.unlink(missing_ok=True)
         self.params_file.unlink(missing_ok=True)
+
+    def print_hyperopt_list(self):
+        text = sh.freqtrade(
+            'hyperopt-list',
+            '--hyperopt-filename',
+            str(self.hyperopt_file),
+            '--userdir',
+            str(paths.USER_DATA_DIR),
+        )
+        print(text)
+
+    def show_hyperopt(self, index=None):
+        args = [
+            'hyperopt-show',
+            '--hyperopt-filename',
+            str(self.hyperopt_file),
+            '--userdir',
+            str(paths.USER_DATA_DIR),
+        ]
+        if not index:
+            args.insert(1, '--best')
+        else:
+            args.insert(1, '-n')
+            args.insert(2, str(index))
+        text = sh.freqtrade(*args)
+        print(text)
 
 
 class BacktestRepo(BaseModel):
@@ -329,5 +384,9 @@ class Strategy:
 
             self.name = StrategyTools.get_name_from_id(self.id)
 
+    @property
     def as_pair(self):
         return self.name, self.id
+
+    def __str__(self) -> str:
+        return '-'.join(self.as_pair)

@@ -4,14 +4,15 @@ from pathlib import Path
 import sh
 import yaml
 
-from lazyft.config import Config
-from lazyft.paths import STRATEGY_DIR, USER_DATA_DIR
-from lazyft.regex import strategy_files_pattern
+import lazyft.paths as paths
 from lazyft import logger
+from lazyft.config import Config
+from lazyft.regex import strategy_files_pattern
 
 
 class StrategyTools:
-    metadata_file = STRATEGY_DIR.joinpath("metadata.yaml")
+    metadata_file = paths.STRATEGY_DIR.joinpath("metadata.yaml")
+    strategy_dict = None
 
     @staticmethod
     def metadata() -> dict:
@@ -76,10 +77,19 @@ class StrategyTools:
 
     @staticmethod
     def get_all_strategies():
+        if StrategyTools.strategy_dict:
+            return StrategyTools.strategy_dict
+        logger.info('Running list-strategies')
         text = sh.freqtrade(
-            "list-strategies", no_color=True, userdir=str(USER_DATA_DIR)
+            "list-strategies",
+            no_color=True,
+            userdir=str(paths.USER_DATA_DIR),
+            # _out=lambda l: logger_exec.info(l.strip()),
+            # _err=lambda l: logger_exec.info(l.strip()),
         )
-        return dict(strategy_files_pattern.findall("\n".join(text)))
+        strat_dict = dict(strategy_files_pattern.findall("\n".join(text)))
+        StrategyTools.strategy_dict = strat_dict
+        return strat_dict
 
     @staticmethod
     def create_strategy_params_filepath(strategy: str) -> Path:
@@ -88,7 +98,7 @@ class StrategyTools:
         file_name = StrategyTools.get_file_name(strategy)
         if not file_name:
             raise ValueError("Could not find strategy: %s" % strategy)
-        return STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
+        return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
 
     @staticmethod
     def get_name_from_id(id: str) -> str:
@@ -98,4 +108,4 @@ class StrategyTools:
 
 
 if __name__ == "__main__":
-    print(StrategyTools.create_strategy_params_filepath("TestStrategy"))
+    print(StrategyTools.get_file_name('MacheteV8b'))

@@ -1,25 +1,16 @@
 # --- Do not remove these libs ---
-from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
 from functools import reduce
-from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 # --------------------------------
-import talib.abstract as ta
-import numpy as np
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import datetime
-from technical.util import resample_to_interval, resampled_merge
-from datetime import datetime, timedelta
-from freqtrade.persistence import Trade
+from finta import TA as ta
 from freqtrade.strategy import (
-    stoploss_from_open,
-    merge_informative_pair,
     DecimalParameter,
     IntParameter,
-    CategoricalParameter,
 )
-import technical.indicators as ftt
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
 
 # @Rallipanos
 
@@ -38,8 +29,8 @@ sell_params = {"base_nb_candles_sell": 24, "high_offset": 0.991, "high_offset_2"
 
 def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
-    ema1 = ta.EMA(df, timeperiod=ema_length)
-    ema2 = ta.EMA(df, timeperiod=ema2_length)
+    ema1 = ta.EMA(df, period=ema_length)
+    ema2 = ta.EMA(df, period=ema2_length)
     emadif = (ema1 - ema2) / df['close'] * 100
     return emadif
 
@@ -84,10 +75,10 @@ class Elliotv8(IStrategy):
     )
 
     # Trailing stop:
-    trailing_stop = True
+    trailing_stop = False
     trailing_stop_positive = 0.001
     trailing_stop_positive_offset = 0.02
-    trailing_only_offset_is_reached = True
+    trailing_only_offset_is_reached = False
 
     # Sell signal
     use_sell_signal = True
@@ -116,22 +107,22 @@ class Elliotv8(IStrategy):
 
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
-            dataframe[f'ma_buy_{val}'] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f'ma_buy_{val}'] = ta.EMA(dataframe, period=val)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f'ma_sell_{val}'] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f'ma_sell_{val}'] = ta.EMA(dataframe, period=val)
 
         dataframe['hma_50'] = qtpylib.hull_moving_average(dataframe['close'], window=50)
 
-        dataframe['sma_9'] = ta.SMA(dataframe, timeperiod=9)
+        dataframe['sma_9'] = ta.SMA(dataframe, period=9)
         # Elliot
         dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
         # RSI
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
-        dataframe['rsi_fast'] = ta.RSI(dataframe, timeperiod=4)
-        dataframe['rsi_slow'] = ta.RSI(dataframe, timeperiod=20)
+        dataframe['rsi'] = ta.RSI(dataframe, period=14)
+        dataframe['rsi_fast'] = ta.RSI(dataframe, period=4)
+        dataframe['rsi_slow'] = ta.RSI(dataframe, period=20)
 
         return dataframe
 

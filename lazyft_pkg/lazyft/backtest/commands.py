@@ -1,6 +1,7 @@
 from lazyft import logger, util
 from lazyft.command import Command
 from lazyft.command_parameters import BacktestParameters
+from lazyft.config import Config
 from lazyft.pairlist import load_pairlist_from_id
 from lazyft.reports import get_hyperopt_repo
 
@@ -16,7 +17,7 @@ class BacktestCommand(Command):
         super().__init__(strategy, params, id=id)
         self.command_args = dict(**params.__dict__)
         self.backtest_params = params
-        self.config = params.config
+        self.config: Config = params.config
         self.strategy = strategy
         self.id = id
         self.verbose = verbose
@@ -25,16 +26,6 @@ class BacktestCommand(Command):
         # self.config = Strategy.init_config(config=config, strategy=strategy)
         self.secret_config = params.secrets_config
         self._hash = ''
-        if (
-            id
-            and not self.pairs
-            and (
-                self.config['exchange']['name']
-                == get_hyperopt_repo().get_by_param_id(id).exchange
-            )
-        ):
-            # load pairs from ID if pairs not already provided.
-            self.pairs = load_pairlist_from_id(id=id)
 
     @property
     def hash(self):
@@ -48,6 +39,8 @@ class BacktestCommand(Command):
             + self.config['exchange']['name']
             + self.params.tag
         )
+        if self.params.ensemble:
+            command_string += ','.join([str(s) for s in self.params.ensemble])
         logger.debug('Hashing "{}"', command_string)
         self._hash = util.hash(command_string)
         return self._hash

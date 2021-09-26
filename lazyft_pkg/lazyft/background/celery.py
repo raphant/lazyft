@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from celery import Celery
+from . import config
 
 app = Celery(
     'background',
@@ -8,3 +9,4 @@ app = Celery(
     backend=f'redis://localhost/1',
     include=['lazyft.background.tasks'],
 )
+app.config_from_object(config)

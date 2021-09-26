@@ -5,6 +5,7 @@ import rapidjson
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
 import talib.abstract as ta
+from finta import TA
 from freqtrade.strategy.interface import IStrategy
 from freqtrade.strategy import merge_informative_pair, timeframe_to_minutes
 from freqtrade.exchange import timeframe_to_prev_date
@@ -31,7 +32,7 @@ except ImportError:
         "pip install pandas_ta"
     )
 else:
-    log.info("pandas_ta successfully imported")
+    pass
 
 
 ###########################################################################################################
@@ -5282,15 +5283,15 @@ class NostalgiaForInfinityNext(IStrategy):
         )
 
         # EMA
-        informative_1h['ema_12'] = ta.EMA(informative_1h, timeperiod=12)
-        informative_1h['ema_15'] = ta.EMA(informative_1h, timeperiod=15)
-        informative_1h['ema_20'] = ta.EMA(informative_1h, timeperiod=20)
-        informative_1h['ema_25'] = ta.EMA(informative_1h, timeperiod=25)
-        informative_1h['ema_26'] = ta.EMA(informative_1h, timeperiod=26)
-        informative_1h['ema_35'] = ta.EMA(informative_1h, timeperiod=35)
-        informative_1h['ema_50'] = ta.EMA(informative_1h, timeperiod=50)
-        informative_1h['ema_100'] = ta.EMA(informative_1h, timeperiod=100)
-        informative_1h['ema_200'] = ta.EMA(informative_1h, timeperiod=200)
+        informative_1h['ema_12'] = TA.EMA(informative_1h, period=12)
+        informative_1h['ema_15'] = TA.EMA(informative_1h, period=15)
+        informative_1h['ema_20'] = TA.EMA(informative_1h, period=20)
+        informative_1h['ema_25'] = TA.EMA(informative_1h, period=25)
+        informative_1h['ema_26'] = TA.EMA(informative_1h, period=26)
+        informative_1h['ema_35'] = TA.EMA(informative_1h, period=35)
+        informative_1h['ema_50'] = TA.EMA(informative_1h, period=50)
+        informative_1h['ema_100'] = TA.EMA(informative_1h, period=100)
+        informative_1h['ema_200'] = TA.EMA(informative_1h, period=200)
 
         # SMA
         informative_1h['sma_200'] = ta.SMA(informative_1h, timeperiod=200)
@@ -5712,17 +5713,17 @@ class NostalgiaForInfinityNext(IStrategy):
         dataframe['bb20_2_upp'] = bb_20_std2['upper']
 
         # EMA 200
-        dataframe['ema_12'] = ta.EMA(dataframe, timeperiod=12)
-        dataframe['ema_13'] = ta.EMA(dataframe, timeperiod=13)
-        dataframe['ema_15'] = ta.EMA(dataframe, timeperiod=15)
-        dataframe['ema_16'] = ta.EMA(dataframe, timeperiod=16)
-        dataframe['ema_20'] = ta.EMA(dataframe, timeperiod=20)
-        dataframe['ema_25'] = ta.EMA(dataframe, timeperiod=25)
-        dataframe['ema_26'] = ta.EMA(dataframe, timeperiod=26)
-        dataframe['ema_35'] = ta.EMA(dataframe, timeperiod=35)
-        dataframe['ema_50'] = ta.EMA(dataframe, timeperiod=50)
-        dataframe['ema_100'] = ta.EMA(dataframe, timeperiod=100)
-        dataframe['ema_200'] = ta.EMA(dataframe, timeperiod=200)
+        dataframe['ema_12'] = TA.EMA(dataframe, period=12)
+        dataframe['ema_13'] = TA.EMA(dataframe, period=13)
+        dataframe['ema_15'] = TA.EMA(dataframe, period=15)
+        dataframe['ema_16'] = TA.EMA(dataframe, period=16)
+        dataframe['ema_20'] = TA.EMA(dataframe, period=20)
+        dataframe['ema_25'] = TA.EMA(dataframe, period=25)
+        dataframe['ema_26'] = TA.EMA(dataframe, period=26)
+        dataframe['ema_35'] = TA.EMA(dataframe, period=35)
+        dataframe['ema_50'] = TA.EMA(dataframe, period=50)
+        dataframe['ema_100'] = TA.EMA(dataframe, period=100)
+        dataframe['ema_200'] = TA.EMA(dataframe, period=200)
 
         # SMA
         dataframe['sma_5'] = ta.SMA(dataframe, timeperiod=5)
@@ -5790,7 +5791,7 @@ class NostalgiaForInfinityNext(IStrategy):
         ) / 3
 
         # zlema
-        dataframe['zlema_68'] = zlema(dataframe, 68)
+        dataframe['zlema_68'] = TA.ZLEMA(dataframe, 68)
 
         # CTI
         dataframe['cti'] = pta.cti(dataframe["close"], length=20)
@@ -7369,6 +7370,7 @@ class NostalgiaForInfinityNext(IStrategy):
         rate: float,
         time_in_force: str,
         sell_reason: str,
+        current_time: datetime,
         **kwargs,
     ) -> bool:
         """
@@ -7498,8 +7500,8 @@ class NostalgiaForInfinityNext(IStrategy):
 
 # Elliot Wave Oscillator
 def ewo(dataframe, sma1_length=5, sma2_length=35):
-    sma1 = ta.EMA(dataframe, timeperiod=sma1_length)
-    sma2 = ta.EMA(dataframe, timeperiod=sma2_length)
+    sma1 = TA.EMA(dataframe, period=sma1_length)
+    sma2 = TA.EMA(dataframe, period=sma2_length)
     smadif = (sma1 - sma2) / dataframe['close'] * 100
     return smadif
 
@@ -7575,18 +7577,6 @@ def moderi(dataframe: DataFrame, len_slow_ma: int = 32) -> Series:
         ta.EMA(vwma(dataframe, length=len_slow_ma), timeperiod=len_slow_ma)
     )
     return slow_ma >= slow_ma.shift(1)  # we just need true & false for ERI trend
-
-
-# zlema
-def zlema(dataframe, timeperiod):
-    lag = int(math.floor((timeperiod - 1) / 2))
-    if isinstance(dataframe, Series):
-        ema_data = dataframe + (dataframe - dataframe.shift(lag))
-    else:
-        ema_data = dataframe['close'] + (
-            dataframe['close'] - dataframe['close'].shift(lag)
-        )
-    return ta.EMA(ema_data, timeperiod=timeperiod)
 
 
 # zlhull

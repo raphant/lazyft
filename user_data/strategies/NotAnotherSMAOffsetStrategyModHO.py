@@ -7,7 +7,8 @@ from functools import reduce
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 # --------------------------------
-import talib.abstract as ta
+import talib.abstract as ta_old
+from finta import TA as ta
 from freqtrade.exchange import timeframe_to_prev_date, timeframe_to_seconds
 from freqtrade.persistence import Trade
 from freqtrade.strategy import DecimalParameter, IntParameter
@@ -89,8 +90,8 @@ sell_params = {
 
 def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
-    ema1 = ta.EMA(df, timeperiod=ema_length)
-    ema2 = ta.EMA(df, timeperiod=ema2_length)
+    ema1 = ta.EMA(df, period=ema_length)
+    ema2 = ta.EMA(df, period=ema2_length)
     emadif = (ema1 - ema2) / df["low"] * 100
     return emadif
 
@@ -273,32 +274,31 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
 
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
-            dataframe[f"ma_buy_{val}"] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_buy_{val}"] = ta.EMA(dataframe, period=val)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f"ma_sell_{val}"] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_sell_{val}"] = ta.EMA(dataframe, period=val)
 
         dataframe["hma_50"] = qtpylib.hull_moving_average(dataframe["close"], window=50)
 
-        dataframe["sma_9"] = ta.SMA(dataframe, timeperiod=9)
+        dataframe["sma_9"] = ta.SMA(dataframe, period=9)
         # Elliot
         dataframe["EWO"] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
         # RSI
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["rsi_fast"] = ta.RSI(dataframe, timeperiod=4)
-        dataframe["rsi_slow"] = ta.RSI(dataframe, timeperiod=20)
+        dataframe["rsi"] = ta.RSI(dataframe, period=14)
+        dataframe["rsi_fast"] = ta.RSI(dataframe, period=4)
+        dataframe["rsi_slow"] = ta.RSI(dataframe, period=20)
 
-        dataframe["ema_100"] = ta.EMA(dataframe, timeperiod=100)
+        dataframe["ema_100"] = ta.EMA(dataframe, period=100)
 
         # confirm_trade_exit
-        dataframe["adx"] = ta.ADX(dataframe, timeperiod=2)
-        dataframe["di_up"] = ta.PLUS_DI(dataframe, timeperiod=2) > ta.MINUS_DI(
-            dataframe, timeperiod=2
-        )
-        rsi2 = ta.RSI(dataframe, timeperiod=2)
-        rsi4 = ta.RSI(dataframe, timeperiod=4)
+        dataframe["adx"] = ta.ADX(dataframe, period=2)
+        di_plus, di_minus = ta.DMI(dataframe, 2)
+        dataframe["di_up"] = di_plus > di_minus
+        rsi2 = ta.RSI(dataframe, period=2)
+        rsi4 = ta.RSI(dataframe, period=4)
         dataframe["block_trade_exit"] = rsi2 > rsi4
 
         return dataframe

@@ -30,7 +30,7 @@ except ImportError:
         "pip install pandas_ta"
     )
 else:
-    log.info("pandas_ta successfully imported")
+    pass
 
 
 ###########################################################################################################

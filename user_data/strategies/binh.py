@@ -65,7 +65,7 @@ class BinH(IStrategy):
 
     # Recommended
     use_sell_signal = True
-    sell_profit_only = True
+    sell_profit_only = False
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(

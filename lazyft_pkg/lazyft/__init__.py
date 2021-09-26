@@ -45,6 +45,7 @@ logger.configure(
             rotation='1 MB',
             format='{message}',
             filter=lambda r: filter_log_file(r, log_type='hyperopt'),
+            enqueue=True,
         ),
         dict(
             sink=paths.LOG_DIR.joinpath('backtest.log'),
@@ -52,6 +53,7 @@ logger.configure(
             rotation='1 MB',
             format='{message}',
             filter=lambda r: filter_log_file(r, log_type='backtest'),
+            enqueue=True,
         ),
         dict(
             sink=paths.LOG_DIR.joinpath('general_exec.log'),
@@ -59,6 +61,9 @@ logger.configure(
             rotation='1 MB',
             format='{message}',
             filter=lambda r: filter_log_file(r, log_type='general'),
+            enqueue=True,
         ),
     ]
 )
+
+logger_exec = logger.bind(type='general')

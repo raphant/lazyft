@@ -20,11 +20,13 @@ class BacktestReportExporter:
         json_file: Union[str],
         hash: str,
         balance_info: dict,
-        id: str = None,
+        report_id: str,
+        hyperopt_id: str = None,
         min_win_rate=1,
         exchange: str = '',
         pairlist=None,
         tag=None,
+        ensemble=None,
     ) -> None:
         self.strategy = strategy
         self.min_win_rate = min_win_rate
@@ -34,23 +36,26 @@ class BacktestReportExporter:
         ).resolve()
         self.exchange = exchange
         self._json_data = None
-        self.id = id
+        self.hyperopt_id = hyperopt_id
+        self.report_id = report_id
         self.balance_info = balance_info
         self.pairs = pairlist
         self.tag = tag
+        self.ensemble = ensemble
 
     @property
     def export(self):
         return BacktestReport(
             strategy=self.strategy,
-            param_id=self.id,
-            performance=self.performance,
             json_file=self.json_file,
             hash=self.hash,
+            report_id=self.report_id,
+            param_id=self.hyperopt_id,
+            performance=self.performance,
             exchange=self.exchange,
             balance_info=self.balance_info,
-            pairlist=self.pairs,
             tag=self.tag,
+            ensemble=self.ensemble or [],
         )
 
     @property
@@ -94,8 +99,8 @@ class BacktestReportExporter:
     def totals(self):
         tail = self.df.tail(1)
         key = f'{self.strategy}'
-        if self.id:
-            key = key + f'-{self.id}'
+        if self.hyperopt_id:
+            key = key + f'-{self.hyperopt_id}'
         tail.key = key
         return tail
 

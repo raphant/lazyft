@@ -16,6 +16,7 @@ class HyperoptReportExporter:
         config: Config,
         output: str,
         strategy: str,
+        report_id: str,
         balance_info: dict = None,
         tag: str = None,
     ) -> None:
@@ -26,8 +27,10 @@ class HyperoptReportExporter:
         self.tag = tag
         self.params_file = ParameterTools.save_params_file(strategy, self.id)
         extracted = self._extract_output(output)
+        self.report_id = report_id
         if not extracted:
             raise ValueError('Report is empty')
+        logger.debug('Finished extracting output')
         self.performance = extracted
         self.hyperopt_file = Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
@@ -57,6 +60,7 @@ class HyperoptReportExporter:
     @property
     def to_model(self):
         return HyperoptReport(
+            report_id=self.report_id,
             param_id=self.id,
             strategy=self.strategy,
             params_file=self.params_file,

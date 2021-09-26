@@ -17,3 +17,5 @@ nb_black
 pydantic
 celery
 pushbullet.py
+diskcache
+finta

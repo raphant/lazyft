@@ -1,16 +1,15 @@
 import pathlib
 
 from lazyft import backtest, paths, models
-from lazyft.backtest.commands import create_commands
+from lazyft.backtest.commands import create_commands, BacktestCommand
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import BacktestParameters
-from lazyft.config import Config
-from lazyft.quicktools import QuickTools
 from lazyft.reports import get_hyperopt_repo
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
-STRATEGY = ['TestStrategy-test']
+param_id = 'test'
+STRATEGY_WITH_ID = ['TestStrategy-test']
 STRATEGIES = ['TestStrategy-test', 'TestStrategy']
 config_name = 'config_test.json'
 
@@ -18,11 +17,16 @@ days = 5
 
 
 def get_commands(strategies):
-    cp = BacktestParameters(
-        strategies=strategies, config_path=config_name, days=days, download_data=True
-    )
+    cp = get_parameters(strategies)
     commands = create_commands(cp, verbose=True)
     return commands
+
+
+def get_parameters(strategies):
+    cp = BacktestParameters(
+        strategies=strategies, config_path=config_name, days=days, download_data=False
+    )
+    return cp
 
 
 def test_backtest_command_no_id():
@@ -35,13 +39,25 @@ def test_backtest_command_no_id():
 
 
 def test_backtest_command_with_id():
-    commands = get_commands(STRATEGIES)
+    commands = get_commands(STRATEGY_WITH_ID)
     runner = BacktestRunner(commands[0])
     runner.execute()
     if runner.error:
         raise RuntimeError('Error in backtest runner')
     assert bool(runner.report)
     runner.report.json_file.unlink(missing_ok=True)
+
+
+# def test_id_pairlist():
+#     """Make sure a pairlist can be extracted from a previous Hyperopt run"""
+#     existing_report = get_hyperopt_repo().get_by_param_id(param_id)
+#     pairlist = existing_report.pairlist
+#     parameters = get_parameters(STRATEGY_WITH_ID)
+#     assert parameters.config['exchange']['name'] == existing_report.exchange
+#     parameters.pairs = []
+#     strategy, id = parameters.strategy_id_pairs[0]
+#     params_pairs = BacktestCommand(strategy, params=parameters, id=id).pairs
+#     assert set(params_pairs) == set(pairlist)
 
 
 # def test_backtest_with_generated_pairlist():
@@ -55,7 +71,7 @@ def test_backtest_command_with_id():
 
 
 def test_save_backtesting_report():
-    commands = get_commands(STRATEGY)
+    commands = get_commands(STRATEGY_WITH_ID)
     runner = BacktestRunner(commands[0])
     runner.execute()
     assert bool(runner.report)

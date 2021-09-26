@@ -16,3 +16,10 @@ LAST_HYPEROPT_RESULTS_FILE = USER_DATA_DIR.joinpath(
     'hyperopt_results', '.last_result.json'
 )
 ENSEMBLE_FILE = STRATEGY_DIR.joinpath('ensemble.json')
+HYPEROPT_LOG_PATH = LOG_DIR.joinpath('hyperopt_logs/')
+HYPEROPT_LOG_PATH.mkdir(exist_ok=True)
+BACKTEST_LOG_PATH = LOG_DIR.joinpath('backtest_logs/')
+BACKTEST_LOG_PATH.mkdir(exist_ok=True)
+CELERY_TASKS_FILE = BASE_DIR.joinpath('tasks.json')
+CELERY_STOP_FILE = BASE_DIR.joinpath('.celery_stop')
+CELERY_CURRENT_TASK_FILE = BASE_DIR.joinpath('.celery')

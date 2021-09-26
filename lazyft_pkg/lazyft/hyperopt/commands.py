@@ -19,8 +19,7 @@ class HyperoptCommand(Command):
         if id and not self.pairs:
             # load pairs from ID if pairs not already provided.
             self.pairs = load_pairlist_from_id(id=id)
-        if params.download_data:
-            self.download_data()
+
 
 
 def create_commands(

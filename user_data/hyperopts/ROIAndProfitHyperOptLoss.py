@@ -1,7 +1,7 @@
 from pandas import DataFrame
 from freqtrade.optimize.hyperopt import IHyperOptLoss
 
-# Modify weights in order to maximice one aspect over another
+# Modify weights in order to maximize one aspect over another
 ROI_WEIGHT = 3
 STRATEGY_SELL_WEIGHT = 0
 TRAILING_WEIGHT = 0

@@ -1,6 +1,8 @@
+import pathlib
 import time
 from queue import Queue
 from threading import Thread
+from typing import Optional
 
 import pandas as pd
 import sh
@@ -10,7 +12,7 @@ from rich.table import Table
 from lazyft import logger, paths, hyperopt, runner, regex
 from lazyft.hyperopt import HyperoptReportExporter
 from lazyft.models import HyperoptReport
-from lazyft.notify import notify
+from lazyft.notify import notify_pb
 from lazyft.util import ParameterTools
 
 logger_exec = logger.bind(type='hyperopt')
@@ -28,46 +30,85 @@ columns = [
 
 class HyperoptManager:
     def __init__(self, commands: list[hyperopt.HyperoptCommand]) -> None:
-        self.runners: list[HyperoptRunner] = []
         self.commands = commands
-        self.reports: list[hyperopt.HyperoptReportExporter] = []
 
-    def create_runners(self):
+        self.stop = False
+        self.running = False
+
+        self.queue = Queue()
+        self.reports: list[hyperopt.HyperoptReportExporter] = []
+        self.runners: list[HyperoptRunner] = []
+        self.current_runner: Optional[HyperoptRunner] = None
+        self.failed_runners: list[HyperoptRunner] = []
+
         for c in self.commands:
+            self.queue.put(HyperoptRunner(c, autosave=True))
             self.runners.append(HyperoptRunner(c))
 
     def execute(self):
-        for r in self.runners:
-            r.execute()
+        logger.info('Hyperopting in the background')
+        thread = Thread(target=self._runner)
+        thread.start()
+        return thread
 
-    def generate_reports(self):
-        for r in self.runners:
-            report = r.generate_report()
-            report.save()
-            self.reports.append(report)
+    def _runner(self):
+        self.running = True
+        while not self.queue.empty() and not self.stop:
+            r: HyperoptRunner = self.queue.get(timeout=5)
+            self.current_runner = r
+            # noinspection PyBroadException
+            try:
+                r.execute()
 
-    def get_best_run(self):
-        return max(self.reports, key=lambda r: r.performance.tot_profit)
+            finally:
+                if r.error:
+                    logger.error('Failed while hyperopting {}', r.strategy)
+                    logger.error(r.output[-300:])
+                self.failed_runners.append(r)
+        self.running = False
+        self.current_runner = None
+        notify_pb('Hyperopt Manager', 'Finished hyperopting')
+
+    # def generate_reports(self):
+    #     for r in self.runners:
+    #         sh.freqtrade('hyperopt-show --best'.split())
+    #         report = r.generate_report()
+    #         report.save()
+    #         self.reports.append(report)
 
 
 class HyperoptRunner(runner.Runner):
     def __init__(
         self,
         command: hyperopt.HyperoptCommand,
-        verbose: bool = False,
+        task_id=None,
+        celery=False,
+        loaded_from_celery=False,
+        autosave=False,
         notify: bool = True,
-        autosave=False
+        verbose: bool = False,
     ) -> None:
-        super().__init__(verbose)
+        """
+        Args:
+            command: The command to execute
+            task_id: A custom ID to give to the runner. Used as a celery task ID and saving.
+            celery: Is this ran by celery?
+            loaded_from_celery: Is this loaded with CeleryRunner.load?
+            autosave: Should the report be saved after the command completes?
+            notify: Should a notification be sent after the command completes?
+            verbose: Should debug-level logs be printed?
+        """
+        super().__init__(verbose, task_id=task_id)
         self.command = command
         self.verbose = verbose or command.verbose
-        self.current_epoch = 0
         self.notify = notify
-
-        self._report = None
-        self.report_exporter: HyperoptReportExporter = None
-        self.start_time = None
         self.autosave = autosave
+        self.loaded_from_celery = loaded_from_celery
+        self.celery = celery
+        self._report = None
+        self.report_exporter: Optional[HyperoptReportExporter] = None
+        self.start_time = None
+        self.epoch_text = ''
 
     @property
     def strategy(self):
@@ -77,10 +118,15 @@ class HyperoptRunner(runner.Runner):
     def report(self) -> HyperoptReport:
         return self._report
 
-    def execute(self, background=False):
+    def pre_execute(self):
+        if self.loaded_from_celery:
+            raise RuntimeError(
+                'This hyperopt was loaded from celery and can not be executed.'
+            )
         if self.running:
             raise RuntimeError('Hyperopt is already running')
         self.reset()
+        # set or remove parameter file in strategy directory
         if self.command.id:
             ParameterTools.set_params_file(self.strategy, self.command.id)
         else:
@@ -92,6 +138,12 @@ class HyperoptRunner(runner.Runner):
             'Hyperopting {} with id "{}"', self.strategy, self.command.id or 'null'
         )
         self.start_time = time.time()
+
+    def execute(self, background=False):
+        # validate run
+        self.pre_execute()
+
+        # Execute VIA sh
         try:
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
@@ -103,48 +155,82 @@ class HyperoptRunner(runner.Runner):
                 _done=self.on_finished,
             )
             self.running = True
-
+            logger.info('Process ID: {}', self.process.pid)
+            self.write_worker.start()
+            if self.celery:
+                paths.CELERY_CURRENT_TASK_FILE.write_text(self.report_id)
+                # self.stop_worker.start()
             if not background:
-                self.process.wait()
-
+                try:
+                    self.process.wait()
+                except KeyboardInterrupt:
+                    self.stop()
         except Exception:
             logger.error(self.output)
             raise
 
+    def join(self):
+        while self.running or not self.write_queue.empty():
+            time.sleep(1)
+
+    @property
+    def output(self):
+        return self.log_path.read_text()
+
     def live_output(self):
-        table = Printer.create_new_table()
+        """Use rich lib to display an updatable table with epoch information"""
+        table = _Printer.create_new_table()
         with Live(table, refresh_per_second=4, console=self.console) as live:
             try:
                 while self.running:
                     time.sleep(0.4)
-                    live.update(self.get_results_as_table())
+                    live.update(self._get_results_as_table())
             except KeyboardInterrupt:
                 pass
         if self.error:
             logger.error('\n'.join(self.error_list[-5:]))
 
+    def _get_results_as_table(self):
+        """Generates tables for live_output"""
+        data = regex.EPOCH_LINE_REGEX.findall(self.output)
+        table = _Printer.create_new_table()
+        for d in data:
+            table.add_row(*d)
+
+        return table
+
     def on_finished(self, _, success, _2):
+        """The callback for the sh command in execute()"""
         self.running = False
         if not success:
             logger.error("Finished with errors")
             self.error = True
             logger.error(self.output)
             if self.notify:
-                notify('Hyperopt Failed', 'Hyperopt finished with errors')
+                notify_pb('Hyperopt Failed', 'Hyperopt finished with errors')
 
         else:
             logger.success("Finished successfully.")
             if self.notify and not self.manually_stopped:
-                notify(
+                notify_pb(
                     'Hyperopt Finished',
                     'Hyperopt finished successfully. Elapsed time: %sminutes '
                     % ((time.time() - self.start_time) // 60),
                 )
+            self.write_worker.join()
             self.report_exporter = self.generate_report()
+            logger.debug('Report generated')
             if self.autosave:
                 logger.info('Auto-saved: {}', self.save())
+        if self.celery:
+            paths.CELERY_CURRENT_TASK_FILE.write_text('')
 
     def save(self):
+        """Saves the report to lazy_params.json"""
+        if self.loaded_from_celery:
+            raise RuntimeError(
+                'This hyperopt was loaded from celery and can not be executed.'
+            )
         model = self.report_exporter.save()
         self._report = model
         return model
@@ -161,8 +247,16 @@ class HyperoptRunner(runner.Runner):
     #     result = results[idx]
     #
     #     return pd.DataFrame(result['results_metrics']['results_per_pair'])
+    @property
+    def current_epoch(self):
+        findall = regex.CURRENT_EPOCH.findall(self.epoch_text)
+        if not findall:
+            return 0
+        return findall[0]
 
     def generate_report(self):
+        """Creates a report that will potentially saved later on."""
+        # noinspection PyUnresolvedReferences
         secondary_config = dict(
             starting_balance=self.command.params.starting_balance
             or self.command.config['starting_balance'],
@@ -172,52 +266,39 @@ class HyperoptRunner(runner.Runner):
             or self.command.config['max_open_trades'],
         )
 
+        # noinspection PyTypeChecker
         return hyperopt.HyperoptReportExporter(
             self.command.config,
             self.output,
             self.strategy,
             balance_info=secondary_config,
             tag=self.command.params.tag,
+            report_id=self.report_id,
         )
 
-    def get_results(self):
+    def get_results(self) -> pd.DataFrame:
+        """Scrapes the hyperopt epoch information using regex and returns a DataFrame"""
         data = regex.EPOCH_LINE_REGEX.findall(self.output)
         return pd.DataFrame(data, columns=columns)
 
-    def get_results_as_table(self):
-        data = regex.EPOCH_LINE_REGEX.findall(self.output)
-        table = Printer.create_new_table()
-        for d in data:
-            table.add_row(*d)
-
-        return table
-
     def sub_process_log(self, text="", out=False, error=False):
+        """For logging purposes. Fills the write_queue"""
+        if not text or "ETA" in text:
+            self.epoch_text = text
+            return
         logger_exec.info(text.strip())
-        super().sub_process_log(text, out, error)
+        self.write_queue.put(text)
+        if out or self.verbose:
+            self.console.print(text, end="")
+        if error:
+            self.error_list.append(text.strip())
+
+    @property
+    def log_path(self) -> pathlib.Path:
+        return paths.HYPEROPT_LOG_PATH.joinpath(self.report_id + '.log')
 
 
-class Extractor(Thread):
-    def __init__(self, message_queue: Queue, table: Table):
-        super().__init__(daemon=True)
-        self.queue = message_queue
-        self.table = table
-
-    def run(self):
-        while True:
-            line = self.queue.get()
-            if line == "STOP":
-                with self.queue.mutex:
-                    self.queue.queue.clear()
-                break
-            search = regex.EPOCH_LINE_REGEX.search(line)
-            if not search:
-                continue
-            line_info = search.groupdict()
-            self.table.add_row(*line_info.values())
-
-
-class Printer:
+class _Printer:
     @staticmethod
     def create_new_table():
         table = Table(

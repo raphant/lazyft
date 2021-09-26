@@ -1,6 +1,7 @@
 import datetime
+import statistics
 from abc import ABCMeta
-from collections import UserList
+from collections import UserList, defaultdict
 from pathlib import Path
 from typing import Optional, Union, Callable, Type
 
@@ -136,7 +137,7 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
                 logger.exception(e)
         if not len(frames):
             return None
-        return pd.DataFrame(pd.concat(frames))
+        return pd.DataFrame(pd.concat(frames, ignore_index=True))
 
     def delete(self, index: int):
         repo: Union[BacktestRepo, HyperoptRepo] = self._repo.parse_file(self._data_file)
@@ -145,7 +146,9 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
         repo.reports.remove(report)
 
         self._data_file.write_text(repo.json())
-        logger.info('Deleted report "{}" from {}', report.id, self._repo.__name__)
+        logger.info(
+            'Deleted report "{}" from {}', report.report_id, self._repo.__name__
+        )
 
     def delete_all(self):
         repo: Union[BacktestRepo, HyperoptRepo] = self._repo.parse_file(self._data_file)
@@ -206,19 +209,37 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
             data.append(totals_dict)
         return pd.DataFrame(data)
 
-    def get_pair_totals(self):
+    def get_pair_totals(self, sort_by='profit_sum_pct'):
         temp = {}
         for record in self.data:
             df = record.pair_performance
-            paired = df[['key', 'profit_sum']]
+            paired = df[['key', 'profit_sum', 'profit_mean', 'trades']]
             pair_data = paired.to_dict(orient='records')
             for r in pair_data:
-                a = temp.get(r['key'], 0)
-                temp[r['key']] = a + r['profit_sum']
+                pair = r['key']
+                existing_key: dict = temp.get(
+                    pair, {'profit_sum_pct': 0, 'mean_collection': [], 'trades': 0}
+                )
+                current_sum = existing_key['profit_sum_pct']
+                trades = existing_key['trades']
+                current_mean_collection = existing_key['mean_collection']
+                current_sum += r['profit_sum']
+                trades += r['trades']
+                current_mean_collection.append(r['profit_mean'])
+                temp[pair] = {
+                    'profit_sum_pct': current_sum,
+                    'mean_collection': current_mean_collection,
+                    'trades': trades,
+                }
         del temp['TOTAL']
-        df = pd.DataFrame([temp]).T
-        df.rename({0: 'profit_sum_pct'}, axis='columns', inplace=True)
-        return df.sort_values('profit_sum_pct', ascending=False)
+
+        for k, v in temp.copy().items():
+            temp[k]['mean'] = statistics.mean(v['mean_collection'])
+            del temp[k]['mean_collection']
+
+        df = pd.DataFrame(temp).T
+        df['trades'] = df['trades'].astype(int)
+        return df.sort_values(sort_by, ascending=False)
 
 
 class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
@@ -252,5 +273,5 @@ def get_hyperopt_repo():
 
 
 if __name__ == '__main__':
-    print(get_backtest_repo().dataframe().to_markdown())
-    # get_backtest_repo().delete_all()
+    # print(get_backtest_repo().get_pair_totals('mean').head(15))
+    print(get_hyperopt_repo()[0].show_hyperopt(2))

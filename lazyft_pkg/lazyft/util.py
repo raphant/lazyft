@@ -20,7 +20,7 @@ def hash(obj):
 
 def human_format(num):
     if num < 1000:
-        return f'{num:,.2f}'
+        return f'{num:,.3f}'
     num = float('{:.3g}'.format(num))
     magnitude = 0
     while abs(num) >= 1000:

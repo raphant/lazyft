@@ -166,6 +166,10 @@ class BacktestReport(Report):
         return log_path.read_text()
 
     @property
+    def log_file(self):
+        return paths.BACKTEST_LOG_PATH(self.report_id + '.log')
+
+    @property
     def df(self):
         df = super().df
 
@@ -239,7 +243,7 @@ class BacktestReport(Report):
     def trades(self):
         df = pd.DataFrame(self.backtest_data['trades'])
         df.open_date = pd.to_datetime(df.open_date)
-        df.close_date = pd.to_datetime(df.open_date)
+        df.close_date = pd.to_datetime(df.close_date)
         return df
 
     @property
@@ -294,6 +298,7 @@ class BacktestReport(Report):
 
     def delete(self):
         self.json_file.unlink(missing_ok=True)
+        self.log_file.unlink(missing_ok=True)
 
 
 class HyperoptReport(Report):
@@ -302,12 +307,17 @@ class HyperoptReport(Report):
     hyperopt_file: Path = ''
     pairlist: list[str] = []
 
+    @property
+    def log_file(self):
+        return paths.HYPEROPT_LOG_PATH(self.report_id + '.log')
+
     def parameters(self):
         return rapidjson.loads(self.params_file.read_text())
 
     def delete(self):
         self.hyperopt_file.unlink(missing_ok=True)
         self.params_file.unlink(missing_ok=True)
+        self.log_file.unlink(missing_ok=True)
 
     def print_hyperopt_list(self):
         text = sh.freqtrade(

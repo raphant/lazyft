@@ -1,37 +1,41 @@
 import concurrent
 import logging
+import math
+import sys
 import time
-import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from functools import reduce
-from itertools import combinations
 from pathlib import Path
 from typing import Optional, Union, Dict
 
 import pandas as pd
 import rapidjson
 from freqtrade.exchange import timeframe_to_prev_date
+from freqtrade.misc import round_dict
+from freqtrade.optimize.space import SKDecimal
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
     IStrategy,
+    IntParameter,
+    DecimalParameter,
+    stoploss_from_open,
+    CategoricalParameter,
 )
 from freqtrade.strategy.interface import SellCheckTuple
 from pandas import DataFrame
-from pandas.core.common import SettingWithCopyWarning
+from scipy.interpolate import interp1d
+from skopt.space import Dimension, Integer, Categorical
 
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+# warnings.filterwarnings(
+#     'ignore',
+#     'CustomStoploss.*',
+# )
+# warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+
+sys.path.append(str(Path(__file__).parent))
+
 logger = logging.getLogger(__name__)
-keys_to_delete = [
-    "minimal_roi",
-    "stoploss",
-    "trailing_stop",
-    "trailing_stop_positive_offset",
-    "trailing_only_offset_is_reached",
-    "use_custom_stoploss",
-    "ignore_roi_if_buy_signal",
-]
 
 ensemble_path = Path('user_data/strategies/ensemble.json')
 
@@ -39,42 +43,54 @@ STRATEGIES = []
 if ensemble_path.exists():
     STRATEGIES = rapidjson.loads(ensemble_path.resolve().read_text())
 
-STRAT_COMBINATIONS = reduce(
-    lambda x, y: list(combinations(STRATEGIES, y)) + x, range(len(STRATEGIES) + 1), []
-)
-# logger.info('\nStrat combinations: %s\n', list(enumerate(STRAT_COMBINATIONS)))
-
-MAX_COMBINATIONS = len(STRAT_COMBINATIONS) - 2
+keys_to_delete = [
+    "minimal_roi",
+    "stoploss",
+    "ignore_roi_if_buy_signal",
+]
 
 
 class MyEnsembleStrategy(IStrategy):
     loaded_strategies = {}
-    informative_timeframe = "1h"
 
-    stoploss = -0.99  # effectively disabled.
+    stoploss = -0.31
+    minimal_roi = {'0': 0.1669, '19': 0.049, '61': 0.023, '152': 0}
+
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
     use_sell_signal = True
-    ignore_roi_if_buy_signal = False
+    ignore_roi_if_buy_signal = True
     sell_profit_only = False
 
     # Trailing stoploss
     trailing_stop = False
+    trailing_stop_positive = 0.001
+    trailing_stop_positive_offset = 0.016
     trailing_only_offset_is_reached = False
-    trailing_stop_positive = None
-    trailing_stop_positive_offset = None
 
     # Custom stoploss
-    use_custom_stoploss = False
+    use_custom_stoploss = True
 
     # Run "populate_indicators()" only for new candle.
     process_only_new_candles = True
 
     # Number of candles the strategy requires before producing valid signals
     startup_candle_count: int = 200
-
-    minimal_roi = {"0": 100}
+    # region manigold settings
+    # roi
+    roi_time_interval_scaling = 1.6
+    roi_table_step_size = 5
+    roi_value_step_scaling = 0.9
+    # stoploss
+    stoploss_min_value = -0.02
+    stoploss_max_value = -0.3
+    # trailing
+    trailing_stop_positive_min_value = 0.01
+    trailing_stop_positive_max_value = 0.08
+    trailing_stop_positive_offset_min_value = 0.011
+    trailing_stop_positive_offset_max_value = 0.1
+    # endregion
 
     plot_config = {
         'main_plot': {
@@ -84,6 +100,8 @@ class MyEnsembleStrategy(IStrategy):
             },
         }
     }
+
+    combo_sell_signal = IntParameter(1, len(STRATEGIES) + 1, default=2, space='buy')
     # protections = [
     #     {"method": "CooldownPeriod", "stop_duration_candles": 2},
     #     {
@@ -94,10 +112,85 @@ class MyEnsembleStrategy(IStrategy):
     #         "only_per_pair": True,
     #     },
     # ]
+    use_custom_stoploss_opt = CategoricalParameter(
+        [True, False], default=False, space='buy'
+    )
+    # region trailing stoploss hyperopt parameters
+    # hard stoploss profit
+    pHSL = DecimalParameter(
+        -0.200,
+        -0.040,
+        default=-0.15,
+        decimals=3,
+        space='sell',
+        optimize=True,
+        load=True,
+    )
+    # profit threshold 1, trigger point, SL_1 is used
+    pPF_1 = DecimalParameter(
+        0.008, 0.020, default=0.016, decimals=3, space='sell', optimize=True, load=True
+    )
+    pSL_1 = DecimalParameter(
+        0.008, 0.020, default=0.014, decimals=3, space='sell', optimize=True, load=True
+    )
+
+    # profit threshold 2, SL_2 is used
+    pPF_2 = DecimalParameter(
+        0.040, 0.100, default=0.024, decimals=3, space='sell', optimize=True, load=True
+    )
+    pSL_2 = DecimalParameter(
+        0.020, 0.070, default=0.022, decimals=3, space='sell', optimize=True, load=True
+    )
+    # endregion
+    slippage_protection = {'retries': 3, 'max_slippage': -0.02}
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
+        # self.gui_thread = None
         logger.info(f"Buy strategies: {STRATEGIES}")
+
+        if self.is_live_or_dry:
+            self.trailing_stop = True
+            self.use_custom_stoploss = False
+        else:
+            self.trailing_stop = False
+            self.use_custom_stoploss = True
+
+    # def bot_loop_start(self, **kwargs) -> None:
+    #     if not self.gui_thread:
+    #         self.gui_thread = DataView.start_in_new_thread(self)
+
+    def custom_stoploss(
+        self,
+        pair: str,
+        trade: 'Trade',
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        **kwargs,
+    ) -> float:
+        """Custom Trailing Stoploss by Perkmeister"""
+        if not self.use_custom_stoploss_opt.value:
+            return self.stoploss
+        # hard stoploss profit
+        hsl = self.pHSL.value
+        pf_1 = self.pPF_1.value
+        sl_1 = self.pSL_1.value
+        pf_2 = self.pPF_2.value
+        sl_2 = self.pSL_2.value
+
+        # For profits between PF_1 and PF_2 the stoploss (sl_profit) used is linearly interpolated
+        # between the values of SL_1 and SL_2. For all profits above PL_2 the sl_profit value
+        # rises linearly with current profit, for profits below PF_1 the hard stoploss profit is used.
+
+        if current_profit > pf_2:
+            sl_profit = sl_2 + (current_profit - pf_2)
+        elif current_profit > pf_1:
+            sl_profit = sl_1 + ((current_profit - pf_1) * (sl_2 - sl_1) / (pf_2 - pf_1))
+        else:
+            sl_profit = hsl
+
+        return stoploss_from_open(sl_profit, current_profit) or self.stoploss
 
     def informative_pairs(self):
         inf_pairs = []
@@ -119,20 +212,63 @@ class MyEnsembleStrategy(IStrategy):
                 except KeyError:
                     pass
             strategy = StrategyResolver.load_strategy(config)
+            strategy.use_custom_stoploss = False
+            strategy.trailing_stop = False
+            strategy.stoploss = -0.99
+            strategy.trailing_only_offset_is_reached = False
             strategy.process_only_new_candles = self.process_only_new_candles
+            self.startup_candle_count = max(
+                self.startup_candle_count, strategy.startup_candle_count
+            )
+            strategy.dp = self.dp
+            strategy.wallets = self.wallets
             self.loaded_strategies[strategy_name] = strategy
 
-        strategy.dp = self.dp
-        strategy.wallets = self.wallets
         return strategy
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # logger.info('Populating indicators for %s', metadata['pair'])
+    def analyze(self, pairs: list[str]) -> None:
+        """used in live"""
+        t1 = time.time()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+            for pair in pairs:
+                futures.append(executor.submit(self.analyze_pair, pair))
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+        logger.info('Analyzed everything in %f seconds', time.time() - t1)
+        # super().analyze(pairs)
 
-        strategies = STRAT_COMBINATIONS[0]
+    def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
+        """only used in backtesting"""
+        for s in STRATEGIES:
+            self.get_strategy(s)
+        logger.info('Loaded all strategies')
+
+        # def worker(data_: DataFrame, metadata: dict):
+        #     return {
+        #         'pair': metadata['pair'],
+        #         'data': self.advise_indicators(data_, metadata),
+        #     }
+
+        t1 = time.time()
+        # new_data = {}
+        # with ThreadPoolExecutor(max_workers=1) as executor:
+        #     futures = []
+        #     for pair, pair_data in data.items():
+        #         futures.append(
+        #             executor.submit(worker, pair_data.copy(), {'pair': pair})
+        #         )
+        #     for future in concurrent.futures.as_completed(futures):
+        #         result = future.result()
+        #         new_data[result['pair']] = result['data']
+        indicators = super().advise_all_indicators(data)
+        logger.info('Advise all elapsed: %s', time.time() - t1)
+        return indicators
+
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         inf_frames: list[pd.DataFrame] = []
-        for strategy_name in strategies:
-            # logger.info('Populating %s', strategy_name)
+
+        for strategy_name in STRATEGIES:
             strategy = self.get_strategy(strategy_name)
             dataframe = strategy.advise_indicators(dataframe, metadata)
             # remove inf data from dataframe to avoid duplicates
@@ -152,79 +288,35 @@ class MyEnsembleStrategy(IStrategy):
                 dataframe[col] = series
         return dataframe
 
-    def analyze(self, pairs: list[str]) -> None:
-        """used in live"""
-        t1 = time.time()
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = []
-            for pair in pairs:
-                futures.append(executor.submit(self.analyze_pair, pair))
-            for future in concurrent.futures.as_completed(futures):
-                future.result()
-        # self.average_times.append(time.time() - t1)
-        logger.info('Analyzed everything in %.f2 seconds', time.time() - t1)
-
-    def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
-        """only used in backtesting"""
-
-        def worker(data_: DataFrame, metadata: dict):
-            return {
-                'pair': metadata['pair'],
-                'data': self.advise_indicators(data_, metadata),
-            }
-
-        t1 = time.time()
-        new_data = {}
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = []
-            for pair, pair_data in data.items():
-                futures.append(
-                    executor.submit(worker, pair_data.copy(), {'pair': pair})
-                )
-            for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                new_data[result['pair']] = result['data']
-        # indicators = super().advise_all_indicators(data)
-        logger.info('Advise all elapsed: %s', time.time() - t1)
-        return new_data
-
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # logger.info('Populating buy_trend for %s', metadata['pair'])
         strategies = STRATEGIES.copy()
-        dataframe['ensemble_buy'] = ''
+        dataframe.loc[:, 'ensemble_buy'] = ''
+        dataframe.loc[:, 'buy_tag'] = ''
+        dataframe.loc[:, 'buy'] = 0
         for strategy_name in strategies:
             strategy = self.get_strategy(strategy_name)
-            strategy_indicators = strategy.advise_buy(dataframe, metadata)
-            strategy_indicators['strategy'] = ''
+            strategy_indicators = strategy.advise_buy(dataframe.copy(), metadata)
+            strategy_indicators.loc[:, 'strategy'] = ''
             strategy_indicators.loc[
                 strategy_indicators.buy == 1, 'strategy'
             ] = strategy_name
 
-            strategy_indicators['existing_buy'] = dataframe['ensemble_buy']
-            strategy_indicators['ensemble_buy'] = strategy_indicators.apply(
-                lambda x: concat_strategy(x['strategy'], x['existing_buy']), axis=1
+            strategy_indicators.loc[:, 'existing_buy'] = dataframe['ensemble_buy']
+            strategy_indicators.loc[:, 'ensemble_buy'] = strategy_indicators.apply(
+                lambda x: ','.join((x['strategy'], x['existing_buy'])).strip(','),
+                axis=1,
             )
-            dataframe['ensemble_buy'] = strategy_indicators['ensemble_buy']
-            # dataframe[f"ensemble_buy"] = ["buy"]
-        # signals = dataframe.filter(like='strat_buy_signal_')
-        # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
+            dataframe.loc[:, 'ensemble_buy'] = strategy_indicators['ensemble_buy']
 
         dataframe.loc[dataframe.ensemble_buy != '', 'buy'] = 1
         dataframe.loc[dataframe.buy == 1, 'buy_tag'] = dataframe['ensemble_buy']
+
         dataframe.drop(
-            ['ensemble_buy', 'existing_buy', 'strategy'],
+            ['ensemble_buy', 'existing_buy', 'strategy', 'buy_copy'],
             axis=1,
             inplace=True,
             errors='ignore',
         )
-        # if not self.buy_example:
-        #     logger.info(
-        #         'buy slice example of %s: %s',
-        #         metadata['pair'],
-        #         dataframe.iloc[-1].squeeze(),
-        #     )
-        #     self.buy_example = True
-        # self.average_times.append(time.time() - t1)
         return dataframe
 
     @property
@@ -233,8 +325,9 @@ class MyEnsembleStrategy(IStrategy):
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # logger.info('Populating sell_trend for %s', metadata['pair'])
+        dataframe.loc[:, 'ensemble_sell'] = ''
+        dataframe.loc[:, 'sell_tag'] = ''
 
-        dataframe['ensemble_sell'] = ''
         strategies = STRATEGIES.copy()
         # only populate strategies with open trades
         if self.is_live_or_dry:
@@ -245,14 +338,10 @@ class MyEnsembleStrategy(IStrategy):
             strategies = strategies_in_trades
         for strategy_name in strategies:
             self.get_sell_trend_of_strategy(dataframe, metadata, strategy_name)
-            # dataframe[f"ensemble_sell"] = ["sell"]
-        # signals = dataframe.filter(like='strat_sell_signal_')
-        # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
 
         dataframe.loc[dataframe.ensemble_sell != '', 'sell'] = 1
-        dataframe['sell_tag'] = ''
         dataframe.loc[dataframe.sell == 1, 'sell_tag'] = dataframe['ensemble_sell']
-        dataframe['sell'] = 0
+        dataframe.loc[:, 'sell'] = 0
         dataframe.drop(
             ['ensemble_sell', 'existing_sell', 'strategy'],
             axis=1,
@@ -263,70 +352,16 @@ class MyEnsembleStrategy(IStrategy):
 
     def get_sell_trend_of_strategy(self, dataframe, metadata, strategy_name):
         strategy = self.get_strategy(strategy_name)
-        strategy_indicators = strategy.advise_sell(dataframe, metadata)
-        strategy_indicators['strategy'] = ''
+        strategy_indicators = strategy.advise_sell(dataframe.copy(), metadata)
+        strategy_indicators.loc[:, 'strategy'] = ''
         strategy_indicators.loc[
             strategy_indicators.sell == 1, 'strategy'
         ] = strategy_name
-        strategy_indicators['existing_sell'] = dataframe['ensemble_sell']
-        strategy_indicators['ensemble_sell'] = strategy_indicators.apply(
-            lambda x: concat_strategy(x['strategy'], x['existing_sell']), axis=1
+        strategy_indicators.loc[:, 'existing_sell'] = dataframe['ensemble_sell']
+        strategy_indicators.loc[:, 'ensemble_sell'] = strategy_indicators.apply(
+            lambda x: ','.join((x['strategy'], x['existing_sell'])).strip(','), axis=1
         )
-        dataframe['ensemble_sell'] = strategy_indicators['ensemble_sell']
-
-    def should_sell(
-        self,
-        trade: Trade,
-        rate: float,
-        date: datetime,
-        buy: bool,
-        sell: bool,
-        low: float = None,
-        high: float = None,
-        force_stoploss: float = 0,
-    ) -> SellCheckTuple:
-        return super().should_sell(
-            trade, rate, date, buy, sell, low, high, force_stoploss
-        )
-
-    # def custom_stoploss(
-    #     self,
-    #     pair: str,
-    #     trade: Trade,
-    #     current_time: datetime,
-    #     current_rate: float,
-    #     current_profit: float,
-    #     **kwargs,
-    # ) -> float:
-    #     """
-    #     new custom stoploss, both hard and trailing functions. Trailing stoploss first rises at a slower
-    #     rate than the current rate until a profit threshold is reached, after which it rises at a constant
-    #     percentage as per a normal trailing stoploss. This allows more margin for pull-backs during a rise.
-    #     """
-    #
-    #     # hard stoploss profit
-    #     HSL = self.sell_HSL.value
-    #     PF_1 = self.sell_PF_1.value
-    #     SL_1 = self.sell_SL_1.value
-    #     PF_2 = self.sell_PF_2.value
-    #     SL_2 = self.sell_SL_2.value
-    #
-    #     # For profits between PF_1 and PF_2 the stoploss (sl_profit) used is linearly interpolated
-    #     # between the values of SL_1 and SL_2. For all profits above PL_2 the sl_profit value
-    #     # rises linearly with current profit, for profits below PF_1 the hard stoploss profit is used.
-    #     if current_profit > PF_2:
-    #         sl_profit = SL_2 + (current_profit - PF_2)
-    #     elif current_profit > PF_1:
-    #         sl_profit = SL_1 + ((current_profit - PF_1) * (SL_2 - SL_1) / (PF_2 - PF_1))
-    #     else:
-    #         sl_profit = HSL
-    #
-    #     if current_profit > PF_1:
-    #         stoploss = stoploss_from_open(sl_profit, current_profit)
-    #     else:
-    #         stoploss = stoploss_from_open(HSL, current_profit)
-    #
-    #     return stoploss or stoploss_from_open(HSL, current_profit) or 1
+        dataframe.loc[:, 'ensemble_sell'] = strategy_indicators['ensemble_sell']
 
     def custom_sell(
         self,
@@ -340,7 +375,7 @@ class MyEnsembleStrategy(IStrategy):
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         # Obtain last available candle. Do not use current_time to look up latest candle, because
         # current_time points to current incomplete candle whose data is not available.
-        last_candle = dataframe.iloc[-1].squeeze()
+        # last_candle = dataframe.iloc[-1].squeeze()
         # In dry/live runs trade open date will not match candle open date therefore it must be
         # rounded.
         trade_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
@@ -350,33 +385,52 @@ class MyEnsembleStrategy(IStrategy):
             return
 
         trade_candle = trade_candle.squeeze()
+        # check to see if N number of strategies have a sell signal at this candle
+        # strategy_sell_signals: list[str] = trade_candle['sell_tag'].split(',')
         for strategy_name in STRATEGIES:
             if strategy_name not in trade.buy_tag:
                 continue
-            strategy = self.get_strategy(strategy_name)
+            # strategy = self.get_strategy(strategy_name)
             # regular sell signal. this does not cover custom_sells
             if (
                 strategy_name in trade_candle['sell_tag']
                 and strategy_name in trade.buy_tag
             ):
-                return strategy_name + '-sell_signal'
+                return 'sell_signal'
+            #
+            # buy_tag = trade_candle['buy_tag']
+            # strategy_in_buy_tag = strategy_name in buy_tag
+            # valid_buy_signal = bool(trade_candle['buy']) and strategy_in_buy_tag
+            # should_sell = strategy.should_sell(
+            #     trade,
+            #     current_rate,
+            #     current_time,
+            #     valid_buy_signal,
+            #     False,
+            #     trade_candle['low'],
+            #     last_candle['high'],
+            # )  # scan for strategies roi/stoploss/custom_sell
+            # if should_sell.sell_flag:
+            #     return strategy_name + '-' + should_sell.sell_reason
+            # return should_sell.sell_reason
 
-            strategy_in_buy_tag = (
-                bool(trade_candle['buy_tag'])
-                and strategy_name in trade_candle['buy_tag']
-            )  # do we currently have a valid buy signal?
-            valid_buy_signal = bool(trade_candle['buy']) and strategy_in_buy_tag
-            should_sell = strategy.should_sell(
-                trade,
-                current_rate,
-                current_time,
-                valid_buy_signal,
-                False,
-                trade_candle['low'],
-                last_candle['high'],
-            )  # scan for strategies roi/stoploss/custom_sell
-            if should_sell.sell_flag:
-                return strategy_name + '-' + should_sell.sell_reason
+    def should_sell(
+        self,
+        trade: Trade,
+        rate: float,
+        date: datetime,
+        buy: bool,
+        sell: bool,
+        low: float = None,
+        high: float = None,
+        force_stoploss: float = 0,
+    ) -> SellCheckTuple:
+        should_sell = super().should_sell(
+            trade, rate, date, buy, sell, low, high, force_stoploss
+        )
+        if should_sell.sell_flag:
+            should_sell.sell_reason = trade.buy_tag + '-' + should_sell.sell_reason
+        return should_sell
 
     def confirm_trade_exit(
         self,
@@ -390,6 +444,7 @@ class MyEnsembleStrategy(IStrategy):
         current_time: datetime,
         **kwargs,
     ) -> bool:
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         for strategy_name in trade.buy_tag.split(','):
             strategy = self.get_strategy(strategy_name)
             try:
@@ -410,12 +465,279 @@ class MyEnsembleStrategy(IStrategy):
                 continue
             if not trade_exit:
                 return False
-        if sell_reason == 'trailing_stop_loss':
-            return False
+
+        # slippage protection from NotAnotherSMAOffsetStrategy
+        try:
+            state = self.slippage_protection['__pair_retries']
+        except KeyError:
+            state = self.slippage_protection['__pair_retries'] = {}
+
+        candle = dataframe.iloc[-1].squeeze()
+
+        slippage = (rate / candle['close']) - 1
+        if slippage < self.slippage_protection['max_slippage']:
+            pair_retries = state.get(pair, 0)
+            if pair_retries < self.slippage_protection['retries']:
+                state[pair] = pair_retries + 1
+                return False
+
+        state[pair] = 0
         return True
 
+    class HyperOpt:
+        @staticmethod
+        def generate_roi_table(params: Dict) -> Dict[int, float]:
+            """
+            Generates a Custom Long Continuous ROI Table with less gaps in it.
+            Configurable step_size is loaded in from the Master MGM Framework.
+            :param params: (Dict) Base Parameters used for the ROI Table calculation
+            :return Dict: Generated ROI Table
+            """
+            step = MyEnsembleStrategy.roi_table_step_size
 
-def concat_strategy(string1, string2):
-    """This strategy will apply all the strategies who's buy signal is True"""
-    concat = ','.join([string1, string2]).strip(',')
-    return concat
+            minimal_roi = {
+                0: params['roi_p1'] + params['roi_p2'] + params['roi_p3'],
+                params['roi_t3']: params['roi_p1'] + params['roi_p2'],
+                params['roi_t3'] + params['roi_t2']: params['roi_p1'],
+                params['roi_t3'] + params['roi_t2'] + params['roi_t1']: 0,
+            }
+
+            max_value = max(map(int, minimal_roi.keys()))
+            f = interp1d(list(map(int, minimal_roi.keys())), list(minimal_roi.values()))
+            x = list(range(0, max_value, step))
+            y = list(map(float, map(f, x)))
+            if y[-1] != 0:
+                x.append(x[-1] + step)
+                y.append(0)
+            return dict(zip(x, y))
+
+        @staticmethod
+        def roi_space() -> list[Dimension]:
+            """
+            Create a ROI space. Defines values to search for each ROI steps.
+            This method implements adaptive roi HyperSpace with varied ranges for parameters which automatically adapts
+            to the un-zoomed informative_timeframe used by the MGM Framework during BackTesting & HyperOpting.
+            :return List: Generated ROI Space
+            """
+
+            # Default scaling coefficients for the ROI HyperSpace. Can be changed to adjust resulting ranges of the ROI
+            # tables. Increase if you need wider ranges in the ROI HyperSpace, decrease if shorter ranges are needed:
+            # roi_t_alpha: Limits for the time intervals in the ROI Tables. Components are scaled linearly.
+            roi_t_alpha = MyEnsembleStrategy.roi_time_interval_scaling
+            # roi_p_alpha: Limits for the ROI value steps. Components are scaled logarithmically.
+            roi_p_alpha = MyEnsembleStrategy.roi_value_step_scaling
+
+            # Load in the un-zoomed timeframe size from the Master MGM Framework
+            timeframe_min = 5
+
+            # The scaling is designed so that it maps exactly to the legacy Freqtrade roi_space()
+            # method for the 5m timeframe.
+            roi_t_scale = timeframe_min
+            roi_p_scale = math.log1p(timeframe_min) / math.log1p(5)
+            roi_limits = {
+                'roi_t1_min': int(10 * roi_t_scale * roi_t_alpha),
+                'roi_t1_max': int(120 * roi_t_scale * roi_t_alpha),
+                'roi_t2_min': int(10 * roi_t_scale * roi_t_alpha),
+                'roi_t2_max': int(60 * roi_t_scale * roi_t_alpha),
+                'roi_t3_min': int(10 * roi_t_scale * roi_t_alpha),
+                'roi_t3_max': int(40 * roi_t_scale * roi_t_alpha),
+                'roi_p1_min': 0.01 * roi_p_scale * roi_p_alpha,
+                'roi_p1_max': 0.04 * roi_p_scale * roi_p_alpha,
+                'roi_p2_min': 0.01 * roi_p_scale * roi_p_alpha,
+                'roi_p2_max': 0.07 * roi_p_scale * roi_p_alpha,
+                'roi_p3_min': 0.01 * roi_p_scale * roi_p_alpha,
+                'roi_p3_max': 0.20 * roi_p_scale * roi_p_alpha,
+            }
+
+            # Generate MGM's custom long continuous ROI table
+            logger.debug(f'Using ROI space limits: {roi_limits}')
+            p = {
+                'roi_t1': roi_limits['roi_t1_min'],
+                'roi_t2': roi_limits['roi_t2_min'],
+                'roi_t3': roi_limits['roi_t3_min'],
+                'roi_p1': roi_limits['roi_p1_min'],
+                'roi_p2': roi_limits['roi_p2_min'],
+                'roi_p3': roi_limits['roi_p3_min'],
+            }
+            logger.info(
+                f'Min ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}'
+            )
+            p = {
+                'roi_t1': roi_limits['roi_t1_max'],
+                'roi_t2': roi_limits['roi_t2_max'],
+                'roi_t3': roi_limits['roi_t3_max'],
+                'roi_p1': roi_limits['roi_p1_max'],
+                'roi_p2': roi_limits['roi_p2_max'],
+                'roi_p3': roi_limits['roi_p3_max'],
+            }
+            logger.info(
+                f'Max ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}'
+            )
+
+            return [
+                Integer(
+                    roi_limits['roi_t1_min'], roi_limits['roi_t1_max'], name='roi_t1'
+                ),
+                Integer(
+                    roi_limits['roi_t2_min'], roi_limits['roi_t2_max'], name='roi_t2'
+                ),
+                Integer(
+                    roi_limits['roi_t3_min'], roi_limits['roi_t3_max'], name='roi_t3'
+                ),
+                SKDecimal(
+                    roi_limits['roi_p1_min'],
+                    roi_limits['roi_p1_max'],
+                    decimals=3,
+                    name='roi_p1',
+                ),
+                SKDecimal(
+                    roi_limits['roi_p2_min'],
+                    roi_limits['roi_p2_max'],
+                    decimals=3,
+                    name='roi_p2',
+                ),
+                SKDecimal(
+                    roi_limits['roi_p3_min'],
+                    roi_limits['roi_p3_max'],
+                    decimals=3,
+                    name='roi_p3',
+                ),
+            ]
+
+        @staticmethod
+        def stoploss_space() -> list[Dimension]:
+            """
+            Define custom stoploss search space with configurable parameters for the Stoploss Value to search.
+            Override it if you need some different range for the parameter in the 'stoploss' optimization hyperspace.
+            :return List: Generated Stoploss Space
+            """
+            # noinspection PyTypeChecker
+            return [
+                SKDecimal(
+                    MyEnsembleStrategy.stoploss_max_value,
+                    MyEnsembleStrategy.stoploss_min_value,
+                    decimals=3,
+                    name='stoploss',
+                )
+            ]
+
+        # noinspection PyTypeChecker
+        @staticmethod
+        def trailing_space() -> list[Dimension]:
+            """
+            Define custom trailing search space with parameters configurable in 'mgm-config'
+            :return List: Generated Trailing Space
+            """
+            return [
+                # It was decided to always set trailing_stop is to True if the 'trailing' hyperspace
+                # is used. Otherwise hyperopt will vary other parameters that won't have effect if
+                # trailing_stop is set False.
+                # This parameter is included into the hyperspace dimensions rather than assigning
+                # it explicitly in the code in order to have it printed in the results along with
+                # other 'trailing' hyperspace parameters.
+                Categorical([True], name='trailing_stop'),
+                SKDecimal(
+                    MyEnsembleStrategy.trailing_stop_positive_min_value,
+                    MyEnsembleStrategy.trailing_stop_positive_max_value,
+                    decimals=3,
+                    name='trailing_stop_positive',
+                ),
+                # 'trailing_stop_positive_offset' should be greater than 'trailing_stop_positive',
+                # so this intermediate parameter is used as the value of the difference between
+                # them. The value of the 'trailing_stop_positive_offset' is constructed in the
+                # generate_trailing_params() method.
+                # This is similar to the hyperspace dimensions used for constructing the ROI tables.
+                SKDecimal(
+                    MyEnsembleStrategy.trailing_stop_positive_offset_min_value,
+                    MyEnsembleStrategy.trailing_stop_positive_offset_max_value,
+                    decimals=3,
+                    name='trailing_stop_positive_offset_p1',
+                ),
+                Categorical([True, False], name='trailing_only_offset_is_reached'),
+            ]
+
+
+# def custom_stop_loss_reached(
+#     self,
+#     current_rate: float,
+#     trade: Trade,
+#     current_time: datetime,
+#     current_profit: float,
+#     force_stoploss: float,
+#     low: float = None,
+#     high: float = None,
+# ) -> SellCheckTuple:
+#     """
+#     Based on current profit of the trade and configured (trailing) stoploss,
+#     decides to sell or not
+#     :param current_profit: current profit as ratio
+#     :param low: Low value of this candle, only set in backtesting
+#     :param high: High value of this candle, only set in backtesting
+#     """
+#     stop_loss_value = force_stoploss if force_stoploss else self.stoploss
+#
+#     # Initiate stoploss with open_rate. Does nothing if stoploss is already set.
+#     trade.adjust_stop_loss(trade.open_rate, stop_loss_value, initial=True)
+#
+#     if self.use_custom_stoploss and trade.stop_loss < (low or current_rate):
+#         stop_loss_value = strategy_safe_wrapper(
+#             self.custom_stoploss, default_retval=None
+#         )(
+#             pair=trade.pair,
+#             trade=trade,
+#             current_time=current_time,
+#             current_rate=current_rate,
+#             current_profit=current_profit,
+#         )
+#         # Sanity check - error cases will return None
+#         if stop_loss_value:
+#             # logger.info(f"{trade.pair} {stop_loss_value=} {current_profit=}")
+#             trade.adjust_stop_loss(current_rate, stop_loss_value)
+#         else:
+#             logger.warning("CustomStoploss function did not return valid stoploss")
+#
+#     if self.trailing_stop and trade.stop_loss < (low or current_rate):
+#         # trailing stoploss handling
+#         sl_offset = self.trailing_stop_positive_offset
+#
+#         # Make sure current_profit is calculated using high for backtesting.
+#         high_profit = current_profit if not high else trade.calc_profit_ratio(high)
+#
+#         # Don't update stoploss if trailing_only_offset_is_reached is true.
+#         if not (self.trailing_only_offset_is_reached and high_profit < sl_offset):
+#             # Specific handling for trailing_stop_positive
+#             if self.trailing_stop_positive is not None and high_profit > sl_offset:
+#                 stop_loss_value = self.trailing_stop_positive
+#                 logger.debug(
+#                     f"{trade.pair} - Using positive stoploss: {stop_loss_value} "
+#                     f"offset: {sl_offset:.4g} profit: {current_profit:.4f}%"
+#                 )
+#
+#             trade.adjust_stop_loss(high or current_rate, stop_loss_value)
+#
+#     # evaluate if the stoploss was hit if stoploss is not on exchange
+#     # in Dry-Run, this handles stoploss logic as well, as the logic will not be different to
+#     # regular stoploss handling.
+#     if (trade.stop_loss >= (low or current_rate)) and (
+#         not self.order_types.get('stoploss_on_exchange') or self.config['dry_run']
+#     ):
+#
+#         sell_type = SellType.STOP_LOSS
+#
+#         # If initial stoploss is not the same as current one then it is trailing.
+#         if trade.initial_stop_loss != trade.stop_loss:
+#             sell_type = SellType.TRAILING_STOP_LOSS
+#             logger.debug(
+#                 f"{trade.pair} - HIT STOP: current price at {(low or current_rate):.6f}, "
+#                 f"stoploss is {trade.stop_loss:.6f}, "
+#                 f"initial stoploss was at {trade.initial_stop_loss:.6f}, "
+#                 f"trade opened at {trade.open_rate:.6f}"
+#             )
+#             logger.debug(
+#                 f"{trade.pair} - Trailing stop saved "
+#                 f"{trade.stop_loss - trade.initial_stop_loss:.6f}"
+#             )
+#
+#         return SellCheckTuple(sell_type=sell_type)
+#
+#     return SellCheckTuple(sell_type=SellType.NONE)

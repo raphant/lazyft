@@ -41,8 +41,10 @@ class BacktestCommand(Command):
         )
         if self.params.ensemble:
             command_string += ','.join([str(s) for s in self.params.ensemble])
-        logger.debug('Hashing "{}"', command_string)
+        # logger.debug('Hashing "{}"', command_string)
+
         self._hash = util.hash(command_string)
+        logger.debug('Command hash: ', self._hash)
         return self._hash
 
 

@@ -10,6 +10,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Optional, Union, Dict
 
+import pandas as pd
 import rapidjson
 from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
@@ -234,6 +235,8 @@ class MyEnsembleStrategy3(IStrategy):
         # logger.info('Populating indicators for %s', metadata['pair'])
 
         strategies = STRAT_COMBINATIONS[0]
+        indicators = []
+        saved = {}
         for strategy_name in strategies:
             # logger.info('Populating %s', strategy_name)
             strategy = self.get_strategy(strategy_name)
@@ -245,8 +248,8 @@ class MyEnsembleStrategy3(IStrategy):
                 strategy_name,
                 time.time() - t1,
             )
-            self.custom_indicators[strategy_name][metadata['pair']] = temp.drop(
-                ['open', 'high', 'low', 'close', 'volume', 'date'], axis=1
+            indicators.append(
+                temp.drop(['open', 'high', 'low', 'close', 'volume', 'date'], axis=1)
             )
             # remove inf data from dataframe to avoid duplicates
             # _x or _y gets added to the inf columns that already exist
@@ -263,6 +266,8 @@ class MyEnsembleStrategy3(IStrategy):
         #         if col in dataframe:
         #             continue
         #         dataframe[col] = series
+        for df in indicators:
+            dataframe = pd.merge(dataframe, df, suffixes=('_dup', '_dup'))
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

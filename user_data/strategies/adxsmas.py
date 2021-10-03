@@ -12,7 +12,7 @@ from pandas import DataFrame
 # ROI table:
 
 
-class StudyAdxSmas(IStrategy):
+class AdxSmas(IStrategy):
     """
     author@: Gert Wohlgemuth
     converted from:

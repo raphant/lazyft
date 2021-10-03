@@ -8,7 +8,6 @@ from pandas import DataFrame
 
 # --------------------------------
 import talib.abstract as ta
-from finta import TA as ta_new
 import numpy as np
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import datetime
@@ -171,7 +170,7 @@ class NASOSv4(IStrategy):
 
     process_only_new_candles = True
     startup_candle_count = 200
-    use_custom_stoploss = False
+    use_custom_stoploss = True
 
     plot_config = {
         'main_plot': {
@@ -298,14 +297,14 @@ class NASOSv4(IStrategy):
         dataframe['hma_50'] = qtpylib.hull_moving_average(dataframe['close'], window=50)
         dataframe['ema_100'] = TA.EMA(dataframe, period=100)
 
-        dataframe['sma_9'] = ta.SMA(dataframe, timeperiod=9)
+        dataframe['sma_9'] = TA.SMA(dataframe, period=9)
         # Elliot
         dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
         # RSI
-        dataframe['rsi'] = ta_new.RSI(dataframe, period=14)
-        dataframe['rsi_fast'] = ta.RSI(dataframe, timeperiod=4)
-        dataframe['rsi_slow'] = ta.RSI(dataframe, timeperiod=20)
+        dataframe['rsi'] = TA.RSI(dataframe, period=14)
+        dataframe['rsi_fast'] = TA.RSI(dataframe, period=4)
+        dataframe['rsi_slow'] = TA.RSI(dataframe, period=20)
 
         return dataframe
 

@@ -36,7 +36,7 @@ class BollingerBands(IStrategy):
 
     # Optimal timeframe for the strategy
     # inf_timeframe = '1h'
-    timeframe = '1m'
+    timeframe = '5m'
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH

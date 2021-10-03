@@ -138,7 +138,7 @@ class Report(BaseModel):
             # tpd=self.performance.tpd,
             score=self.performance.score,
             avg_profit_pct=self.performance.profit_ratio,
-            total_profit_pct=self.performance.total_profit_pct,
+            total_profit_pct=self.performance.total_profit_pct * 100,
             total_profit=self.performance.profit,
             trades=self.performance.trades,
             days=self.performance.days,

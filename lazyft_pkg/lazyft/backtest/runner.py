@@ -4,18 +4,17 @@ import time
 import uuid
 from typing import Optional
 
-import uuid
-from typing import Optional
-
 import pandas as pd
 import sh
+from sqlmodel import Session
 
 from lazyft import logger, paths, regex
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.backtest.report import BacktestReportExporter
-from lazyft.models import BacktestReport, BacktestRepo
+from lazyft.database import engine
+from lazyft.models import BacktestReport, BacktestRepo, BacktestData
 from lazyft.paths import BACKTEST_RESULTS_FILE
-from lazyft.reports import get_backtest_repo
+from lazyft.reports import get_backtest_repo, BacktestExplorer
 from lazyft.runner import Runner
 from lazyft.util import ParameterTools
 
@@ -90,8 +89,8 @@ class BacktestRunner(Runner):
     @logger.catch(reraise=True)
     def execute(self, background=False):
         self.reset()
-        if self.command.hash in get_backtest_repo().get_hashes():
-            self.report = get_backtest_repo().get_using_hash(self.command.hash)
+        if self.command.hash in BacktestExplorer.get_hashes():
+            self.report = BacktestExplorer.get_using_hash(self.command.hash)
             logger.info('Loaded report with same hash - {}', self.command.hash)
             return
         if self.command.id:
@@ -149,26 +148,22 @@ class BacktestRunner(Runner):
 
     def generate_report(self):
         json_file = regex.backtest_json.findall(self.output)[0]
-        balance_info = dict(
-            starting_balance=self.command.params.starting_balance
-            or self.command.config['starting_balance'],
-            stake_amount=self.command.params.stake_amount
-            or self.command.config['stake_amount'],
-            max_open_trades=self.command.params.max_open_trades
-            or self.command.config['max_open_trades'],
-        )
-        return BacktestReportExporter(
-            self.strategy,
-            json_file,
-            self.command.hash,
-            report_id=self.report_id,
-            hyperopt_id=self.command.id,
-            exchange=self.command.config['exchange']['name'],
-            balance_info=balance_info,
+        report = BacktestReport(
+            _backtest_data=BacktestData(
+                text=pathlib.Path(
+                    paths.USER_DATA_DIR, 'backtest_results', json_file
+                ).read_text()
+            ),
+            hash=self.command.hash,
+            # report_id=self.report_id,
+            # hyperopt_id=self.command.id,
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
-            ensemble=['-'.join(s.as_pair) for s in self.command.params.ensemble],
-        ).export
+            ensemble=','.join(
+                ['-'.join(s.as_pair) for s in self.command.params.ensemble]
+            ),
+        )
+        return report
 
     @property
     def log_path(self) -> pathlib.Path:
@@ -180,17 +175,15 @@ class BacktestRunner(Runner):
         super().sub_process_log(text, out, error)
 
     def save(self):
-        if not self.report:
-            raise ValueError('No report to save.')
-        if self.report.hash in get_backtest_repo().get_hashes():
-            logger.info('Skipping save - hash already exists - {}', self.report.hash)
-            return self.report.id
-        if not BACKTEST_RESULTS_FILE.exists():
-            BACKTEST_RESULTS_FILE.write_text('{}')
-        existing_data = BacktestRepo.parse_file(BACKTEST_RESULTS_FILE)
-        existing_data.reports.append(self.report)
-        BACKTEST_RESULTS_FILE.write_text(existing_data.json())
-        return self.report.id
+        with Session(engine) as session:
+            report = self.report
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            logger.info('Created report: {}'.format(report))
+            self.log_path.rename(
+                paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.logs')
+            )
 
     def dataframe(self):
         if not self.report:

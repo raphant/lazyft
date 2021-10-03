@@ -1,20 +1,23 @@
 import datetime
 import statistics
 from abc import ABCMeta
-from collections import UserList, defaultdict
+from collections import UserList
 from pathlib import Path
 from typing import Optional, Union, Callable, Type
 
 import pandas as pd
+from sqlmodel import Session
+from sqlmodel.sql.expression import select
 
 from lazyft import logger, paths
+from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
 from lazyft.models import (
     BacktestReport,
     BacktestRepo,
     HyperoptReport,
     HyperoptRepo,
-    Report,
+    ReportBase,
 )
 
 cols_to_print = [
@@ -42,10 +45,10 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
         self.df = self.dataframe
 
     def reset(self):
-        try:
-            self.data = self._repo.parse_file(self._data_file).reports
-        except FileNotFoundError:
-            logger.warning('"{}" not found', self._data_file)
+        with Session(engine) as session:
+            statement = select(BacktestReport)
+            results = session.exec(statement)
+            self.data = results.fetchall()
 
         return self.sort_by_date()
 
@@ -60,11 +63,11 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
             pairs.add((r.strategy, r.param_id))
         return pairs
 
-    def filter(self, func: Callable[[Report], bool]):
+    def filter(self, func: Callable[[ReportBase], bool]):
         self.data = list(filter(func, self.data))
         return self
 
-    def sort(self, func: Callable[[Report], bool]):
+    def sort(self, func: Callable[[ReportBase], bool]):
         self.data = sorted(self.data, key=func, reverse=True)
         return self
 
@@ -161,8 +164,12 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
 
 
 class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
-    def get_hashes(self):
-        return [s.hash for s in self]
+    @staticmethod
+    def get_hashes():
+        with Session(engine) as session:
+            statement = select(BacktestReport)
+            results = session.execute(statement)
+            return [r.hash for r in results.all()]
 
     def get_using_hash(self, hash: str):
         return [r for r in self if r.hash == hash].pop()
@@ -272,6 +279,22 @@ def get_hyperopt_repo():
     return _HyperoptRepoExplorer(paths.PARAMS_FILE, HyperoptRepo).reset()
 
 
+class BacktestExplorer:
+    @staticmethod
+    def get_hashes():
+        with Session(engine) as session:
+            statement = select(BacktestReport)
+            results = session.exec(statement)
+            return [r.hash for r in results.fetchall()]
+
+    @classmethod
+    def get_using_hash(cls, hash):
+        with Session(engine) as session:
+            statement = select(BacktestReport).where(BacktestReport.hash == hash)
+            results = session.exec(statement)
+            return results.one()
+
+
 if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
-    print(get_hyperopt_repo()[0].show_hyperopt(2))
+    print(get_backtest_repo())

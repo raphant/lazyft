@@ -36,6 +36,7 @@ def test_backtest_command_no_id():
     if runner.error:
         raise RuntimeError('Error in backtest runner')
     assert bool(runner.report)
+    runner.save()
 
 
 def test_backtest_command_with_id():
@@ -45,7 +46,8 @@ def test_backtest_command_with_id():
     if runner.error:
         raise RuntimeError('Error in backtest runner')
     assert bool(runner.report)
-    runner.report.json_file.unlink(missing_ok=True)
+    # runner.report.json_file.unlink(missing_ok=True)
+    runner.save()
 
 
 # def test_id_pairlist():

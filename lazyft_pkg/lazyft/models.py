@@ -68,6 +68,7 @@ class PerformanceBase(SQLModel):
 
 
 class HyperoptPerformance(PerformanceBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     wins: int
     losses: int
     draws: int
@@ -78,7 +79,6 @@ class HyperoptPerformance(PerformanceBase, table=True):
     avg_duration: str
     loss: float
     seed: int
-    id: Optional[int] = Field(default=None, primary_key=True)
 
     @property
     def total_profit_pct(self):
@@ -94,6 +94,7 @@ class HyperoptPerformance(PerformanceBase, table=True):
 
 
 class BacktestPerformance(PerformanceBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     avg_profit_pct: float
     accumulative_profit: float
     profit_sum: float
@@ -105,8 +106,6 @@ class BacktestPerformance(PerformanceBase, table=True):
     wins: int
     draws: int
     losses: int
-    id: Optional[int] = Field(default=None, primary_key=True)
-    report_id: Optional[int] = Field(default=None, foreign_key="backtestreport.id")
 
     @property
     def profit_ratio(self) -> float:
@@ -118,14 +117,9 @@ class BacktestPerformance(PerformanceBase, table=True):
 
 
 class ReportBase(SQLModel):
-    report_id: str = Field(default_factory=uuid.uuid4)
-    param_id: str = Field(default_factory=uuid.uuid4)
-    # id: str
-    strategy: str
-    exchange: str
+    id: Optional[int]
     date: datetime = Field(default_factory=datetime.now)
     tag: str = ''
-    id: Optional[int]
 
     class Config:
         allow_population_by_field_name = True
@@ -171,19 +165,21 @@ class ReportBase(SQLModel):
 class BacktestData(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     text: str
-    report_id: Optional[int] = Field(default=None, foreign_key="backtestreport.id")
 
 
 class BacktestReport(ReportBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     hash: str
     session_id: Optional[str]
     ensemble: Optional[str]
-    id: Optional[int] = Field(default=None, primary_key=True)
 
-    performance_id: Optional[int] = Field(
-        default=None, foreign_key="backtestperformance.id"
-    )
-    _performance: BacktestPerformance = Relationship()
+    hyperopt_id: Optional[str] = Field(default=None, foreign_key="hyperoptreport.id")
+    _hyperopt: Optional['HyperoptReport'] = Relationship()
+
+    # performance_id: Optional[int] = Field(
+    #     default=None, foreign_key="backtestperformance.id"
+    # )
+    # _performance: BacktestPerformance = Relationship()
 
     data_id: Optional[int] = Field(default=None, foreign_key="backtestdata.id")
     _backtest_data: BacktestData = Relationship()
@@ -201,14 +197,13 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def logs(self) -> str:
-        log_path = paths.BACKTEST_LOG_PATH.joinpath(self.report_id + '.log')
-        if not log_path.exists():
-            return ''
-        return log_path.read_text()
+        if not self.log_file.exists():
+            return 'Log file does not exist'
+        return self.log_file.read_text()
 
     @property
     def log_file(self):
-        return paths.BACKTEST_LOG_PATH(self.report_id + '.log')
+        return paths.BACKTEST_LOG_PATH(str(self.id) + '.log')
 
     @property
     def df(self):
@@ -308,13 +303,17 @@ class BacktestReport(ReportBase, table=True):
     def sell_reason_summary(self):
         return pd.DataFrame(self.backtest_data['sell_reason_summary'])
 
+    @property
+    def starting_balance(self):
+        raise NotImplementedError
+
     def trades_to_csv(self, name=''):
         path = paths.BASE_DIR.joinpath('exports/')
         path.mkdir(exist_ok=True)
         if not name:
             name = (
                 f'{self.strategy}-'
-                f'${self.balance_info["starting_balance"]}-'
+                f'${self.starting_balance}-'
                 f'{(self.performance.end_date - self.performance.start_date).days}_days'
             )
             if self.id:
@@ -334,6 +333,8 @@ class BacktestReport(ReportBase, table=True):
 
 
 class HyperoptReport(ReportBase, table=True):
+    strategy: str
+    exchange: str
     params_file: Path
     hyperopt_file: Path = ''
     pairlist: list[str] = []
@@ -350,7 +351,7 @@ class HyperoptReport(ReportBase, table=True):
 
     @property
     def log_file(self):
-        return paths.HYPEROPT_LOG_PATH(self.report_id + '.log')
+        return paths.HYPEROPT_LOG_PATH(str(self.id) + '.log')
 
     def parameters(self):
         return rapidjson.loads(self.params_file.read_text())

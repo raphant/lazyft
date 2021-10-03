@@ -155,6 +155,7 @@ class BacktestRunner(Runner):
                 ).read_text()
             ),
             hash=self.command.hash,
+            exchange=self.command.config['exchange']['name'],
             # report_id=self.report_id,
             # hyperopt_id=self.command.id,
             pairlist=self.command.pairs,
@@ -182,7 +183,7 @@ class BacktestRunner(Runner):
             session.refresh(report)
             logger.info('Created report: {}'.format(report))
             self.log_path.rename(
-                paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.logs')
+                paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log')
             )
 
     def dataframe(self):

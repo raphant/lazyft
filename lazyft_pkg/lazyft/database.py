@@ -1,13 +1,5 @@
-import sqlalchemy as db
+from sqlmodel import SQLModel, create_engine
 
 from lazyft.paths import BASE_DIR
 
-engine = db.create_engine(f'sqlite:///{BASE_DIR.joinpath("library.db")}')
-connection = engine.connect()
-metadata = db.MetaData()
-census = db.Table('census', metadata, autoload=True, autoload_with=engine)
-print(census.columns.keys())
-
-
-class BacktestReport:
-    pass
+engine = create_engine(f'sqlite:///{BASE_DIR.joinpath("lazyft.db")}')

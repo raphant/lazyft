@@ -9,8 +9,10 @@ import rapidjson
 import sh
 from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
+from sqlmodel import SQLModel, Session, Field, Relationship
 
 from lazyft import logger, paths
+from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
     roi_and_profit_hyperopt_loss,
@@ -19,7 +21,7 @@ from lazyft.loss_functions import (
 )
 
 
-class Performance(BaseModel):
+class PerformanceBase(SQLModel):
     start_date: datetime
     end_date: datetime
     trades: int
@@ -58,8 +60,14 @@ class Performance(BaseModel):
     def df(self):
         return pd.DataFrame([self.dict()])
 
+    def save(self):
+        with Session(engine) as session:
+            session.add(self)
+            session.commit()
+            session.refresh(self)
 
-class HyperoptPerformance(Performance):
+
+class HyperoptPerformance(PerformanceBase, table=True):
     wins: int
     losses: int
     draws: int
@@ -70,6 +78,7 @@ class HyperoptPerformance(Performance):
     avg_duration: str
     loss: float
     seed: int
+    id: Optional[int] = Field(default=None, primary_key=True)
 
     @property
     def total_profit_pct(self):
@@ -84,7 +93,7 @@ class HyperoptPerformance(Performance):
         return self.tot_profit
 
 
-class BacktestPerformance(Performance):
+class BacktestPerformance(PerformanceBase, table=True):
     avg_profit_pct: float
     accumulative_profit: float
     profit_sum: float
@@ -96,6 +105,8 @@ class BacktestPerformance(Performance):
     wins: int
     draws: int
     losses: int
+    id: Optional[int] = Field(default=None, primary_key=True)
+    report_id: Optional[int] = Field(default=None, foreign_key="backtestreport.id")
 
     @property
     def profit_ratio(self) -> float:
@@ -106,23 +117,23 @@ class BacktestPerformance(Performance):
         return self.total_profit_market
 
 
-class Report(BaseModel):
+class ReportBase(SQLModel):
     report_id: str = Field(default_factory=uuid.uuid4)
     param_id: str = Field(default_factory=uuid.uuid4)
     # id: str
     strategy: str
     exchange: str
-    balance_info: Optional[dict]
     date: datetime = Field(default_factory=datetime.now)
     tag: str = ''
-    performance: 'Union[HyperoptPerformance, BacktestPerformance]'
-
-    @property
-    def id(self):
-        return self.param_id
+    id: Optional[int]
 
     class Config:
         allow_population_by_field_name = True
+
+    @property
+    @abstractmethod
+    def performance(self) -> Union[HyperoptPerformance, BacktestPerformance]:
+        ...
 
     @property
     def df(self):
@@ -131,9 +142,9 @@ class Report(BaseModel):
             date=self.date,
             hyperopt_id=self.id,
             exchange=self.exchange,
-            m_o_t=self.balance_info['max_open_trades'],
-            stake=self.balance_info['stake_amount'],
-            balance=self.balance_info['starting_balance'],
+            # m_o_t=self.balance_info['max_open_trades'],
+            # stake=self.balance_info['stake_amount'],
+            # balance=self.balance_info['starting_balance'],
             # ppd=self.performance.ppd,
             # tpd=self.performance.tpd,
             score=self.performance.score,
@@ -150,13 +161,43 @@ class Report(BaseModel):
         df.balance = df.balance.astype(int)
         return df
 
+    def save(self):
+        with Session(engine) as session:
+            session.add(self)
+            session.commit()
+            session.refresh(self)
 
-class BacktestReport(Report):
-    performance: BacktestPerformance
-    json_file: Path
+
+class BacktestData(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    text: str
+    report_id: Optional[int] = Field(default=None, foreign_key="backtestreport.id")
+
+
+class BacktestReport(ReportBase, table=True):
     hash: str
     session_id: Optional[str]
-    ensemble: list[str] = []
+    ensemble: Optional[str]
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    performance_id: Optional[int] = Field(
+        default=None, foreign_key="backtestperformance.id"
+    )
+    _performance: BacktestPerformance = Relationship()
+
+    data_id: Optional[int] = Field(default=None, foreign_key="backtestdata.id")
+    _backtest_data: BacktestData = Relationship()
+
+    @property
+    def backtest_data(self):
+        with Session(engine):
+            data = self._backtest_data.text
+            return rapidjson.loads(data)
+
+    @property
+    def performance(self) -> BacktestPerformance:
+        with Session(engine):
+            return self._performance
 
     @property
     def logs(self) -> str:
@@ -264,13 +305,13 @@ class BacktestReport(Report):
         return pd.DataFrame(self.backtest_data['results_per_pair'])
 
     @property
-    def backtest_data(self) -> dict:
-        file = self.json_file
-        # this is so that this data can be retrieved from any PC
-        # it makes the backtest_data relative to the current user_data directory
-        path_from_user_data = str(file).split('/user_data/')[1]
-        file = paths.USER_DATA_DIR.joinpath(path_from_user_data).resolve()
-        return rapidjson.loads(file.read_text())['strategy'][self.strategy]
+    # def backtest_data(self) -> dict:
+    #     file = self.json_file
+    #     # this is so that this data can be retrieved from any PC
+    #     # it makes the backtest_data relative to the current user_data directory
+    #     path_from_user_data = str(file).split('/user_data/')[1]
+    #     file = paths.USER_DATA_DIR.joinpath(path_from_user_data).resolve()
+    #     return rapidjson.loads(file.read_text())['strategy'][self.strategy]
 
     @property
     def sell_reason_summary(self):
@@ -301,11 +342,20 @@ class BacktestReport(Report):
         self.log_file.unlink(missing_ok=True)
 
 
-class HyperoptReport(Report):
-    performance: HyperoptPerformance
+class HyperoptReport(ReportBase, table=True):
     params_file: Path
     hyperopt_file: Path = ''
     pairlist: list[str] = []
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    _performance: Optional[HyperoptPerformance] = Relationship()
+    performance_id: Optional[int] = Field(
+        default=None, foreign_key="hyperoptperformance.id"
+    )
+
+    @property
+    def performance(self) -> HyperoptPerformance:
+        return self._performance
 
     @property
     def log_file(self):
@@ -400,3 +450,6 @@ class Strategy:
 
     def __str__(self) -> str:
         return '-'.join(self.as_pair)
+
+
+SQLModel.metadata.create_all(engine)

@@ -9,6 +9,7 @@ from lazyft import paths
 from lazyft.models import (
     BacktestPerformance,
     BacktestReport,
+    BacktestData,
 )
 from lazyft.strategy import StrategyTools
 
@@ -19,7 +20,7 @@ class BacktestReportExporter:
         strategy: str,
         json_file: Union[str],
         hash: str,
-        balance_info: dict,
+        # balance_info: dict,
         report_id: str,
         hyperopt_id: str = None,
         min_win_rate=1,
@@ -38,25 +39,25 @@ class BacktestReportExporter:
         self._json_data = None
         self.hyperopt_id = hyperopt_id
         self.report_id = report_id
-        self.balance_info = balance_info
+        # self.balance_info = balance_info
         self.pairs = pairlist
         self.tag = tag
         self.ensemble = ensemble
 
     @property
-    def export(self):
-        return BacktestReport(
+    def report(self):
+        report = BacktestReport(
             strategy=self.strategy,
-            json_file=self.json_file,
+            backtest_data=BacktestData(data=self.json_file.read_text()),
             hash=self.hash,
             report_id=self.report_id,
             param_id=self.hyperopt_id,
             performance=self.performance,
             exchange=self.exchange,
-            balance_info=self.balance_info,
             tag=self.tag,
-            ensemble=self.ensemble or [],
+            ensemble=self.ensemble or '',
         )
+        return report
 
     @property
     def performance(self):

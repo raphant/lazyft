@@ -7,7 +7,7 @@ from typing import Optional, Union
 import pandas as pd
 import rapidjson
 import sh
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 from sqlmodel import SQLModel, Session, Field, Relationship
 
@@ -303,15 +303,6 @@ class BacktestReport(ReportBase, table=True):
     @property
     def pair_performance(self):
         return pd.DataFrame(self.backtest_data['results_per_pair'])
-
-    @property
-    # def backtest_data(self) -> dict:
-    #     file = self.json_file
-    #     # this is so that this data can be retrieved from any PC
-    #     # it makes the backtest_data relative to the current user_data directory
-    #     path_from_user_data = str(file).split('/user_data/')[1]
-    #     file = paths.USER_DATA_DIR.joinpath(path_from_user_data).resolve()
-    #     return rapidjson.loads(file.read_text())['strategy'][self.strategy]
 
     @property
     def sell_reason_summary(self):

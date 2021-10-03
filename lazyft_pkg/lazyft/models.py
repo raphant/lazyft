@@ -1,4 +1,3 @@
-import uuid
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -93,14 +92,10 @@ class HyperoptPerformance(PerformanceBase, table=True):
         return self.tot_profit
 
 
-class BacktestPerformance(PerformanceBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    avg_profit_pct: float
-    accumulative_profit: float
-    profit_sum: float
+class BacktestPerformance(PerformanceBase):
+    profit_mean_pct: float
     profit_sum_pct: float
-    total_profit_market: float
-    total_profit_pct: float
+    profit_total_abs: float
     profit_total_pct: float
     duration_avg: timedelta
     wins: int
@@ -109,14 +104,15 @@ class BacktestPerformance(PerformanceBase, table=True):
 
     @property
     def profit_ratio(self) -> float:
-        return self.avg_profit_pct * 100
+        return self.profit_mean_pct
 
     @property
     def profit(self):
-        return self.total_profit_market
+        return self.profit_total_abs
 
 
 class ReportBase(SQLModel):
+    exchange: str
     id: Optional[int]
     date: datetime = Field(default_factory=datetime.now)
     tag: str = ''
@@ -166,6 +162,10 @@ class BacktestData(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     text: str
 
+    @property
+    def parsed(self) -> dict:
+        return rapidjson.loads(self.text)['strategy']
+
 
 class BacktestReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -185,15 +185,37 @@ class BacktestReport(ReportBase, table=True):
     _backtest_data: BacktestData = Relationship()
 
     @property
-    def backtest_data(self):
-        with Session(engine):
-            data = self._backtest_data.text
-            return rapidjson.loads(data)
+    def strategy(self):
+        return list(self.load_data['strategy'].keys())[0]
+
+    @property
+    def exchange(self):
+        return self.backtest_data['exchange']
+
+    @property
+    def load_data(self):
+        with Session(engine) as session:
+            return rapidjson.loads(session.get(BacktestData, self.data_id).text)
+
+    @property
+    def backtest_data(self) -> dict:
+        return self.load_data['strategy'][self.strategy]
+
+    @property
+    def max_open_trades(self):
+        return self.backtest_data['max_open_trades']
+
+    @property
+    def starting_balance(self):
+        return self.backtest_data['starting_balance']
 
     @property
     def performance(self) -> BacktestPerformance:
-        with Session(engine):
-            return self._performance
+        totals = self.backtest_data['results_per_pair'].pop()
+        totals.pop('key')
+        totals['start_date'] = self.backtest_data['backtest_start']
+        totals['end_date'] = self.backtest_data['backtest_end']
+        return BacktestPerformance(**totals)
 
     @property
     def logs(self) -> str:
@@ -202,8 +224,8 @@ class BacktestReport(ReportBase, table=True):
         return self.log_file.read_text()
 
     @property
-    def log_file(self):
-        return paths.BACKTEST_LOG_PATH(str(self.id) + '.log')
+    def log_file(self) -> Path:
+        return paths.BACKTEST_LOG_PATH.joinpath(str(self.id) + '.log')
 
     @property
     def df(self):
@@ -237,7 +259,6 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def sortino_loss(self):
-
         return sortino_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
@@ -247,7 +268,6 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def sharp_loss(self):
-
         return sharpe_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
@@ -257,7 +277,6 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def roi_loss(self):
-
         return roi_and_profit_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
@@ -267,7 +286,6 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def win_ratio_loss(self):
-
         return win_ratio_and_profit_ratio_loss(
             results=self.trades,
             trade_count=self.performance.trades,
@@ -303,10 +321,6 @@ class BacktestReport(ReportBase, table=True):
     def sell_reason_summary(self):
         return pd.DataFrame(self.backtest_data['sell_reason_summary'])
 
-    @property
-    def starting_balance(self):
-        raise NotImplementedError
-
     def trades_to_csv(self, name=''):
         path = paths.BASE_DIR.joinpath('exports/')
         path.mkdir(exist_ok=True)
@@ -327,14 +341,14 @@ class BacktestReport(ReportBase, table=True):
         logger.info('Created {}', path.joinpath(name))
         return csv
 
-    def delete(self):
-        self.json_file.unlink(missing_ok=True)
-        self.log_file.unlink(missing_ok=True)
+    def delete(self, session: Session):
+        data = session.get(BacktestData, self.data_id)
+        session.delete(data)
+        self.log_file.unlink()
 
 
 class HyperoptReport(ReportBase, table=True):
     strategy: str
-    exchange: str
     params_file: Path
     hyperopt_file: Path = ''
     pairlist: list[str] = []
@@ -356,7 +370,7 @@ class HyperoptReport(ReportBase, table=True):
     def parameters(self):
         return rapidjson.loads(self.params_file.read_text())
 
-    def delete(self):
+    def delete(self, session: Session):
         self.hyperopt_file.unlink(missing_ok=True)
         self.params_file.unlink(missing_ok=True)
         self.log_file.unlink(missing_ok=True)

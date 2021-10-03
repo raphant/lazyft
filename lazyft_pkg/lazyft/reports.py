@@ -52,15 +52,15 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
 
         return self.sort_by_date()
 
-    def get(self, *uuid: str):
-        """Get the reports with the uuid"""
-        return [r for r in self if r.report_id in uuid]
+    def get(self, *id: str):
+        """Get the reports by id"""
+        return [r for r in self if r.id in id]
 
     def get_strategy_id_pairs(self):
         # nt = namedtuple('StrategyPair', ['strategy', 'id'])
         pairs = set()
         for r in self:
-            pairs.add((r.strategy, r.param_id))
+            pairs.add((r.strategy, r.hyperopt_id))
         return pairs
 
     def filter(self, func: Callable[[ReportBase], bool]):
@@ -133,7 +133,7 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
                 failed.append(r)
                 logger.error(
                     'Failed to find backtest_results for: {}',
-                    ', '.join([f'"{f.report_id}"' for f in failed]),
+                    ', '.join([f'"{f.id}"' for f in failed]),
                 )
             except Exception as e:
                 failed.append(r)
@@ -143,23 +143,19 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
         return pd.DataFrame(pd.concat(frames, ignore_index=True))
 
     def delete(self, index: int):
-        repo: Union[BacktestRepo, HyperoptRepo] = self._repo.parse_file(self._data_file)
-        report = self[index]
-        report.delete()
-        repo.reports.remove(report)
-
-        self._data_file.write_text(repo.json())
-        logger.info(
-            'Deleted report "{}" from {}', report.report_id, self._repo.__name__
-        )
+        with Session(engine) as session:
+            report = self.data[index]
+            report.delete(session)
+            session.delete(report)
+            session.commit()
 
     def delete_all(self):
-        repo: Union[BacktestRepo, HyperoptRepo] = self._repo.parse_file(self._data_file)
-        for report in self:
-            report.delete()
-            repo.reports.remove(report)
+        with Session(engine) as session:
+            for report in self:
+                report.delete(session)
+                session.delete(report)
+            session.commit()
 
-        self._data_file.write_text(repo.json())
         logger.info('Deleted {} reports from {}', len(self), self._repo.__name__)
 
 
@@ -297,4 +293,6 @@ class BacktestExplorer:
 
 if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
-    print(get_backtest_repo())
+    print(get_backtest_repo()[0].backtest_data.keys())
+    print(get_backtest_repo()[0].backtest_data['results_per_pair'][-1])
+    print(get_backtest_repo().delete_all())

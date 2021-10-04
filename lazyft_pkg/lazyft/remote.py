@@ -24,12 +24,14 @@ if remotes_file.exists():
 else:
     logger.warning("{} does not exist. Remotes not loaded", remotes_file)
 
+
 # remote_preset = dict(
 #     vps=RemotePreset(
 #         'raphael@calibre.raphaelnanje.me', '/home/raphael/freqtrade/', 51111
 #     ),
 #     pi=RemotePreset('pi@pi4.local', '/home/pi/freqtrade/'),
 # )
+tmp_dir = TemporaryDirectory()
 
 
 @attr.s
@@ -168,8 +170,7 @@ class RemoteBot:
         self.tools.send_file(self.bot_id, str(self.config), "user_data")
 
     def update_ensemble(self, strategies: Iterable[Strategy]):
-        tmp_path = TemporaryDirectory()
-        path = Path(tmp_path.name, 'ensemble.json')
+        path = Path(tmp_dir.name, 'ensemble.json')
         path.write_text(rapidjson.dumps([s.name for s in strategies]))
         logger.info('New ensemble is %s', strategies)
         self.tools.send_file(self.bot_id, path, 'user_data/strategies/ensemble.json')
@@ -193,9 +194,13 @@ class RemoteTools:
     def update_strategy_params(self, bot_id: int, strategy: str, id: str):
         logger.debug('[Strategy Params] "{}" -> "{}.json"', strategy, id)
         # load path of params
-        local_params = ParameterTools.get_path_of_params(id)
         # create the remote path to save as
-        remote_path = f"user_data/strategies/{StrategyTools.create_strategy_params_filepath(strategy).name}"
+        local_params = Path(tmp_dir.name, 'params.json')
+        local_params.write_text(rapidjson.dumps(ParameterTools.get_parameters(id)))
+        remote_path = (
+            f"user_data/strategies/"
+            f"{StrategyTools.create_strategy_params_filepath(strategy).name}"
+        )
         # send the local params to the remote path
         self.send_file(bot_id, local_params, remote_path)
 

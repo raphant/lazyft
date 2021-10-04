@@ -129,9 +129,9 @@ class ReportBase(SQLModel):
     def df(self):
         # noinspection PyUnresolvedReferences
         d = dict(
+            id=self.id,
             strategy=self.strategy,
             date=self.date,
-            hyperopt_id=self.id,
             exchange=self.exchange,
             m_o_t=self.max_open_trades,
             stake=self.stake_amount,
@@ -235,7 +235,7 @@ class BacktestReport(ReportBase, table=True):
     @property
     def df(self):
         df = super().df
-
+        df.insert(2, 'hyperopt_id', self.hyperopt_id)
         try:
             df.insert(
                 10,

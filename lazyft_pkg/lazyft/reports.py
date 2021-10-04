@@ -136,7 +136,10 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
                 logger.exception(e)
         if not len(frames):
             return None
-        return pd.DataFrame(pd.concat(frames, ignore_index=True))
+        frame = pd.DataFrame(pd.concat(frames, ignore_index=True))
+        frame.set_index('id', inplace=True)
+        frame.loc[frame.stake == -1.0, 'stake'] = 'unlimited'
+        return frame
 
     def delete(self, index: int):
         with Session(engine) as session:

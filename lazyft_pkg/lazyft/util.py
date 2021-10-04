@@ -40,13 +40,13 @@ class ParameterTools:
 
         parameters = cls.get_parameters(id)
         logger.debug('fetched parameters: {}', parameters)
-        logger.info('Copying parameters file from id {} to strategy folder', id)
         # get full name that the params file will be saved as
         strategy_json = StrategyTools.create_strategy_params_filepath(strategy)
         # setup the file path
         new_params_file = paths.STRATEGY_DIR.joinpath(strategy_json)
         # write into the new params file
         new_params_file.write_text(rapidjson.dumps(parameters))
+        logger.info('Created parameter file {} with id {}', strategy_json, id)
 
     @classmethod
     def get_parameters(cls, id: str) -> dict:

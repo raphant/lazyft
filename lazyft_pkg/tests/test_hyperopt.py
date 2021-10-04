@@ -9,15 +9,15 @@ from lazyft.hyperopt.report import HyperoptReportExporter
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
-from lazyft.models import HyperoptPerformance
+from lazyft.models import HyperoptPerformance, HyperoptReport
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 
-STRATEGY = ['TestStrategy']
-STRATEGY_WITH_ID = ['TestStrategy-test']
+STRATEGY = ['TestStrategy3']
+STRATEGY_WITH_ID = ['TestStrategy3-test']
 config_name = 'config_test.json'
-epochs = 10
+epochs = 5
 days = 2
 min_trades = 1
 
@@ -48,15 +48,15 @@ def test_hyperopt():
     commands = get_commands(STRATEGY)
     runner = HyperoptRunner(commands[0], notify=False)
     runner.execute()
-    report = runner.report_exporter
-    assert isinstance(report, HyperoptReportExporter)
+    report = runner.report
+    print(report)
+    assert isinstance(report, HyperoptReport)
     assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
     assert isinstance(report.params_file, pathlib.Path)
 
     print(runner.save())
     print(runner.epoch_text)
-    runner.report.params_file.unlink()
 
 
 def test_hyperopt_with_id():

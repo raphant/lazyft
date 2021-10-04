@@ -59,10 +59,6 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         if error:
             self.error_list.append(text.strip())
 
-    @abstractmethod
-    def generate_report(self):
-        pass
-
     @property
     def output(self):
         return "\n".join(self.output_list)

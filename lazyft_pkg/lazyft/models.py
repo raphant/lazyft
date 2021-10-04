@@ -20,7 +20,7 @@ from lazyft.loss_functions import (
 )
 
 
-class PerformanceBase(SQLModel):
+class PerformanceBase(BaseModel):
     start_date: datetime
     end_date: datetime
     trades: int
@@ -66,8 +66,7 @@ class PerformanceBase(SQLModel):
             session.refresh(self)
 
 
-class HyperoptPerformance(PerformanceBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class HyperoptPerformance(PerformanceBase):
     wins: int
     losses: int
     draws: int
@@ -348,20 +347,28 @@ class BacktestReport(ReportBase, table=True):
 
 
 class HyperoptReport(ReportBase, table=True):
-    strategy: str
-    params_file: Path
-    hyperopt_file: Path = ''
-    pairlist: list[str] = []
     id: Optional[int] = Field(default=None, primary_key=True)
+    performance_string: str
+    strategy: str
+    # params_file: Path
+    hyperopt_file_str: str = Field(default='')
+    pairlist: str
+    max_open_trades: float
+    starting_balance: float
+    stake_amount: float
 
-    _performance: Optional[HyperoptPerformance] = Relationship()
-    performance_id: Optional[int] = Field(
-        default=None, foreign_key="hyperoptperformance.id"
-    )
+    @property
+    def hyperopt_file(self) -> Path:
+        return Path(self.hyperopt_file_str)
+
+    @property
+    def params_file(self):
+        return paths.PARAMS_DIR.joinpath(str(self.id) + '.json')
 
     @property
     def performance(self) -> HyperoptPerformance:
-        return self._performance
+        loads = rapidjson.loads(self.performance_string)
+        return HyperoptPerformance(**loads)
 
     @property
     def log_file(self):

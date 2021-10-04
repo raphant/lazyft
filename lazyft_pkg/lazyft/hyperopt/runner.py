@@ -8,9 +8,10 @@ import pandas as pd
 import sh
 from rich.live import Live
 from rich.table import Table
+from sqlmodel import Session
 
 from lazyft import logger, paths, hyperopt, runner, regex
-from lazyft.hyperopt import HyperoptReportExporter
+from lazyft.database import engine
 from lazyft.models import HyperoptReport
 from lazyft.notify import notify_pb
 from lazyft.util import ParameterTools
@@ -106,7 +107,6 @@ class HyperoptRunner(runner.Runner):
         self.loaded_from_celery = loaded_from_celery
         self.celery = celery
         self._report = None
-        self.report_exporter: Optional[HyperoptReportExporter] = None
         self.start_time = None
         self.epoch_text = ''
 
@@ -218,7 +218,7 @@ class HyperoptRunner(runner.Runner):
                     % ((time.time() - self.start_time) // 60),
                 )
             self.write_worker.join()
-            self.report_exporter = self.generate_report()
+            self._report = self.generate_report()
             logger.debug('Report generated')
             if self.autosave:
                 logger.info('Auto-saved: {}', self.save())
@@ -231,9 +231,20 @@ class HyperoptRunner(runner.Runner):
             raise RuntimeError(
                 'This hyperopt was loaded from celery and can not be executed.'
             )
-        model = self.report_exporter.save()
-        self._report = model
-        return model
+
+        with Session(engine) as session:
+            report = self.report
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            logger.info('Created report: {}'.format(report))
+            self.log_path.rename(
+                paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log')
+            )
+            ParameterTools.save_params_file(self.strategy, str(report.id))
+
+        self._report = report
+        return report
 
     # @staticmethod
     # def get_report_backtest(idx=0):
@@ -265,9 +276,9 @@ class HyperoptRunner(runner.Runner):
             max_open_trades=self.command.params.max_open_trades
             or self.command.config['max_open_trades'],
         )
-
+        print(secondary_config)
         # noinspection PyTypeChecker
-        return hyperopt.HyperoptReportExporter(
+        exporter = hyperopt.HyperoptReportExporter(
             self.command.config,
             self.output,
             self.strategy,
@@ -275,6 +286,8 @@ class HyperoptRunner(runner.Runner):
             tag=self.command.params.tag,
             report_id=self.report_id,
         )
+        self._report = exporter.generate()
+        return self._report
 
     def get_results(self) -> pd.DataFrame:
         """Scrapes the hyperopt epoch information using regex and returns a DataFrame"""

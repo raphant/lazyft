@@ -9,7 +9,7 @@ from lazyft.reports import get_hyperopt_repo
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 param_id = 'test'
-STRATEGY_WITH_ID = ['TestStrategy-test']
+STRATEGY_WITH_ID = ['TestStrategy3-3']
 STRATEGIES = ['TestStrategy-test', 'TestStrategy']
 config_name = 'config_test.json'
 

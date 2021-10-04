@@ -20,15 +20,16 @@ class HyperoptReportExporter:
         balance_info: dict = None,
         tag: str = None,
     ) -> None:
-        self.id = str(uuid.uuid4())
         self.strategy = strategy
         self.config = config
-        self.balance_info = balance_info
         self.tag = tag
-        self.params_file = ParameterTools.save_params_file(strategy, self.id)
-        extracted = self._extract_output(output)
         self.report_id = report_id
-        if not extracted:
+        self.balance_info = balance_info
+        if isinstance(self.balance_info['stake_amount'], str):
+            self.balance_info['stake_amount'] = -1
+        try:
+            extracted = self.get_performance_from_output(output)
+        except (AssertionError, ValueError):
             raise ValueError('Report is empty')
         logger.debug('Finished extracting output')
         self.performance = extracted
@@ -46,7 +47,7 @@ class HyperoptReportExporter:
         if not PARAMS_FILE.exists():
             PARAMS_FILE.write_text('{}')
         repo = HyperoptRepo.parse_file(PARAMS_FILE)
-        model = self.to_model
+        model = self.generate
         repo.reports.append(model)
         PARAMS_FILE.write_text(repo.json())
         return model
@@ -57,23 +58,23 @@ class HyperoptReportExporter:
             return rapidjson.loads(PARAMS_FILE.read_text())
         return {}
 
-    @property
-    def to_model(self):
+    def generate(self):
         return HyperoptReport(
-            report_id=self.report_id,
-            param_id=self.id,
             strategy=self.strategy,
-            params_file=self.params_file,
-            performance=self.performance,
-            pairlist=self.config.whitelist,
-            balance_info=self.balance_info,
+            performance_string=rapidjson.dumps(
+                self.performance.dict(), datetime_mode=rapidjson.DM_ISO8601
+            ),
+            pairlist=','.join(self.config.whitelist),
             exchange=self.config['exchange']['name'],
             tag=self.tag,
-            hyperopt_file=self.hyperopt_file,
+            hyperopt_file_str=str(self.hyperopt_file),
+            max_open_trades=self.balance_info['max_open_trades'],
+            stake_amount=self.balance_info['stake_amount'],
+            starting_balance=self.balance_info['starting_balance'],
         )
 
     @staticmethod
-    def _extract_output(output: str) -> HyperoptPerformance:
+    def get_performance_from_output(output: str) -> HyperoptPerformance:
         logger.debug("Extracting output...")
         search = regex.FINAL_REGEX.search(output)
         assert search

@@ -154,6 +154,7 @@ class BacktestRunner(Runner):
                     paths.USER_DATA_DIR, 'backtest_results', json_file
                 ).read_text()
             ),
+            hyperopt_id=self.command.id,
             hash=self.command.hash,
             exchange=self.command.config['exchange']['name'],
             # report_id=self.report_id,
@@ -182,9 +183,10 @@ class BacktestRunner(Runner):
             session.commit()
             session.refresh(report)
             logger.info('Created report: {}'.format(report))
-            self.log_path.rename(
-                paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log')
-            )
+            if self.log_path.exists():
+                self.log_path.rename(
+                    paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log')
+                )
 
     def dataframe(self):
         if not self.report:

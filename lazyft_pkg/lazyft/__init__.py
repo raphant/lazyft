@@ -1,3 +1,6 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import dotenv
 import pandas as pd
 
@@ -67,3 +70,4 @@ logger.configure(
 )
 
 logger_exec = logger.bind(type='general')
+tmp_dir = Path('/tmp/lazyft')

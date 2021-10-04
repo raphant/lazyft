@@ -1,5 +1,6 @@
 import datetime
 import statistics
+import time
 from abc import ABCMeta, abstractmethod
 from collections import UserList
 from pathlib import Path
@@ -241,7 +242,10 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
                     'mean_collection': current_mean_collection,
                     'trades': trades,
                 }
-        del temp['TOTAL']
+        try:
+            del temp['TOTAL']
+        except KeyError:
+            pass
 
         for k, v in temp.copy().items():
             temp[k]['mean'] = statistics.mean(v['mean_collection'])
@@ -309,7 +313,10 @@ class BacktestExplorer:
 
 if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
-    print(get_hyperopt_repo())
-    print(get_backtest_repo())
-    print(get_hyperopt_repo())
-    print(get_backtest_repo().get_hashes())
+    # print(get_hyperopt_repo())
+    # print(get_backtest_repo())
+    # print(get_hyperopt_repo())
+
+    t1 = time.time()
+    print(get_backtest_repo().head(25).df())
+    print('Elapsed time:', time.time() - t1, 'seconds')

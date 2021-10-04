@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Iterable, Optional, Union
 
 import attr
@@ -10,7 +9,7 @@ import rapidjson
 import sh
 from freqtrade.data.btanalysis import load_trades_from_db
 
-from lazyft import logger, paths
+from lazyft import logger, paths, tmp_dir
 from lazyft.config import Config
 from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy
 from lazyft.strategy import StrategyTools
@@ -31,7 +30,6 @@ else:
 #     ),
 #     pi=RemotePreset('pi@pi4.local', '/home/pi/freqtrade/'),
 # )
-tmp_dir = TemporaryDirectory()
 
 
 @attr.s
@@ -170,7 +168,7 @@ class RemoteBot:
         self.tools.send_file(self.bot_id, str(self.config), "user_data")
 
     def update_ensemble(self, strategies: Iterable[Strategy]):
-        path = Path(tmp_dir.name, 'ensemble.json')
+        path = Path(tmp_dir, 'ensemble.json')
         path.write_text(rapidjson.dumps([s.name for s in strategies]))
         logger.info('New ensemble is %s', strategies)
         self.tools.send_file(self.bot_id, path, 'user_data/strategies/ensemble.json')
@@ -195,7 +193,7 @@ class RemoteTools:
         logger.debug('[Strategy Params] "{}" -> "{}.json"', strategy, id)
         # load path of params
         # create the remote path to save as
-        local_params = Path(tmp_dir.name, 'params.json')
+        local_params = Path(tmp_dir, 'params.json')
         local_params.write_text(rapidjson.dumps(ParameterTools.get_parameters(id)))
         remote_path = (
             f"user_data/strategies/"

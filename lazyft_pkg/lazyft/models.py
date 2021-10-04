@@ -6,11 +6,12 @@ from typing import Optional, Union
 import pandas as pd
 import rapidjson
 import sh
+from diskcache import FanoutCache
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 from sqlmodel import SQLModel, Session, Field, Relationship
 
-from lazyft import logger, paths
+from lazyft import logger, paths, tmp_dir
 from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
@@ -18,6 +19,8 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
+
+cache = FanoutCache(tmp_dir)
 
 
 class PerformanceBase(BaseModel):
@@ -194,13 +197,15 @@ class BacktestReport(ReportBase, table=True):
         return self.backtest_data['exchange']
 
     @property
+    @cache.memoize(tag='load_data')
     def load_data(self):
         with Session(engine) as session:
             return rapidjson.loads(session.get(BacktestData, self.data_id).text)
 
     @property
     def backtest_data(self) -> dict:
-        return self.load_data['strategy'][self.strategy]
+        strategy_ = self.load_data['strategy'][self.strategy]
+        return strategy_
 
     @property
     def max_open_trades(self):
@@ -247,16 +252,16 @@ class BacktestReport(ReportBase, table=True):
                 'sortino',
                 self.sortino_loss,
             )
-            df.insert(
-                11,
-                'winratioloss',
-                self.win_ratio_loss,
-            )
-            df.insert(
-                12,
-                'sharpe_loss',
-                self.sharp_loss,
-            )
+            # df.insert(
+            #     11,
+            #     'winratioloss',
+            #     self.win_ratio_loss,
+            # )
+            # df.insert(
+            #     12,
+            #     'sharpe_loss',
+            #     self.sharp_loss,
+            # )
         except Exception as e:
             logger.exception(e)
 

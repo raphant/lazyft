@@ -1,6 +1,6 @@
 import datetime
 import statistics
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections import UserList
 from pathlib import Path
 from typing import Optional, Union, Callable, Type
@@ -44,13 +44,9 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
         self.reset()
         self.df = self.dataframe
 
+    @abstractmethod
     def reset(self):
-        with Session(engine) as session:
-            statement = select(BacktestReport)
-            results = session.exec(statement)
-            self.data = results.fetchall()
-
-        return self.sort_by_date()
+        pass
 
     def get(self, *id: str):
         """Get the reports by id"""
@@ -160,6 +156,14 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
 
 
 class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
+    def reset(self):
+        with Session(engine) as session:
+            statement = select(BacktestReport)
+            results = session.exec(statement)
+            self.data = results.fetchall()
+
+        return self.sort_by_date()
+
     @staticmethod
     def get_hashes():
         with Session(engine) as session:
@@ -246,10 +250,19 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
 
 
 class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
+    def reset(self):
+        with Session(engine) as session:
+            statement = select(HyperoptReport)
+            results = session.exec(statement)
+            self.data = results.fetchall()
+
+        return self.sort_by_date()
+
     def get_by_param_id(self, id: str):
         """Get the report with the uuid or the first report in the repo"""
+
         try:
-            return [r for r in self if r.param_id == id][0]
+            return [r for r in self if str(r.id) == str(id)][0]
         except IndexError:
             raise IdNotFoundError('Could not find report with id %s' % id)
 

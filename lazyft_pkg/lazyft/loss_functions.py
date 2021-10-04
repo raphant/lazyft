@@ -89,8 +89,7 @@ def roi_and_profit_hyperopt_loss(
 def sharpe_hyperopt_loss(
     results: DataFrame,
     trade_count: int,
-    min_date: datetime,
-    max_date: datetime,
+    days: int,
 ):
     """
     Objective function, returns smaller number for more optimal results.
@@ -98,7 +97,7 @@ def sharpe_hyperopt_loss(
     Uses Sharpe Ratio calculation.
     """
     total_profit = results["profit_ratio"]
-    days_period = (max_date - min_date).days
+    days_period = days
 
     # adding slippage of 0.1% per trade
     total_profit = total_profit - 0.0005
@@ -116,12 +115,7 @@ def sharpe_hyperopt_loss(
 
 
 def sortino_hyperopt_loss(
-    results: DataFrame,
-    trade_count: int,
-    min_date: datetime,
-    max_date: datetime,
-    *args,
-    **kwargs
+    results: DataFrame, trade_count: int, days: int, *args, **kwargs
 ) -> float:
     """
     Objective function, returns smaller number for more optimal results.
@@ -129,7 +123,7 @@ def sortino_hyperopt_loss(
     Uses Sortino Ratio calculation.
     """
     total_profit = results["profit_ratio"]
-    days_period = (max_date - min_date).days
+    days_period = days
 
     # adding slippage of 0.1% per trade
     total_profit = total_profit - 0.0005

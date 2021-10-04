@@ -41,7 +41,7 @@ class PerformanceBase(BaseModel):
 
     @property
     def days(self):
-        return (self.end_date - self.start_date).days
+        return max((self.end_date - self.start_date).days, 1)
 
     @property
     def ppd(self):
@@ -79,7 +79,7 @@ class HyperoptPerformance(PerformanceBase):
     seed: int
 
     @property
-    def total_profit_pct(self):
+    def profit_total_pct(self):
         return self.profit_percent
 
     @property
@@ -92,6 +92,7 @@ class HyperoptPerformance(PerformanceBase):
 
 
 class BacktestPerformance(PerformanceBase):
+
     profit_mean_pct: float
     profit_sum_pct: float
     profit_total_abs: float
@@ -126,19 +127,20 @@ class ReportBase(SQLModel):
 
     @property
     def df(self):
+        # noinspection PyUnresolvedReferences
         d = dict(
             strategy=self.strategy,
             date=self.date,
             hyperopt_id=self.id,
             exchange=self.exchange,
-            # m_o_t=self.balance_info['max_open_trades'],
-            # stake=self.balance_info['stake_amount'],
-            # balance=self.balance_info['starting_balance'],
+            m_o_t=self.max_open_trades,
+            stake=self.stake_amount,
+            balance=self.starting_balance,
             # ppd=self.performance.ppd,
             # tpd=self.performance.tpd,
             score=self.performance.score,
             avg_profit_pct=self.performance.profit_ratio,
-            total_profit_pct=self.performance.total_profit_pct * 100,
+            total_profit_pct=self.performance.profit_total_pct * 100,
             total_profit=self.performance.profit,
             trades=self.performance.trades,
             days=self.performance.days,
@@ -209,6 +211,10 @@ class BacktestReport(ReportBase, table=True):
         return self.backtest_data['starting_balance']
 
     @property
+    def stake_amount(self):
+        return self.backtest_data['stake_amount']
+
+    @property
     def performance(self) -> BacktestPerformance:
         totals = self.backtest_data['results_per_pair'].pop()
         totals.pop('key')
@@ -261,8 +267,7 @@ class BacktestReport(ReportBase, table=True):
         return sortino_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
-            min_date=self.performance.start_date,
-            max_date=self.performance.end_date,
+            days=self.performance.days,
         )
 
     @property
@@ -270,8 +275,7 @@ class BacktestReport(ReportBase, table=True):
         return sharpe_hyperopt_loss(
             results=self.trades,
             trade_count=self.performance.trades,
-            min_date=self.performance.start_date,
-            max_date=self.performance.end_date,
+            days=self.performance.days,
         )
 
     @property

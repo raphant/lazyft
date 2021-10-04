@@ -175,7 +175,7 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
         return [r for r in self if r.hash == hash].pop()
 
     def filter_by_id(self, *ids: str):
-        self.data = [r for r in self if r.param_id in ids]
+        self.data = [r for r in self if r.id in ids]
         return self
 
     def get_top_strategies(self, n=3):
@@ -202,10 +202,10 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
                 continue
             totals_dict = dict(
                 strategy=report.strategy,
-                id=report.report_id,
-                h_id=report.param_id,
-                starting_balance=report.balance_info['starting_balance'],
-                stake_amount=report.balance_info['stake_amount'],
+                id=report.id,
+                h_id=report.hyperopt_id,
+                starting_balance=report.starting_balance,
+                stake_amount=report.stake_amount,
                 # total_profit=df_range.profit_abs.sum(),
                 # profit_per_trade=df_range.profit_abs.mean(),
                 avg_profit_pct=df_range.profit_ratio.mean() * 100,
@@ -268,7 +268,7 @@ class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
 
     def get_by_param_ids(self, *ids: str):
         """Get the report with the uuid or the first report in the repo"""
-        self.data = [r for r in self if r.param_id in ids]
+        self.data = [r for r in self if r.id in ids]
         return self
 
     def sort_by_loss(self, reverse=False):
@@ -306,6 +306,7 @@ class BacktestExplorer:
 
 if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
-    print(get_backtest_repo()[0].backtest_data.keys())
-    print(get_backtest_repo()[0].backtest_data['results_per_pair'][-1])
-    print(get_backtest_repo().delete_all())
+    print(get_hyperopt_repo())
+    print(get_backtest_repo())
+    print(get_hyperopt_repo().df())
+    print(get_backtest_repo().df())

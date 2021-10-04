@@ -1,11 +1,10 @@
 import pathlib
 
 from lazyft import backtest, paths, models
-from lazyft.backtest.commands import create_commands, BacktestCommand
+from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import BacktestParameters
 from lazyft.models import Strategy
-from lazyft.reports import get_hyperopt_repo
 
 paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')

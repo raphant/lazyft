@@ -241,7 +241,6 @@ class HyperoptRunner(runner.Runner):
             self.log_path.rename(
                 paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log')
             )
-            ParameterTools.save_params_file(self.strategy, str(report.id))
 
         self._report = report
         return report

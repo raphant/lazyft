@@ -354,7 +354,7 @@ class HyperoptReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     performance_string: str
     strategy: str
-    # params_file: Path
+    param_data_str: str
     hyperopt_file_str: str = Field(default='')
     pairlist: str
     max_open_trades: float
@@ -364,6 +364,10 @@ class HyperoptReport(ReportBase, table=True):
     @property
     def hyperopt_file(self) -> Path:
         return Path(self.hyperopt_file_str)
+
+    @property
+    def parameters(self) -> dict:
+        return rapidjson.loads(self.param_data_str)
 
     @property
     def params_file(self):
@@ -377,9 +381,6 @@ class HyperoptReport(ReportBase, table=True):
     @property
     def log_file(self):
         return paths.HYPEROPT_LOG_PATH(str(self.id) + '.log')
-
-    def parameters(self):
-        return rapidjson.loads(self.params_file.read_text())
 
     def delete(self, session: Session):
         self.hyperopt_file.unlink(missing_ok=True)

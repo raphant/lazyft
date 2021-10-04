@@ -168,7 +168,7 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
     def get_hashes():
         with Session(engine) as session:
             statement = select(BacktestReport)
-            results = session.execute(statement)
+            results = session.exec(statement)
             return [r.hash for r in results.all()]
 
     def get_using_hash(self, hash: str):
@@ -308,5 +308,5 @@ if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
     print(get_hyperopt_repo())
     print(get_backtest_repo())
-    print(get_hyperopt_repo().df())
-    print(get_backtest_repo().df())
+    print(get_hyperopt_repo())
+    print(get_backtest_repo().get_hashes())

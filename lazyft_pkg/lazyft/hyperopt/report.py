@@ -1,13 +1,12 @@
-import uuid
 from pathlib import Path
 
 import rapidjson
 
 from lazyft import logger, regex, paths
 from lazyft.config import Config
-from lazyft.models import HyperoptPerformance, HyperoptRepo, HyperoptReport
+from lazyft.models import HyperoptPerformance, HyperoptReport
 from lazyft.paths import PARAMS_FILE
-from lazyft.util import ParameterTools
+from lazyft.strategy import StrategyTools
 
 
 class HyperoptReportExporter:
@@ -40,18 +39,6 @@ class HyperoptReportExporter:
             ],
         ).resolve()
 
-    def save(self) -> HyperoptReport:
-        """
-        Returns: ID of report
-        """
-        if not PARAMS_FILE.exists():
-            PARAMS_FILE.write_text('{}')
-        repo = HyperoptRepo.parse_file(PARAMS_FILE)
-        model = self.generate
-        repo.reports.append(model)
-        PARAMS_FILE.write_text(repo.json())
-        return model
-
     @classmethod
     def get_existing_data(cls) -> dict:
         if PARAMS_FILE.exists():
@@ -64,6 +51,9 @@ class HyperoptReportExporter:
             performance_string=rapidjson.dumps(
                 self.performance.dict(), datetime_mode=rapidjson.DM_ISO8601
             ),
+            param_data_str=StrategyTools.create_strategy_params_filepath(
+                self.strategy
+            ).read_text(),
             pairlist=','.join(self.config.whitelist),
             exchange=self.config['exchange']['name'],
             tag=self.tag,

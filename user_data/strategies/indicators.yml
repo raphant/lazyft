@@ -1,0 +1,184 @@
+rsi:
+  func:
+    loc: 'tta.RSI'
+    columns: null
+    params: null
+  columns:
+    - 'rsi'
+  values:
+    buy: 30
+    sell: 70
+  compare:
+    type: 'value'
+  sell_op: '<'
+  buy_op: '>'
+  type: 'mom'
+psar:
+  func:
+    loc: 'tta.SAR'
+    columns: [ 'high', 'low' ]
+  columns:
+    - 'sar'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_above'
+  sell_op: 'crossed_below'
+  type: 'trend'
+ewo:
+  func:
+    loc: 'ci.EWO'
+    columns: null
+  columns:
+    - 'ewo'
+  compare:
+    type: 'value'
+  values:
+    buy: 0
+    sell: 0
+  buy_op: '>'
+  sell_op: null
+  type: 'osc'
+bb_20:
+  func:
+    loc: 'ci.bollinger_bands'
+    columns: null
+  columns:
+    - 'bb_lowerband'
+    - 'bb_middleband'
+    - 'bb_upperband'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'vol'
+bb_40:
+  func:
+    loc: 'ci.bollinger_bands'
+    columns: null
+    kwargs:
+      window: 40
+  columns:
+    - 'bb_lowerband'
+    - 'bb_middleband'
+    - 'bb_upperband'
+  column_append: '_40'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'vol'
+ema:
+  func:
+    loc: 'tta.EMA'
+    columns: null
+  columns:
+    - 'EMA'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'ma'
+ema_100:
+  func:
+    loc: 'tta.EMA'
+    columns: null
+    kwargs:
+      timeperiod: 100
+  columns:
+    - 'EMA'
+  column_append: '_100'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'ma'
+wma:
+  func:
+    loc: 'tta.WMA'
+    columns: null
+  columns:
+    - 'WMA'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'ma'
+wma_100:
+  func:
+    loc: 'tta.WMA'
+    columns: null
+    params: null
+  columns:
+    - 'WMA'
+  column_append: '_100'
+  compare:
+    type: 'series'
+    values:
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'ma'
+atr:
+  func:
+    loc: 'tta.ATR'
+    columns: null
+  columns:
+    - 'atr'
+  compare:
+    type: 'specific'
+    values:
+      - 'atr_ma'
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'vol'
+atr_ma:
+  func:
+    loc: 'ci.atr_ma'
+    columns: null
+  columns:
+    - 'atr_ma'
+  compare:
+    type: 'none'
+  buy_op: 'crossed_below'
+  sell_op: 'crossed_above'
+  type: 'vol'

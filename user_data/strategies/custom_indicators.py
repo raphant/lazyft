@@ -237,3 +237,48 @@ def SROC(dataframe, roclen=21, emalen=13, smooth=21):
     sroc = ta.ROC(ema, timeperiod=smooth)
 
     return sroc
+
+
+def rvi(dataframe: DataFrame, periods: int = 14, ema_length=14) -> DataFrame:
+    """
+    Relative Volatility Index (RVI)
+    """
+    # calculate std
+    df = dataframe.copy()
+    df['std'] = qtpylib.rolling_std(df['close'], periods, min_periods=periods)
+    df['close_delta'] = dataframe['close'] - dataframe['close'].shift(1)
+    df['upper'] = 0.0
+    df.loc[df.close_delta > 0, 'upper'] = df['std']
+    df['lower'] = 0.0
+    df.loc[df.close_delta < 0, 'lower'] = df['std']
+    df['upper_ema'] = qtpylib.ema(df['upper'].fillna(0.0), window=ema_length)
+    df['lower_ema'] = qtpylib.ema(df['lower'].fillna(0.0), window=ema_length)
+    df['rvi'] = df['upper_ema'] / (df['upper_ema'] + df['lower_ema']) * 100
+    return df['rvi']
+
+
+def EWO(dataframe, ema_length=5, ema2_length=35):
+    df = dataframe.copy()
+    ema1 = ta.EMA(df, timeperiod=ema_length)
+    ema2 = ta.EMA(df, timeperiod=ema2_length)
+    emadif = (ema1 - ema2) / df["low"] * 100
+    return emadif
+
+
+def bollinger_bands(dataframe, window=20, stds=2):
+    # Bollinger bands
+    bollinger = qtpylib.bollinger_bands(
+        qtpylib.typical_price(dataframe), window=window, stds=stds
+    )
+    dataframe['bb_lowerband'] = bollinger['lower']
+    dataframe['bb_middleband'] = bollinger['mid']
+    dataframe['bb_upperband'] = bollinger['upper']
+    return dataframe
+
+
+def atr_ma(dataframe: DataFrame):
+    """Get moving average of average true range"""
+    if 'atr' not in dataframe:
+        dataframe['atr'] = ta.ATR(dataframe)
+    dataframe['atr_ma'] = ta.MA(dataframe['atr'])
+    return dataframe

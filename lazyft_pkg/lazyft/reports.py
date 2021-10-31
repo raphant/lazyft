@@ -1,23 +1,20 @@
 import datetime
-import statistics
 import time
 from abc import ABCMeta, abstractmethod
 from collections import UserList
-from pathlib import Path
-from typing import Optional, Union, Callable, Type
+from typing import Optional, Union, Callable
 
 import pandas as pd
+from dateutil.parser import parse
 from sqlmodel import Session
 from sqlmodel.sql.expression import select
 
-from lazyft import logger, paths
+from lazyft import logger
 from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
 from lazyft.models import (
     BacktestReport,
-    BacktestRepo,
     HyperoptReport,
-    HyperoptRepo,
     ReportBase,
 )
 
@@ -33,15 +30,13 @@ cols_to_print = [
     'days',
     'tag',
 ]
+BacktestReportList = UserList[BacktestReport]
+AbstractReport = Union[BacktestReport, HyperoptReport]
 
 
-class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=ABCMeta):
-    def __init__(
-        self, file: Path, repo: Union[Type[BacktestRepo], Type[HyperoptRepo]]
-    ) -> None:
+class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
+    def __init__(self) -> None:
         super().__init__()
-        self._repo = repo
-        self._data_file = file
         self.reset()
         self.df = self.dataframe
 
@@ -51,7 +46,7 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
 
     def get(self, *id: str):
         """Get the reports by id"""
-        return [r for r in self if r.id in id]
+        return [r for r in self if str(r.id) in str(id)]
 
     def get_strategy_id_pairs(self):
         # nt = namedtuple('StrategyPair', ['strategy', 'id'])
@@ -156,10 +151,10 @@ class _RepoExplorer(UserList[Union[BacktestReport, HyperoptReport]], metaclass=A
                 session.delete(report)
             session.commit()
 
-        logger.info('Deleted {} reports from {}', len(self), self._repo.__name__)
+        logger.info('Deleted {} reports from {}', len(self), self.__class__.__name__)
 
 
-class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
+class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
     def reset(self):
         with Session(engine) as session:
             statement = select(BacktestReport)
@@ -196,10 +191,14 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
         end_date: Union[datetime.datetime, str] = None,
     ) -> pd.DataFrame:
         data = []
+        if isinstance(start_date, str):
+            start_date = parse(start_date).date()
+        if isinstance(end_date, str):
+            end_date = parse(end_date).date()
         for report in self:
             df_trades = report.trades
-            mask = (df_trades['open_date'] > start_date) & (
-                not end_date or df_trades['open_date'] <= end_date
+            mask = (df_trades['open_date'].dt.date > start_date) & (
+                not end_date or df_trades['open_date'].dt.date <= end_date
             )
             df_range = df_trades.loc[mask]
             if not len(df_range):
@@ -213,46 +212,27 @@ class _BacktestRepoExplorer(_RepoExplorer, UserList[BacktestReport]):
                 # total_profit=df_range.profit_abs.sum(),
                 # profit_per_trade=df_range.profit_abs.mean(),
                 avg_profit_pct=df_range.profit_ratio.mean() * 100,
-                trade_profit_density=df_range.profit_ratio.sum(),
+                total_profit_pct=df_range.profit_ratio.sum(),
                 trades=len(df_range),
+                wins=len(df_range[df_range.profit_abs > 0]),
+                draws=len(df_range[df_range.profit_abs == 0]),
                 losses=len(df_range[df_range.profit_abs < 0]),
             )
             data.append(totals_dict)
-        return pd.DataFrame(data)
+        return pd.DataFrame(data).set_index('id')
 
-    def get_pair_totals(self, sort_by='profit_sum_pct'):
-        temp = {}
-        for record in self.data:
-            df = record.pair_performance
-            paired = df[['key', 'profit_sum', 'profit_mean', 'trades']]
-            pair_data = paired.to_dict(orient='records')
-            for r in pair_data:
-                pair = r['key']
-                existing_key: dict = temp.get(
-                    pair, {'profit_sum_pct': 0, 'mean_collection': [], 'trades': 0}
-                )
-                current_sum = existing_key['profit_sum_pct']
-                trades = existing_key['trades']
-                current_mean_collection = existing_key['mean_collection']
-                current_sum += r['profit_sum']
-                trades += r['trades']
-                current_mean_collection.append(r['profit_mean'])
-                temp[pair] = {
-                    'profit_sum_pct': current_sum,
-                    'mean_collection': current_mean_collection,
-                    'trades': trades,
-                }
-        try:
-            del temp['TOTAL']
-        except KeyError:
-            pass
-
-        for k, v in temp.copy().items():
-            temp[k]['mean'] = statistics.mean(v['mean_collection'])
-            del temp[k]['mean_collection']
-
-        df = pd.DataFrame(temp).T
-        df['trades'] = df['trades'].astype(int)
+    def get_pair_totals(self, sort_by='profit_total_pct'):
+        """Get trades from all saved reports and summarize them."""
+        all_trades = pd.concat([r.trades for r in self])
+        df = all_trades.groupby(all_trades['pair']).aggregate(
+            profit_total=pd.NamedAgg(column='profit_abs', aggfunc='sum'),
+            profit_total_pct=pd.NamedAgg(column='profit_ratio', aggfunc='sum'),
+            profit_pct=pd.NamedAgg(column='profit_ratio', aggfunc='mean'),
+            avg_stake_amount=pd.NamedAgg(column='stake_amount', aggfunc='mean'),
+            count=pd.NamedAgg(column='pair', aggfunc='count'),
+        )
+        df.profit_total_pct = df.profit_total_pct * 100
+        df.profit_pct = df.profit_pct * 100
         return df.sort_values(sort_by, ascending=False)
 
 
@@ -288,11 +268,11 @@ class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
 
 
 def get_backtest_repo():
-    return _BacktestRepoExplorer(paths.BACKTEST_RESULTS_FILE, BacktestRepo).reset()
+    return _BacktestRepoExplorer().reset()
 
 
 def get_hyperopt_repo():
-    return _HyperoptRepoExplorer(paths.PARAMS_FILE, HyperoptRepo).reset()
+    return _HyperoptRepoExplorer().reset()
 
 
 class BacktestExplorer:
@@ -318,5 +298,6 @@ if __name__ == '__main__':
     # print(get_hyperopt_repo())
 
     t1 = time.time()
-    print(get_backtest_repo().head(25).df())
+    # print(get_backtest_repo().head(25).get_pair_totals().to_markdown())
+    print(get_backtest_repo()[0].winning_pairs)
     print('Elapsed time:', time.time() - t1, 'seconds')

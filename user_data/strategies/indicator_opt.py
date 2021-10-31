@@ -2,45 +2,35 @@ import logging
 import operator
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from functools import reduce
-from numbers import Number
-from pprint import pprint
 from typing import Optional, Union
-from itertools import product
-import pandas as pd
-import talib.abstract as tta
-import pandas_ta as pta
+
 import freqtrade.vendor.qtpylib.indicators as qta
+import pandas_ta as pta
+import talib.abstract as tta
 from finta import TA as fta
-from freqtrade.strategy import CategoricalParameter, IntParameter
-from freqtrade.strategy.hyper import BaseParameter
+from freqtrade.strategy import CategoricalParameter
 from pandas import DataFrame
 from pydantic.dataclasses import dataclass
-from rich.console import Console
-from skopt.space import Integer
 
-import custom_indicators as ci
+try:
+    import custom_indicators as ci
+except:
+    import lazyft.custom_indicators as ci
 import yaml
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-try:
-    indicator_dict = yaml.load(open('user_data/strategies/indicators.yml'))
-except FileNotFoundError:
-    indicator_dict = yaml.load(open('indicators.yml'))
 
 ta_map = {'tta': tta, 'pta': pta, 'qta': qta, 'fta': fta, 'ci': ci}
 op_map = {
-    # '<': operator.lt,
-    # '>': operator.gt,
-    # '<=': operator.le,
-    # '>=': operator.ge,
+    '<': operator.lt,
+    '>': operator.gt,
+    '<=': operator.le,
+    '>=': operator.ge,
     'crossed_above': qta.crossed_above,
     'crossed_below': qta.crossed_below,
 }
-
-
 # partner_map = {
 #     'ma': [''],
 #     'mom': ['vol'],
@@ -55,15 +45,11 @@ def load_function(indicator_name: str) -> Callable:
     return getattr(ta_map[lib], func_name)
 
 
+class InvalidSeriesError(Exception):
+    pass
+
+
 # region models
-
-
-class CustomParameter(IntParameter):
-    def get_space(self, name: str) -> 'Integer':
-        logger.critical(
-            'Default combo is %s', IndicatorOptHelper.get().combinations[self.value]
-        )
-        return super().get_space(name)
 
 
 class FuncField(BaseModel):
@@ -83,15 +69,25 @@ class Indicator(BaseModel):
     values: dict = {}
     columns: Optional[list[str]] = []
     compare: CompareField
-    sell_op: Optional[str]
-    buy_op: Optional[str]
+    # sell_op: Optional[str]
+    # buy_op: Optional[str]
     type: str
     column_append: str = ''
     compare_to: list[str] = Field(default_factory=list)
+    inf_timeframes: list[str] = Field(default_factory=list)
 
     @property
     def formatted_columns(self):
         return [c + self.column_append for c in self.columns]
+
+    @property
+    def all_columns(self):
+        indicator_list = self.formatted_columns
+        for column in self.formatted_columns:
+            # combine each column with each value in indicator.inf_timeframes
+            for inf_timeframe in self.inf_timeframes:
+                indicator_list.append(f'{column}_{inf_timeframe}')
+        return indicator_list
 
     def populate(self, dataframe: DataFrame):
         func = load_function(self.func.loc)
@@ -107,14 +103,95 @@ class Indicator(BaseModel):
         if loaded_args:
             args.extend(loaded_args)
 
-        func1 = func(*args, **kwargs)
-        if isinstance(func1, DataFrame):
-            for k in dataframe:
+        result = func(*args, **kwargs)
+        if isinstance(result, DataFrame):
+            for k in result:
                 if k + self.column_append not in dataframe:
-                    dataframe[k + self.column_append] = func1[k]
+                    dataframe[k + self.column_append] = result[k]
         else:
-            dataframe[self.columns[0] + self.column_append] = func1
+            dataframe[self.formatted_columns[0]] = result
         return dataframe
+
+
+class IndicatorTools:
+    """
+    Class to contain indicator functions
+    """
+
+    indicator_ids = dict()
+
+    @staticmethod
+    def load_indicators():
+        """
+        Load indicators from file
+        """
+        indicators_ = {}
+        try:
+            load_indicators = yaml.load(open('user_data/strategies/indicators.yml'))
+        except FileNotFoundError:
+            load_indicators = yaml.load(open('indicators.yml'))
+
+        for indicator_name, indicator_dict in load_indicators.items():
+            # make sure each indicator has an ID
+            indicators_[indicator_name] = Indicator(**indicator_dict)
+        return indicators_
+
+    @staticmethod
+    def get_max_columns():
+        """
+        Get the maximum number of columns for any indicator
+        """
+        n_columns_list = [len(indicator.columns) for indicator in indicators.values()]
+        return max(n_columns_list)
+
+    @staticmethod
+    def get_max_compare_series():
+        """
+        Get the maximum number of series for any indicator
+        """
+        len_series = [
+            len(indicator.compare.values) for indicator in indicators.values()
+        ]
+        return max(len_series)
+
+    @staticmethod
+    def get_non_value_type_series():
+        """
+        Get the non value type series
+        """
+        non_value_type_indicators = []
+        for indicator in indicators.values():
+            if indicator.compare.type != 'value':
+                non_value_type_indicators.append(indicator)
+        # get each column from each non value type series
+        non_value_type_columns = [
+            [c for c in indicator.all_columns]
+            for indicator in non_value_type_indicators
+        ]
+        # flatten non value type columns
+        non_value_type_columns = [
+            column for sublist in non_value_type_columns for column in sublist
+        ]
+        return list(set(non_value_type_columns))
+
+    @classmethod
+    def get_all_indicators(cls):
+        indicator_list = set()
+        # combine all indicator.proper_columns with each inf_timeframe
+        # iterate through all indicators
+        for indicator in indicators.values():
+            # iterate through all formatted_columns
+            indicator_list.update(indicator.all_columns)
+        return list(indicator_list)
+
+    @classmethod
+    def create_series_indicator_map(cls):
+        # create a map of series to indicator
+        series_indicator_map = {}
+        for indicator in indicators.values():
+            for column in indicator.all_columns:
+                series_indicator_map[column] = indicator
+        return series_indicator_map
 
 
 class Series(ABC):
@@ -128,15 +205,18 @@ class Series(ABC):
             logger.exception(e)
             raise
 
+    @property
+    def name(self):
+        return self.series_name
+
 
 @dataclass(frozen=True)
 class IndicatorSeries(Series):
     series_name: str
-    indicator_name: str
 
     @property
     def indicator(self):
-        return indicators[self.indicator_name]
+        return series_map[self.series_name]
 
 
 @dataclass(frozen=True)
@@ -148,37 +228,75 @@ class OhlcSeries(Series):
 class Comparison(ABC):
     """Abstract"""
 
-    name: str
-
     @abstractmethod
     def compare(self, dataframe: DataFrame, type_: str) -> bool:
         pass
 
+    @classmethod
+    def create(
+        cls,
+        series_name: str,
+        op_str: str,
+        comparison_series_name: str,
+    ) -> Optional['Comparison']:
+        """
+        Create a comparison object from the parameters in the strategy during hyperopt
+        """
+        if series_name == 'none':
+            raise InvalidSeriesError()
+        indicator = series_map[series_name]
+        if indicator.compare.type == 'none':
+            raise InvalidSeriesError()
+        series1 = IndicatorSeries(series_name)
+        # return comparison based on the compare type
+        if series_name == 'none':
+            raise InvalidSeriesError()
+        if indicator.compare.type == 'value':
+            return ValueComparison(series1, op_str)
+        else:
+            if indicator.compare.type == 'specific':
+                # if there is more than on value in indicator.compare.values and the comparison
+                # series is not in the list of values, raise invalid
+                if (
+                    len(indicator.compare.values) > 1
+                    and comparison_series_name not in indicator.compare.values
+                ):
+                    raise InvalidSeriesError()
+                # set the comparison series name to the first indicator.compare.values
+                comparison_series_name = indicator.compare.values[0]
+            # create OhlcSeries if the comparison series is in ohlc
+            if comparison_series_name in ['open', 'high', 'low', 'close']:
+                comparison_series = OhlcSeries(comparison_series_name)
+            else:
+                comparison_series = IndicatorSeries(comparison_series_name)
+            return SeriesComparison(series1, op_str, comparison_series)
+
 
 @dataclass(frozen=True)
 class SeriesComparison(Comparison):
-    name: str
     series1: IndicatorSeries
     op: str
     series2: Union[IndicatorSeries, OhlcSeries]
 
     def compare(self, dataframe: DataFrame, *args):
-        operation = op_map[self.op]
         series1 = self.series1.get(dataframe)
+        operation = op_map[self.op]
         series2 = self.series2.get(dataframe)
         return operation(series1, series2)
+
+    @property
+    def name(self):
+        return f'{self.series1.series_name} {self.op} {self.series2.name}'
 
 
 @dataclass(frozen=True)
 class ValueComparison(Comparison):
-    name: str
     series1: IndicatorSeries
     op: str
-    indicator_name: str
 
     @property
     def indicator(self):
-        return indicators[self.indicator_name]
+        return series_map[self.series1.series_name]
 
     def compare(self, dataframe: DataFrame, type_: str):
         operation = op_map[self.op]
@@ -187,10 +305,9 @@ class ValueComparison(Comparison):
             self.indicator.values.get(type_),
         )
 
-
-@dataclass(frozen=True)
-class Combination:
-    comparisons: list[Comparison]
+    @property
+    def name(self):
+        return f'{self.series1.series_name} {self.op}'
 
     # def __repr__(self) -> str:
     #     return ','.join([c.name for c in self.comparisons])
@@ -202,82 +319,20 @@ class Combination:
 class IndicatorOptHelper:
     instance = None
 
-    def __init__(self) -> None:
+    def __init__(self, n_permutations: int) -> None:
         self.populated = set()
-        self.comparisons: dict[str, Union[SeriesComparison, ValueComparison]] = {
-            c.name: c for c in set(self.comparison_permutations())
-        }
-        self.combinations = self.get_combinations()
+        self.n_permutations = n_permutations
+
+    @property
+    def inf_timeframes(self):
+        # create inf_timeframes from all indicators
+        timeframes = set()
+        for indicator in indicators.values():
+            timeframes.update(indicator.inf_timeframes)
+        return timeframes
 
     @staticmethod
-    def get_types(indicator_type: str):
-        ohlc_dict = {
-            'open': OhlcSeries(series_name='open'),
-            'high': OhlcSeries(series_name='high'),
-            'low': OhlcSeries(series_name='low'),
-            'close': OhlcSeries(series_name='close'),
-        }
-        if indicator_type == 'ohlc':
-            for v in ohlc_dict.values():
-                yield v
-
-        for i, v in indicators.items():
-            if v.compare.type == 'series' and indicator_type == v.type:
-                for c in v.formatted_columns:
-                    yield IndicatorSeries(series_name=c, indicator_name=i)
-
-    def comparison_permutations(self):
-        operators = op_map.keys()
-        # create (indicator, op, indicator) comparisons
-        for indicator1_name, indicator1 in indicators.items():
-            if indicator1.compare.type == 'none':
-                continue
-            for col in indicator1.formatted_columns:
-                series1 = IndicatorSeries(
-                    series_name=col, indicator_name=indicator1_name
-                )
-                for op in operators:
-                    # check if 'series' in the values of the indicator is True
-                    if indicator1.compare.type == 'value':
-                        yield ValueComparison(
-                            f'{col} {op} value',
-                            series1,
-                            op,
-                            indicator_name=indicator1_name,
-                        )
-                    elif indicator1.compare.type == 'specific':
-                        # go through each specified indicator in indicator1
-                        for indicator2_name in indicator1.compare.values:
-                            indicator2 = indicators[indicator2_name]
-                            # create a comparison for each column series in indicator2
-                            for indicator2_col in indicator2.formatted_columns:
-                                series2 = IndicatorSeries(
-                                    indicator2_col, indicator2_name
-                                )
-                                yield SeriesComparison(
-                                    f'{col} {op} {indicator2_col}',
-                                    series1,
-                                    op,
-                                    series2,
-                                )
-                    else:  # type is series
-                        # go through each specified series type in indicator1 and create a
-                        # comparison with series1
-                        for series_type in indicator1.compare.values:
-                            # get all series of the specified type
-                            matched_series = self.get_types(series_type)
-                            for series2 in matched_series:
-                                # prevent comparing identical indicators
-                                if col == series2.series_name:
-                                    continue
-                                yield SeriesComparison(
-                                    f'{col} {op} {series2.series_name}',
-                                    series1,
-                                    op,
-                                    series2,
-                                )
-
-    def compare(self, dataframe: DataFrame, comparison: Comparison, type_: str) -> bool:
+    def compare(dataframe: DataFrame, comparison: Comparison, type_: str) -> bool:
         logger.info('Comparing %s', comparison.name)
         # # check is series1 has been populated
         # if pair not in comparison.series1.indicator.populated:
@@ -296,37 +351,47 @@ class IndicatorOptHelper:
         # compare
         return comparison.compare(dataframe, type_)
 
-    def get_combinations(self):
-        i = 1
-        gen = product(sorted(self.comparisons.values(), key=lambda s: s.name), repeat=3)
-        combos = {}
-        for c in gen:
-            if len(c) == len(set(c)):
-                combos[i] = Combination(c)
-                i += 1
-        # sort starting with the name of the first comparison
-        return combos
+    def create_parameters(self, type_, permutations: int = None):
+        logger.info('creating group parameters')
 
-    def get_parameter(self, type_, default=None):
-        logger.info('creating parameter')
-        return CustomParameter(
-            low=0,
-            high=len(self.combinations) - 1,
-            default=default or 1,
-            space=type_,
-        )
+        comparison_groups = {}
+
+        all_indicators = IndicatorTools.get_all_indicators() + ['none']
+        series = IndicatorTools.get_non_value_type_series() + [
+            'open',
+            'close',
+            'high',
+            'low',
+        ]
+        for i in range(1, (permutations or self.n_permutations) + 1):
+            group = {
+                'series': CategoricalParameter(
+                    all_indicators,
+                    default=all_indicators[0],
+                    space=type_,
+                ),
+                'operator': CategoricalParameter(
+                    list(op_map.keys()), default=list(op_map.keys())[0], space=type_
+                ),
+                'comparison_series': CategoricalParameter(
+                    series,
+                    default=series[0],
+                    space=type_,
+                ),
+            }
+            comparison_groups[i] = group
+        return comparison_groups
 
     @classmethod
-    def get(cls) -> 'IndicatorOptHelper':
+    def get(cls, permutations=2) -> 'IndicatorOptHelper':
         if IndicatorOptHelper.instance:
             return IndicatorOptHelper.instance
-        IndicatorOptHelper.instance = cls()
+        IndicatorOptHelper.instance = cls(permutations)
         return IndicatorOptHelper.instance
 
 
-indicators: dict[str, Indicator] = {
-    i: Indicator.parse_obj(v) for i, v in indicator_dict.items()
-}
+indicators = IndicatorTools.load_indicators()
+series_map = IndicatorTools.create_series_indicator_map()
 if __name__ == '__main__':
     # print(load_function('tta.ATR'))
     # pprint(
@@ -347,9 +412,12 @@ if __name__ == '__main__':
     # # Console().print(objects, len(objects))
     # # print(IndicatorOptHelper().comparisons['WMA < high'])
     # # print(IndicatorOptHelper().combinations[1])
-    indicator_helper = IndicatorOptHelper.get()
-    combinations = indicator_helper.combinations
-    print(len(combinations))
-    pprint(combinations[4840067])
+    # indicator_helper = IndicatorOptHelper.get()
+    # combinations = indicator_helper.combinations
+    # print(len(combinations))
+    # pprint(combinations[4818325])
     # pprint(IndicatorOptHelper().comparisons)
+    print(IndicatorTools.get_all_indicators())
+    print(IndicatorTools.get_non_value_type_series())
+    # pprint(IndicatorOptHelper.get().create_parameters('buy'))
     ...

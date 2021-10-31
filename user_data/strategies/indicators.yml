@@ -10,9 +10,9 @@ rsi:
     sell: 70
   compare:
     type: 'value'
-  sell_op: '<'
-  buy_op: '>'
   type: 'mom'
+  inf_timeframes:
+    - '1h'
 psar:
   func:
     loc: 'tta.SAR'
@@ -30,6 +30,8 @@ psar:
   buy_op: 'crossed_above'
   sell_op: 'crossed_below'
   type: 'trend'
+  inf_timeframes:
+    - '1h'
 ewo:
   func:
     loc: 'ci.EWO'
@@ -44,6 +46,8 @@ ewo:
   buy_op: '>'
   sell_op: null
   type: 'osc'
+  inf_timeframes:
+    - '1h'
 bb_20:
   func:
     loc: 'ci.bollinger_bands'
@@ -57,12 +61,9 @@ bb_20:
     values:
       - 'ma'
       - 'ohlc'
-  values:
-    buy: null
-    sell: null
-  buy_op: 'crossed_below'
-  sell_op: 'crossed_above'
   type: 'vol'
+  inf_timeframes:
+    - '1h'
 bb_40:
   func:
     loc: 'ci.bollinger_bands'
@@ -158,27 +159,74 @@ wma_100:
   buy_op: 'crossed_below'
   sell_op: 'crossed_above'
   type: 'ma'
-atr:
+stoch_sma:
   func:
-    loc: 'tta.ATR'
+    loc: 'ci.stoch_sma'
     columns: null
   columns:
-    - 'atr'
+    - 'stoch80_sma10'
   compare:
-    type: 'specific'
+    type: 'value'
+  values:
+    buy: 20
+    sell: 80
+  type: 'osc'
+rvi:
+  func:
+    loc: 'ci.rvi'
+    columns: null
+  columns:
+    - 'rvi'
+  values:
+    buy: 60
+    sell: 40
+  compare:
+    type: 'value'
+  type: 'vol'
+  inf_timeframes:
+    - '1h'
+rmi:
+  func:
+    loc: 'ci.RMI'
+    columns: null
+  columns:
+    - 'rvi'
+  values:
+    buy: 70
+    sell: 30
+  compare:
+    type: 'value'
+  type: 'vol'
+  inf_timeframes:
+    - '1h'
+sma_200:
+  func:
+    loc: 'tta.SMA'
+    columns: null
+    kwargs:
+      timeperiod: 200
+  columns:
+    - 'SMA'
+  column_append: '_200'
+  compare:
+    type: 'series'
     values:
-      - 'atr_ma'
+      - 'ma'
+      - 'ohlc'
+  values:
+    buy: null
+    sell: null
   buy_op: 'crossed_below'
   sell_op: 'crossed_above'
-  type: 'vol'
-atr_ma:
+  type: 'ma'
+t3:
   func:
-    loc: 'ci.atr_ma'
+    loc: 'ci.T3'
     columns: null
   columns:
-    - 'atr_ma'
+    - 'T3Average'
   compare:
-    type: 'none'
-  buy_op: 'crossed_below'
-  sell_op: 'crossed_above'
-  type: 'vol'
+    type: 'series'
+  type: 'ma'
+  inf_timeframes:
+    - '1h'

@@ -3,6 +3,7 @@ Solipsis Custom Indicators and Maths
 """
 import numpy as np
 import talib.abstract as ta
+import pandas_ta as pta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 from pandas import DataFrame, Series
@@ -251,8 +252,8 @@ def rvi(dataframe: DataFrame, periods: int = 14, ema_length=14) -> DataFrame:
     df.loc[df.close_delta > 0, 'upper'] = df['std']
     df['lower'] = 0.0
     df.loc[df.close_delta < 0, 'lower'] = df['std']
-    df['upper_ema'] = qtpylib.ema(df['upper'].fillna(0.0), window=ema_length)
-    df['lower_ema'] = qtpylib.ema(df['lower'].fillna(0.0), window=ema_length)
+    df['upper_ema'] = pta.ema(df['upper'].fillna(0.0), window=ema_length)
+    df['lower_ema'] = pta.ema(df['lower'].fillna(0.0), window=ema_length)
     df['rvi'] = df['upper_ema'] / (df['upper_ema'] + df['lower_ema']) * 100
     return df['rvi']
 
@@ -265,20 +266,29 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     return emadif
 
 
-def bollinger_bands(dataframe, window=20, stds=2):
+def bollinger_bands(dataframe: DataFrame, window=20, stds=2):
+
     # Bollinger bands
+    df = dataframe.copy()
     bollinger = qtpylib.bollinger_bands(
-        qtpylib.typical_price(dataframe), window=window, stds=stds
+        qtpylib.typical_price(df), window=window, stds=stds
     )
-    dataframe['bb_lowerband'] = bollinger['lower']
-    dataframe['bb_middleband'] = bollinger['mid']
-    dataframe['bb_upperband'] = bollinger['upper']
-    return dataframe
+    df['bb_lowerband'] = bollinger['lower']
+    df['bb_middleband'] = bollinger['mid']
+    df['bb_upperband'] = bollinger['upper']
+    return df
 
 
 def atr_ma(dataframe: DataFrame):
     """Get moving average of average true range"""
-    if 'atr' not in dataframe:
-        dataframe['atr'] = ta.ATR(dataframe)
-    dataframe['atr_ma'] = ta.MA(dataframe['atr'])
-    return dataframe
+    df = dataframe.copy()
+    if 'atr' not in df:
+        df['atr'] = ta.ATR(df)
+    df['atr_ma'] = ta.MA(df['atr'])
+    return df
+
+
+def stoch_sma(dataframe: DataFrame, window=80):
+    """"""
+    stoch = qtpylib.stoch(dataframe, window)
+    return qtpylib.sma((stoch['slow_k'] + stoch['slow_d']) / 2, 10)

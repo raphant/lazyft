@@ -83,6 +83,7 @@ class QuickTools:
     def refresh_pairlist(
         config: Config, n_coins: int, save_as=None, age_limit=7, **kwargs
     ) -> list[str]:
+        config_copy = config.copy()
         filter_kwargs = dict(
             PriceFilter=True,
             AgeFilter=True,
@@ -92,17 +93,17 @@ class QuickTools:
         )
         logger.info('Refreshing pairlist...')
         filter_kwargs.update(kwargs)
-        QuickTools.set_pairlist_settings(config, n_coins, age_limit, **filter_kwargs)
-        exchange = Exchange(config.data)
-        manager = PairListManager(exchange, config.data)
+        QuickTools.set_pairlist_settings(
+            config_copy, n_coins, age_limit, **filter_kwargs
+        )
+        exchange = Exchange(config_copy.data)
+        manager = PairListManager(exchange, config_copy.data)
         try:
             manager.refresh_pairlist()
         finally:
             config.update_whitelist_and_save(manager.whitelist)
-            config['pairlists'].clear()
-            config['pairlists'].append({"method": "StaticPairList"})
             config.save(save_as)
-        logger.info('Finished refreshing pairlist')
+        logger.info('Finished refreshing pairlist ({})', len(manager.whitelist))
         return manager.whitelist
 
     @staticmethod

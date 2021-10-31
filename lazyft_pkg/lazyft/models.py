@@ -139,11 +139,12 @@ class ReportBase(SQLModel):
             m_o_t=self.max_open_trades,
             stake=self.stake_amount,
             balance=self.starting_balance,
+            n_pairlist=len(self.pairlist),
             # ppd=self.performance.ppd,
             # tpd=self.performance.tpd,
             score=self.performance.score,
             avg_profit_pct=self.performance.profit_ratio,
-            total_profit_pct=self.performance.profit_total_pct * 100,
+            total_profit_pct=self.performance.profit_total_pct,
             total_profit=self.performance.profit,
             trades=self.performance.trades,
             days=self.performance.days,
@@ -228,9 +229,26 @@ class BacktestReport(ReportBase, table=True):
         return BacktestPerformance(**totals)
 
     @property
+    def winning_pairs(self) -> pd.DataFrame:
+        trades = self.trades
+        df: pd.DataFrame = trades.loc[trades.profit_ratio > 0]
+        # df.set_index('pair', inplace=True)
+        return (
+            df.groupby(df['pair'])
+            .aggregate(
+                profit_total=pd.NamedAgg(column='profit_abs', aggfunc='sum'),
+                profit_total_pct=pd.NamedAgg(column='profit_ratio', aggfunc='sum'),
+                profit_pct=pd.NamedAgg(column='profit_ratio', aggfunc='mean'),
+                count=pd.NamedAgg(column='pair', aggfunc='count'),
+            )
+            .sort_values('profit_total', ascending=False)
+        )
+        # return df.sort_values('profit_abs', ascending=False)
+
+    @property
     def logs(self) -> str:
         if not self.log_file.exists():
-            return 'Log file does not exist'
+            raise FileNotFoundError('Log file does not exist')
         return self.log_file.read_text()
 
     @property

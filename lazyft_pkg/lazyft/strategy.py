@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from lazyft.regex import strategy_files_pattern
 class StrategyTools:
     metadata_file = paths.STRATEGY_DIR.joinpath("metadata.yaml")
     strategy_dict = None
+    _last_strategy_len = None
 
     @staticmethod
     def metadata() -> dict:
@@ -77,7 +79,9 @@ class StrategyTools:
 
     @staticmethod
     def get_all_strategies():
-        if StrategyTools.strategy_dict:
+        if StrategyTools.strategy_dict and StrategyTools._last_strategy_len == len(
+            os.listdir(paths.STRATEGY_DIR)
+        ):
             return StrategyTools.strategy_dict
         logger.info('Running list-strategies')
         text = sh.freqtrade(
@@ -89,12 +93,13 @@ class StrategyTools:
         )
         strat_dict = dict(strategy_files_pattern.findall("\n".join(text)))
         StrategyTools.strategy_dict = strat_dict
+        StrategyTools._last_strategy_len = len(os.listdir(paths.STRATEGY_DIR))
         return strat_dict
 
     @staticmethod
     def create_strategy_params_filepath(strategy: str) -> Path:
         """Return the path to the strategies parameter file."""
-        logger.info('Getting parameters file of {}', strategy)
+        logger.debug('Getting parameters path of {}', strategy)
         file_name = StrategyTools.get_file_name(strategy)
         if not file_name:
             raise ValueError("Could not find strategy: %s" % strategy)

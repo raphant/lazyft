@@ -18,12 +18,16 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+STRATEGIES = []
 try:
     STRATEGIES = rapidjson.loads(
         Path('user_data/strategies/ensemble.json').resolve().read_text()
     )
-except (rapidjson.JSONDecodeError, FileNotFoundError):
-    STRATEGIES = []
+except rapidjson.JSONDecodeError:
+    raise rapidjson.JSONDecodeError('Invalid JSON format.')
+except FileNotFoundError:
+    pass
+
 STRAT_COMBINATIONS = reduce(
     lambda x, y: list(combinations(STRATEGIES, y)) + x, range(len(STRATEGIES) + 1), []
 )

@@ -146,6 +146,7 @@ def relative_volatility_index(
     dataframe: DataFrame, periods: int = 14, ema_length=14
 ) -> DataFrame:
     # calculate std
+
     df = dataframe.copy()
     df['std'] = qtpylib.rolling_std(df['close'], periods, min_periods=periods)
     df['close_delta'] = dataframe['close'] - dataframe['close'].shift(1)

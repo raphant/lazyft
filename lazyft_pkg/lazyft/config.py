@@ -1,4 +1,6 @@
 import os
+import pathlib
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Union, Iterable
@@ -6,7 +8,7 @@ from typing import Union, Iterable
 import rapidjson
 
 from lazyft.paths import CONFIG_DIR
-from lazyft import logger
+from lazyft import logger, tmp_dir
 
 
 class Config:
@@ -94,7 +96,7 @@ class Config:
         """
         Returns: A copy of the config data as a `dict`.
         """
-        return self.copy()
+        return self._data.copy()
 
     @property
     def path(self):
@@ -116,8 +118,12 @@ class Config:
     def get(self, key, default=None):
         return self._data.get(key, default)
 
-    def copy(self):
-        return self._data.copy()
+    def copy(self) -> 'Config':
+        """Returns a temporary copy of the config"""
+        from_path = self._config_path
+        to_path = pathlib.Path(tmp_dir, self._config_path.name)
+        shutil.copy(from_path, to_path)
+        return Config(to_path)
 
     def update(self, update: dict):
         self._data.update(update)

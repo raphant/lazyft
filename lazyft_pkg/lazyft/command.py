@@ -6,6 +6,7 @@ from lazyft.command_parameters import (
     HyperoptParameters,
 )
 from lazyft.quicktools import QuickTools
+from lazyft import downloader
 
 
 class Command:
@@ -19,7 +20,7 @@ class Command:
         self.args = ['hyperopt', f'-s {strategy}']
         self.pairs = None
         if params.download_data:
-            self.download_data()
+            downloader.download_missing_historical_data(self.config, params)
 
     @property
     def command_string(self):

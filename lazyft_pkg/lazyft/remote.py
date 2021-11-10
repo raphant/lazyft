@@ -173,6 +173,9 @@ class RemoteBot:
         logger.info('New ensemble is %s', strategies)
         self.tools.send_file(self.bot_id, path, 'user_data/strategies/ensemble.json')
 
+    def send_file(self, local_path: Union[str, Path], remote_path: Union[str, Path]):
+        return self.tools.send_file(self.bot_id, local_path, remote_path)
+
 
 @attr.s
 class RemoteTools:
@@ -319,10 +322,7 @@ class RemoteTools:
     def restart_bot(self, bot_id: int):
         logger.debug("[restart bot] {}", bot_id)
         project_dir = self.path + self.FORMATTABLE_BOT_STRING.format(bot_id)
-        command = (
-            f"cd {project_dir} && docker-compose --no-ansi down; "
-            f"docker-compose --no-ansi up  -d"
-        )
+        command = f"cd {project_dir} && docker-compose --no-ansi up  -d"
         logger.debug("Running ssh {}", command)
         sh.ssh(
             [f"-p {self.preset.port}", self.address, " ".join(command.split())],

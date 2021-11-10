@@ -197,12 +197,6 @@ class MultiMA_TSL(IStrategy):
     fast_ewo = IntParameter(10, 50, default=50, space='buy', optimize=False)
     slow_ewo = IntParameter(100, 200, default=200, space='buy', optimize=False)
 
-    # Trailing stoploss (not used)
-    trailing_stop = False
-    trailing_only_offset_is_reached = True
-    trailing_stop_positive = 0.01
-    trailing_stop_positive_offset = 0.018
-
     use_custom_stoploss = True
 
     # Protection hyperspace params:

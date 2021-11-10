@@ -44,7 +44,7 @@ class GlobalParameters:
         default=None, converter=format_config, metadata={'arg': '-c'}
     )
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
-    download_data: bool = attr.ib(default=False)
+    download_data: bool = attr.ib(default=True)
     ensemble: list[Union[Strategy, str]] = attr.ib(
         default=[],
         converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s or [])),
@@ -83,6 +83,8 @@ class BacktestParameters(GlobalParameters):
             if not close:
                 close = datetime.datetime.now().strftime('%Y%m%d')
             self.tag = f'{open_}-{close}'
+        if not self.pairs:
+            self.pairs = self.config.whitelist
 
     @property
     def intervals_to_download(self):
@@ -109,6 +111,8 @@ class HyperoptParameters(BacktestParameters):
             self.timerange = QuickTools.get_timerange(days=self.days)[0]
         if not self.tag:
             self.tag = self.timerange + ',' + self.spaces
+        if not self.pairs:
+            self.pairs = self.config.whitelist
 
 
 command_map = {

@@ -6303,8 +6303,8 @@ class HoldsCache(Cache):
         raise RuntimeError("The holds cache does not allow programatical save")
 
     def process_loaded_data(self, data):
-        trade_ids = data.get("trade_ids")
-        trade_pairs = data.get("trade_pairs")
+        trade_ids = data.parameter("trade_ids")
+        trade_pairs = data.parameter("trade_pairs")
 
         if not trade_ids and not trade_pairs:
             return data
@@ -6348,7 +6348,7 @@ class HoldsCache(Cache):
                         )
             else:
                 # Initial Syntax
-                profit_ratio = data.get("profit_ratio")
+                profit_ratio = data.parameter("profit_ratio")
                 if profit_ratio:
                     if not isinstance(profit_ratio, float):
                         log.error(

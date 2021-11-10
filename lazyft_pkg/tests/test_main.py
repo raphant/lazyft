@@ -10,7 +10,6 @@ strategy = ['BinH']
 refresh_config = Config('config_binance2.json')
 backtest_config_name = 'config_test.json'
 backtest_config = Config(backtest_config_name)
-paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
 
 
 def test_refresh_pairlist():

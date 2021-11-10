@@ -1,11 +1,10 @@
-from pathlib import Path
+import pathlib
 
 import rapidjson
 
 from lazyft import logger, regex, paths
 from lazyft.config import Config
 from lazyft.models import HyperoptPerformance, HyperoptReport
-from lazyft.paths import PARAMS_FILE
 from lazyft.strategy import StrategyTools
 
 
@@ -32,18 +31,12 @@ class HyperoptReportExporter:
             raise ValueError('Report is empty')
         logger.debug('Finished extracting output')
         self.performance = extracted
-        self.hyperopt_file = Path(
+        self.hyperopt_file = pathlib.Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
             rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
                 'latest_hyperopt'
             ],
         ).resolve()
-
-    @classmethod
-    def get_existing_data(cls) -> dict:
-        if PARAMS_FILE.exists():
-            return rapidjson.loads(PARAMS_FILE.read_text())
-        return {}
 
     def generate(self):
         return HyperoptReport(

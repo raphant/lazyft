@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/ftworkdir.iml" filepath="$PROJECT_DIR$/.idea/ftworkdir.iml" />
-      <module fileurl="file://$PROJECT_DIR$/lazyft_pkg/.idea/lazyft_pkg.iml" filepath="$PROJECT_DIR$/lazyft_pkg/.idea/lazyft_pkg.iml" />
     </modules>
   </component>
 </project>

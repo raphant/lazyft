@@ -32,6 +32,10 @@ class Config:
             assert self._config_path.exists(), f'"{self._config_path}" doesn\'t exist'
         self._data: dict = rapidjson.loads(self._config_path.read_text())
 
+    @property
+    def exchange(self):
+        return self._data['exchange']['name']
+
     def save(self, save_as: Union[os.PathLike, str] = None) -> Path:
         """
         Save the config file as a new or current file name.

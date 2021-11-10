@@ -36,26 +36,28 @@ sys.path.append(str(Path(__file__).parent))
 
 logger = logging.getLogger(__name__)
 
-iopt = IndicatorOptHelper.get(3)
-buy_parameters = iopt.create_parameters('buy')
-sell_parameters = iopt.create_parameters('sell', 2)
-
 
 class IndicatorMix(IStrategy):
     # region Parameters
-    # buy
-    for n_group, p_dict in buy_parameters.items():
-        for p_name, parameter in p_dict.items():
-            locals()[f'buy_{p_name}_{n_group}'] = parameter
-    # sell
-    for n_group, p_dict in sell_parameters.items():
-        for p_name, parameter in p_dict.items():
-            locals()[f'sell_{p_name}_{n_group}'] = parameter
-    del n_group, p_name, parameter, p_dict
+    iopt = IndicatorOptHelper.get()
+    buy_comparisons, sell_comparisons = iopt.create_local_parameters(
+        locals(), num_buy=3, num_sell=2
+    )
     # endregion
     # region Params
     minimal_roi = {"0": 0.10, "20": 0.05, "64": 0.03, "168": 0}
     stoploss = -0.25
+    buy_params = {
+        "buy_comparison_series_1": "EMA_100",
+        "buy_comparison_series_2": "T3Average_1h",
+        "buy_comparison_series_3": "EMA",
+        "buy_operator_1": "<",
+        "buy_operator_2": ">=",
+        "buy_operator_3": "<=",
+        "buy_series_1": "ewo",
+        "buy_series_2": "bb_middleband_1h",
+        "buy_series_3": "T3Average",
+    }
     # endregion
     timeframe = '5m'
     use_custom_stoploss = False
@@ -68,72 +70,56 @@ class IndicatorMix(IStrategy):
 
     def informative_pairs(self) -> ListPairsWithTimeframes:
         pairs = self.dp.current_whitelist()
-        informative_pairs = [(pair, iopt.inf_timeframes) for pair in pairs]
-        return informative_pairs
+        # get each timeframe from inf_timeframes
+        return [
+            (pair, timeframe)
+            for pair in pairs
+            for timeframe in self.iopt.inf_timeframes
+        ]
 
     def populate_informative_indicators(self, dataframe: DataFrame, metadata):
         inf_dfs = {}
-        for timeframe in iopt.inf_timeframes:
+        for timeframe in self.iopt.inf_timeframes:
             inf_dfs[timeframe] = self.dp.get_pair_dataframe(
                 pair=metadata['pair'], timeframe=timeframe
             )
-
         for indicator in indicators.values():
-            for timeframe in indicator.inf_timeframes:
-                inf_dfs[timeframe] = indicator.populate(inf_dfs[timeframe])
+            if not indicator.timeframe:
+                continue
+            inf_dfs[indicator.timeframe] = indicator.populate(
+                inf_dfs[indicator.timeframe]
+            )
         for tf, df in inf_dfs.items():
             dataframe = merge_informative_pair(dataframe, df, self.timeframe, tf)
         return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         for indicator in indicators.values():
+            if indicator.timeframe:
+                continue
             dataframe = indicator.populate(dataframe)
         dataframe = self.populate_informative_indicators(dataframe, metadata)
 
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        comparisons = []
-        for n_group, p_dict in buy_parameters.items():
-            series = getattr(self, f'buy_series_{n_group}').value
-            operator = getattr(self, f'buy_operator_{n_group}').value
-            comparison_series = getattr(self, f'buy_comparison_series_{n_group}').value
-            try:
-                comparisons.append(
-                    Comparison.create(series, operator, comparison_series)
-                )
-            except InvalidSeriesError:
-                continue
-        if not comparisons:
-            return dataframe
-        # combinations = iopt.combine(comparisons)
-        # conditions.append(combinations)
-        conditions = []
-        for c in [c for c in comparisons if c]:
-            conditions.append(iopt.compare(dataframe, c, 'buy'))
+        conditions = self.iopt.create_conditions(
+            dataframe,
+            self.buy_comparisons,
+            self,
+            'buy',
+        )
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        comparisons = []
-        for n_group, p_dict in sell_parameters.items():
-            series = getattr(self, f'sell_series_{n_group}').value
-            operator = getattr(self, f'sell_operator_{n_group}').value
-            comparison_series = getattr(self, f'sell_comparison_series_{n_group}').value
-            try:
-                comparisons.append(
-                    Comparison.create(series, operator, comparison_series)
-                )
-            except InvalidSeriesError:
-                continue
-        if not comparisons:
-            return dataframe
-        # combinations = iopt.combine(comparisons)
-        # conditions.append(combinations)
-        conditions = []
-        for c in [c for c in comparisons if c]:
-            conditions.append(iopt.compare(dataframe, c, 'sell'))
+        conditions = self.iopt.create_conditions(
+            dataframe,
+            self.sell_comparisons,
+            self,
+            'sell',
+        )
         if conditions:
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
         return dataframe

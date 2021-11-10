@@ -19,6 +19,7 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
+from tests.test_hyperopt import epochs
 
 cache = FanoutCache(tmp_dir)
 
@@ -27,6 +28,9 @@ class PerformanceBase(BaseModel):
     start_date: datetime
     end_date: datetime
     trades: int
+    wins: int
+    losses: int
+    draws: int
 
     @property
     @abstractmethod
@@ -61,6 +65,10 @@ class PerformanceBase(BaseModel):
     @property
     def df(self):
         return pd.DataFrame([self.dict()])
+
+    @property
+    def win_loss_ratio(self):
+        return self.wins / (self.losses or 1)
 
     def save(self):
         with Session(engine) as session:
@@ -128,9 +136,13 @@ class ReportBase(SQLModel):
     def performance(self) -> Union[HyperoptPerformance, BacktestPerformance]:
         ...
 
+    # noinspection PyUnresolvedReferences
     @property
     def df(self):
-        # noinspection PyUnresolvedReferences
+        try:
+            n_pairlist = len(self.pairlist.split(','))
+        except AttributeError:
+            n_pairlist = len(self.pairlist)
         d = dict(
             id=self.id,
             strategy=self.strategy,
@@ -139,11 +151,13 @@ class ReportBase(SQLModel):
             m_o_t=self.max_open_trades,
             stake=self.stake_amount,
             balance=self.starting_balance,
-            n_pairlist=len(self.pairlist),
+            n_pairlist=n_pairlist,
             # ppd=self.performance.ppd,
             # tpd=self.performance.tpd,
-            score=self.performance.score,
             avg_profit_pct=self.performance.profit_ratio,
+            wins=self.performance.wins,
+            losses=self.performance.losses,
+            score=self.performance.score,
             total_profit_pct=self.performance.profit_total_pct,
             total_profit=self.performance.profit,
             trades=self.performance.trades,
@@ -260,16 +274,17 @@ class BacktestReport(ReportBase, table=True):
         df = super().df
         df.insert(2, 'hyperopt_id', self.hyperopt_id)
         try:
-            df.insert(
-                10,
-                'roiloss',
-                self.roi_loss,
-            )
-            df.insert(
-                11,
-                'sortino',
-                self.sortino_loss,
-            )
+            ...
+            # df.insert(
+            #     10,
+            #     'roiloss',
+            #     self.roi_loss,
+            # )
+            # df.insert(
+            #     11,
+            #     'sortino',
+            #     self.sortino_loss,
+            # )
             # df.insert(
             #     11,
             #     'winratioloss',
@@ -383,6 +398,7 @@ class HyperoptReport(ReportBase, table=True):
     max_open_trades: float
     starting_balance: float
     stake_amount: float
+    epoch: int = Field(default=None)
 
     @property
     def hyperopt_file(self) -> Path:
@@ -393,21 +409,16 @@ class HyperoptReport(ReportBase, table=True):
         return rapidjson.loads(self.param_data_str)
 
     @property
-    def params_file(self):
-        return paths.PARAMS_DIR.joinpath(str(self.id) + '.json')
-
-    @property
     def performance(self) -> HyperoptPerformance:
         loads = rapidjson.loads(self.performance_string)
         return HyperoptPerformance(**loads)
 
     @property
     def log_file(self):
-        return paths.HYPEROPT_LOG_PATH(str(self.id) + '.log')
+        return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
 
-    def delete(self, session: Session):
+    def delete(self, session: Session = None):
         self.hyperopt_file.unlink(missing_ok=True)
-        self.params_file.unlink(missing_ok=True)
         self.log_file.unlink(missing_ok=True)
 
     def print_hyperopt_list(self):
@@ -476,7 +487,7 @@ class RemoteBotInfo:
 @dataclass
 class Strategy:
     name: str = None
-    id: str = None
+    id: int = None
 
     def __post_init__(self):
         if not self.name:

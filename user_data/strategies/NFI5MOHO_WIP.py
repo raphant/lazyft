@@ -13,7 +13,6 @@ from functools import reduce
 from freqtrade.persistence import Trade
 from datetime import datetime
 
-
 ###########################################################################################################
 ##                NostalgiaForInfinityV5 by iterativ                                                     ##
 ##                                                                                                       ##

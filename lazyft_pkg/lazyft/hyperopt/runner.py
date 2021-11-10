@@ -30,10 +30,12 @@ columns = [
 
 
 class HyperoptManager:
-    def __init__(self, commands: list[hyperopt.HyperoptCommand]) -> None:
+    def __init__(
+        self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True
+    ) -> None:
         self.commands = commands
-
-        self.stop = False
+        self.autosave = autosave
+        self.stop_flag = False
         self.running = False
 
         self.queue = Queue()
@@ -41,7 +43,7 @@ class HyperoptManager:
         self.runners: list[HyperoptRunner] = []
         self.current_runner: Optional[HyperoptRunner] = None
         self.failed_runners: list[HyperoptRunner] = []
-
+        self.thread: Thread = None
         for c in self.commands:
             self.queue.put(HyperoptRunner(c, autosave=True))
             self.runners.append(HyperoptRunner(c))
@@ -50,11 +52,12 @@ class HyperoptManager:
         logger.info('Hyperopting in the background')
         thread = Thread(target=self._runner)
         thread.start()
+        self.thread = thread
         return thread
 
     def _runner(self):
         self.running = True
-        while not self.queue.empty() and not self.stop:
+        while not self.queue.empty() and not self.stop_flag:
             r: HyperoptRunner = self.queue.get(timeout=5)
             self.current_runner = r
             # noinspection PyBroadException
@@ -62,13 +65,26 @@ class HyperoptManager:
                 r.execute()
 
             finally:
-                if r.error:
-                    logger.error('Failed while hyperopting {}', r.strategy)
-                    logger.error(r.output[-300:])
-                self.failed_runners.append(r)
+                self.on_finished(r)
         self.running = False
         self.current_runner = None
         notify_pb('Hyperopt Manager', 'Finished hyperopting')
+
+    def on_finished(self, runner: 'HyperoptRunner'):
+        if runner.error:
+            logger.error('Failed while hyperopting {}', runner.strategy)
+            logger.error(runner.output[-300:])
+            self.failed_runners.append(runner)
+        else:
+            logger.info('Hyperopt finished {}', runner.strategy)
+            if self.autosave:
+                runner.save()
+
+    def stop(self):
+        # clear queue
+        while not self.queue.empty():
+            self.queue.get(block=False)
+        self.current_runner.stop()
 
     # def generate_reports(self):
     #     for r in self.runners:
@@ -157,9 +173,6 @@ class HyperoptRunner(runner.Runner):
             self.running = True
             logger.info('Process ID: {}', self.process.pid)
             self.write_worker.start()
-            if self.celery:
-                paths.CELERY_CURRENT_TASK_FILE.write_text(self.report_id)
-                # self.stop_worker.start()
             if not background:
                 try:
                     self.process.wait()
@@ -222,8 +235,6 @@ class HyperoptRunner(runner.Runner):
             logger.debug('Report generated')
             if self.autosave:
                 logger.info('Auto-saved: {}', self.save())
-        if self.celery:
-            paths.CELERY_CURRENT_TASK_FILE.write_text('')
 
     def save(self):
         """Saves the report to lazy_params.json"""
@@ -237,10 +248,13 @@ class HyperoptRunner(runner.Runner):
             session.add(report)
             session.commit()
             session.refresh(report)
-            logger.info('Created report: {}'.format(report))
-            self.log_path.rename(
-                paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log')
-            )
+            logger.info('Created report id: {}'.format(report.id))
+            try:
+                self.log_path.rename(
+                    paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log')
+                )
+            except FileNotFoundError:
+                pass
 
         self._report = report
         return report
@@ -275,7 +289,6 @@ class HyperoptRunner(runner.Runner):
             max_open_trades=self.command.params.max_open_trades
             or self.command.config['max_open_trades'],
         )
-        print(secondary_config)
         # noinspection PyTypeChecker
         exporter = hyperopt.HyperoptReportExporter(
             self.command.config,

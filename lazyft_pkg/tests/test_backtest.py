@@ -6,8 +6,6 @@ from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import BacktestParameters
 from lazyft.models import Strategy
 
-paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
-paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 param_id = 'test'
 STRATEGY_WITH_ID = [Strategy(id='1')]
 STRATEGIES = ['TestStrategy-test', 'TestStrategy']

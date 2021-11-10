@@ -113,6 +113,7 @@ def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame
         dataframe['macdsignal'] = macd['macdsignal']
         dataframe['macdhist'] = macd['macdhist']
 
+
         # MFI
         dataframe['mfi'] = ta.MFI(dataframe)
 

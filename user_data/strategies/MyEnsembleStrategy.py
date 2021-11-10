@@ -291,25 +291,25 @@ class MyEnsembleStrategy(IStrategy):
             strategy = self.get_strategy(strategy_name)
             # essentially call populate_buy_trend on strategy_name
             # I use copy() here to prevent duplicate columns from being populated
-            strategy_indicators = strategy.advise_buy(dataframe.copy(), metadata)
+            strategy_dataframe = strategy.advise_buy(dataframe.copy(), metadata)
             # create column for `strategy`
-            strategy_indicators.loc[:, "new_buy_tag"] = ""
+            strategy_dataframe.loc[:, "new_buy_tag"] = ""
             # On every candle that a buy signal is found, strategy_name
-            # name will be added to its 'strategy' column
-            strategy_indicators.loc[
-                strategy_indicators.buy == 1, "new_buy_tag"
+            # name will be added to its 'new_buy_tag' column
+            strategy_dataframe.loc[
+                strategy_dataframe.buy == 1, "new_buy_tag"
             ] = strategy_name
             # get the strategies that already exist for the row in the original dataframe
-            strategy_indicators.loc[:, "existing_buy_tag"] = dataframe["buy_tag"]
+            strategy_dataframe.loc[:, "existing_buy_tag"] = dataframe["buy_tag"]
             # join the strategies found in the original dataframe's row with the new strategy
-            strategy_indicators.loc[:, "buy_tag"] = strategy_indicators.apply(
+            strategy_dataframe.loc[:, "buy_tag"] = strategy_dataframe.apply(
                 lambda x: ",".join((x["new_buy_tag"], x["existing_buy_tag"])).strip(
                     ","
                 ),
                 axis=1,
             )
             # update the original dataframe with the new strategies buy signals
-            dataframe.loc[:, "buy_tag"] = strategy_indicators["buy_tag"]
+            dataframe.loc[:, "buy_tag"] = strategy_dataframe["buy_tag"]
         # set `buy` column of rows with a buy_tag to 1
         dataframe.loc[dataframe.buy_tag != "", "buy"] = 1
         return dataframe
@@ -337,7 +337,7 @@ class MyEnsembleStrategy(IStrategy):
             strategy = self.get_strategy(strategy_name)
 
             # essentially call populate_sell_trend on strategy_name
-            # I use copy() here to prevent duplicate columns from being poplulated
+            # I use copy() here to prevent duplicate columns from being populated
             dataframe_copy = strategy.advise_sell(dataframe.copy(), metadata)
 
             # create column for `strategy`

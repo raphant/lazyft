@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="Sage-desktop" createEmptyFolders="true" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc;*.json;" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="Sage-desktop" createEmptyFolders="true" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc;*.json;*.db;" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
       <paths name="Sage-desktop">
         <serverdata>
@@ -14,6 +14,7 @@
             <excludedPath local="true" path="$PROJECT_DIR$/backtest_results.json" />
             <excludedPath local="true" path="$PROJECT_DIR$/.direnv" />
             <excludedPath local="true" path="$PROJECT_DIR$/lazyft_pkg/lazyft/loss_functions" />
+            <excludedPath local="true" path="$PROJECT_DIR$/lazyft.db" />
           </excludedPaths>
         </serverdata>
       </paths>

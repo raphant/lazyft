@@ -106,7 +106,7 @@ class StrategyTools:
         return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
 
     @staticmethod
-    def get_name_from_id(id: str) -> str:
+    def get_name_from_id(id: int) -> str:
         from lazyft.reports import get_hyperopt_repo
 
         return get_hyperopt_repo().get_by_param_id(id).strategy

@@ -1,18 +1,11 @@
 import pathlib
-import time
 
-from lazyft import paths
 from lazyft.command_parameters import HyperoptParameters
-from lazyft.hyperopt.celery_tools import CeleryRunner
 from lazyft.hyperopt.commands import create_commands
-from lazyft.hyperopt.report import HyperoptReportExporter
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
 from lazyft.models import HyperoptPerformance, HyperoptReport
-
-paths.PARAMS_FILE = pathlib.Path(__file__).parent.joinpath('params.json')
-paths.PARAMS_DIR = pathlib.Path(__file__).parent.joinpath('saved_params/')
 
 STRATEGY = ['TestStrategy3']
 STRATEGY_WITH_ID = ['TestStrategy3-test']
@@ -40,6 +33,7 @@ def get_parameters(spaces, strategy, timerange):
         min_trades=min_trades,
         days=days,
         timerange=timerange,
+        download_data=True,
     )
     return hp
 
@@ -63,7 +57,7 @@ def test_hyperopt_with_id():
     commands = get_commands(STRATEGY_WITH_ID)
     runner = HyperoptRunner(commands[0], notify=False)
     runner.execute()
-    assert bool(runner.report_exporter)
+    assert bool(runner.report)
 
 
 def test_build_command_with_days():

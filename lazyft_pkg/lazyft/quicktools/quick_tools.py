@@ -215,5 +215,6 @@ class QuickTools:
         logger.info('Finished downloading data')
 
 
+
 class PairListTools:
     pair_names_json = 'pair-names.json'

@@ -31,6 +31,7 @@ cols_to_print = [
     'tag',
 ]
 BacktestReportList = UserList[BacktestReport]
+HyperoptReportList = UserList[HyperoptReport]
 AbstractReport = Union[BacktestReport, HyperoptReport]
 
 
@@ -44,9 +45,12 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
     def reset(self):
         pass
 
-    def get(self, *id: str):
+    def get(self, id: int) -> AbstractReport:
         """Get the reports by id"""
-        return [r for r in self if str(r.id) in str(id)]
+        try:
+            return [r for r in self if str(r.id) == str(id)][0]
+        except IndexError:
+            raise IdNotFoundError('Could not find report with id %s' % id)
 
     def get_strategy_id_pairs(self):
         # nt = namedtuple('StrategyPair', ['strategy', 'id'])
@@ -95,6 +99,10 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         )
         return self
 
+    def filter_by_id(self, *ids: str):
+        self.data = [r for r in self if r.id in ids]
+        return self
+
     def filter_by_tag(self, *tags: str):
         matched = []
         for r in self:
@@ -137,11 +145,14 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         frame.loc[frame.stake == -1.0, 'stake'] = 'unlimited'
         return frame
 
-    def delete(self, index: int):
+    def delete(self, *id: int):
+        """Delete the reports by id"""
+        reports = self.filter_by_id(*id)
         with Session(engine) as session:
-            report = self.data[index]
-            report.delete(session)
-            session.delete(report)
+            for report in reports:
+                report.delete(session)
+                session.delete(report)
+                logger.info('Deleted report id: {}', report.id)
             session.commit()
 
     def delete_all(self):
@@ -172,10 +183,6 @@ class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
 
     def get_using_hash(self, hash: str):
         return [r for r in self if r.hash == hash].pop()
-
-    def filter_by_id(self, *ids: str):
-        self.data = [r for r in self if r.id in ids]
-        return self
 
     def get_top_strategies(self, n=3):
         return (
@@ -236,7 +243,7 @@ class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
         return df.sort_values(sort_by, ascending=False)
 
 
-class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
+class _HyperoptRepoExplorer(_RepoExplorer, HyperoptReportList):
     def reset(self):
         with Session(engine) as session:
             statement = select(HyperoptReport)
@@ -247,7 +254,6 @@ class _HyperoptRepoExplorer(_RepoExplorer, UserList[HyperoptReport]):
 
     def get_by_param_id(self, id: str):
         """Get the report with the uuid or the first report in the repo"""
-
         try:
             return [r for r in self if str(r.id) == str(id)][0]
         except IndexError:
@@ -299,5 +305,5 @@ if __name__ == '__main__':
 
     t1 = time.time()
     # print(get_backtest_repo().head(25).get_pair_totals().to_markdown())
-    print(get_backtest_repo()[0].winning_pairs)
+    print(get_backtest_repo().get(6))
     print('Elapsed time:', time.time() - t1, 'seconds')

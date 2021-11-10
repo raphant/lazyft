@@ -89,8 +89,8 @@ class BacktestRunner(Runner):
     @logger.catch(reraise=True)
     def execute(self, background=False):
         self.reset()
-        if self.command.hash in BacktestExplorer.get_hashes():
-            self.report = BacktestExplorer.get_using_hash(self.command.hash)
+        if self.command.hash in get_backtest_repo().get_hashes():
+            self.report = get_backtest_repo().get_using_hash(self.command.hash)
             logger.info('Loaded report with same hash - {}', self.command.hash)
             return
         if self.command.id:

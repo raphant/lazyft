@@ -5964,7 +5964,7 @@ class NostalgiaForInfinityNext_ChangeToTower_V2(IStrategy):
                     "Failed to load JSON from %s: %s", hold_trades_config_file, exc
                 )
             else:
-                trade_ids = hold_trades_config.get("trade_ids")
+                trade_ids = hold_trades_config.parameter("trade_ids")
 
             if not trade_ids:
                 return

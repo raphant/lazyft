@@ -5,6 +5,7 @@ from threading import Thread
 from typing import Optional
 
 import pandas as pd
+import rapidjson
 import sh
 from rich.live import Live
 from rich.table import Table
@@ -279,26 +280,21 @@ class HyperoptRunner(runner.Runner):
         return findall[0]
 
     def generate_report(self):
-        """Creates a report that will potentially saved later on."""
+        """Creates a report that can saved later on."""
+        hyperopt_file = pathlib.Path(
+            paths.LAST_HYPEROPT_RESULTS_FILE.parent,
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
+                'latest_hyperopt'
+            ],
+        ).resolve()
+        epoch = regex.FINAL_REGEX.findall(self.output)[0][0]
         # noinspection PyUnresolvedReferences
-        secondary_config = dict(
-            starting_balance=self.command.params.starting_balance
-            or self.command.config['starting_balance'],
-            stake_amount=self.command.params.stake_amount
-            or self.command.config['stake_amount'],
-            max_open_trades=self.command.params.max_open_trades
-            or self.command.config['max_open_trades'],
-        )
-        # noinspection PyTypeChecker
-        exporter = hyperopt.HyperoptReportExporter(
-            self.command.config,
-            self.output,
-            self.strategy,
-            balance_info=secondary_config,
+        self._report = HyperoptReport(
+            exchange=self.command.config.exchange,
+            epoch=int(epoch) - 1,  # -1 because the epoch is incremented for readability
+            hyperopt_file_str=str(hyperopt_file),
             tag=self.command.params.tag,
-            report_id=self.report_id,
         )
-        self._report = exporter.generate()
         return self._report
 
     def get_results(self) -> pd.DataFrame:

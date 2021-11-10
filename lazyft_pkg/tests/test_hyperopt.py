@@ -47,7 +47,6 @@ def test_hyperopt():
     assert isinstance(report, HyperoptReport)
     assert report.strategy == STRATEGY[0]
     assert isinstance(report.performance, HyperoptPerformance)
-    assert isinstance(report.params_file, pathlib.Path)
 
     print(runner.save())
     print(runner.epoch_text)

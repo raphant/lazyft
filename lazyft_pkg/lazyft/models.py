@@ -7,6 +7,7 @@ import pandas as pd
 import rapidjson
 import sh
 from diskcache import FanoutCache
+from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 from sqlmodel import SQLModel, Session, Field, Relationship
@@ -19,7 +20,6 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
-from tests.test_hyperopt import epochs
 
 cache = FanoutCache(tmp_dir)
 
@@ -390,35 +390,90 @@ class BacktestReport(ReportBase, table=True):
 
 class HyperoptReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    performance_string: str
-    strategy: str
-    param_data_str: str
+    epoch: int
     hyperopt_file_str: str = Field(default='')
-    pairlist: str
-    max_open_trades: float
-    starting_balance: float
-    stake_amount: float
-    epoch: int = Field(default=None)
+
+    @property
+    def filtered_results(self):
+        config = {'user_data_dir': paths.USER_DATA_DIR}
+        return HyperoptTools.load_filtered_results(self.hyperopt_file, config)
+
+    @property
+    def result_dict(self):
+        return self.all_epochs[self.epoch]
+
+    @property
+    def all_epochs(self) -> list[dict]:
+        return self.filtered_results[0]
+
+    @property
+    def total_epochs(self):
+        return self.filtered_results[1]
+
+    @property
+    def backtest_data(self):
+        return self.result_dict['results_metrics']
+
+    @property
+    def strategy(self):
+        return self.backtest_data['strategy_name']
 
     @property
     def hyperopt_file(self) -> Path:
         return Path(self.hyperopt_file_str)
 
     @property
-    def parameters(self) -> dict:
-        return rapidjson.loads(self.param_data_str)
+    def performance(self) -> HyperoptPerformance:
+        return HyperoptPerformance(
+            wins=self.backtest_data['wins'],
+            losses=self.backtest_data['losses'],
+            draws=self.backtest_data['draws'],
+            avg_profits=self.backtest_data['profit_mean'],
+            med_profit=self.backtest_data['profit_median'],
+            profit_percent=self.backtest_data['profit_total'],
+            tot_profit=self.backtest_data['profit_total_abs'],
+            avg_duration=self.backtest_data['holding_avg'],
+            end_date=self.backtest_data['backtest_start'],
+            start_date=self.backtest_data['backtest_end'],
+            seed=-1,
+            trades=self.backtest_data['total_trades'],
+            loss=self.loss,
+        )
 
     @property
-    def performance(self) -> HyperoptPerformance:
-        loads = rapidjson.loads(self.performance_string)
-        return HyperoptPerformance(**loads)
+    def stake_amount(self):
+        return self.backtest_data['stake_amount']
+
+    @property
+    def starting_balance(self):
+        return self.backtest_data['starting_balance']
+
+    @property
+    def max_open_trades(self):
+        return self.backtest_data['max_open_trades']
+
+    @property
+    def timeframe(self):
+        return self.backtest_data['timeframe']
+
+    @property
+    def timerange(self):
+        return self.backtest_data['timerange']
 
     @property
     def log_file(self):
-        return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
+        return paths.HYPEROPT_LOG_PATH(str(self.id) + '.log')
 
-    def delete(self, session: Session = None):
-        self.hyperopt_file.unlink(missing_ok=True)
+    @property
+    def loss(self):
+        return self.result_dict['loss']
+
+    def export_parameters(self):
+        config = {'user_data_dir': paths.USER_DATA_DIR}
+        HyperoptTools.try_export_params(config, self.strategy, self.result_dict)
+
+    def delete(self, _):
+        # self.hyperopt_file.unlink(missing_ok=True)
         self.log_file.unlink(missing_ok=True)
 
     def print_hyperopt_list(self):
@@ -431,21 +486,18 @@ class HyperoptReport(ReportBase, table=True):
         )
         print(text)
 
-    def show_hyperopt(self, index=None):
-        args = [
-            'hyperopt-show',
-            '--hyperopt-filename',
-            str(self.hyperopt_file),
-            '--userdir',
-            str(paths.USER_DATA_DIR),
-        ]
-        if not index:
-            args.insert(1, '--best')
+    def show_hyperopt(self, epoch: int = None):
+        if epoch:
+            result = self.all_epochs[epoch]
         else:
-            args.insert(1, '-n')
-            args.insert(2, str(index))
-        text = sh.freqtrade(*args)
-        print(text)
+            result = self.result_dict
+        HyperoptTools.show_epoch_details(
+            result,
+            self.total_epochs,
+            False,
+            True,
+            header_str="Epoch details",
+        )
 
 
 class BacktestRepo(BaseModel):

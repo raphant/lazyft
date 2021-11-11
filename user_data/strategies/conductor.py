@@ -1,3 +1,5 @@
+"""Inspired by EnsembleStrategy from https://github.com/joaorafaelm/freqtrade-heroku/"""
+
 import concurrent
 import logging
 import sys
@@ -9,13 +11,11 @@ from typing import Optional, Union, Dict
 
 import pandas as pd
 import rapidjson
-from freqtrade.enums import SellType
 from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
     IStrategy,
-    IntParameter,
     DecimalParameter,
     stoploss_from_open,
     CategoricalParameter,
@@ -37,8 +37,13 @@ ensemble_path = Path("user_data/strategies/ensemble.json")
 
 # Loads strategies from ensemble.json. Or you can add them manually
 STRATEGIES = []
-if ensemble_path.exists():
+if not STRATEGIES and ensemble_path.exists():
     STRATEGIES = rapidjson.loads(ensemble_path.resolve().read_text())
+
+# raise an exception if no strategies are in the list
+if not STRATEGIES:
+    raise ValueError("No strategies added to strategy list")
+
 
 keys_to_delete = [
     "minimal_roi",
@@ -47,11 +52,12 @@ keys_to_delete = [
 ]
 
 
-class MyEnsembleStrategy(IStrategy):
-    """Inspiration from"""
+class ConductorStrategy(IStrategy):
+    """Inspired by EnsembleStrategy from https://github.com/joaorafaelm/freqtrade-heroku/"""
 
     loaded_strategies = {}
 
+    # feel free to experiment
     stoploss = -0.31
     minimal_roi = {"0": 0.1669, "19": 0.049, "61": 0.023, "152": 0}
 
@@ -65,7 +71,7 @@ class MyEnsembleStrategy(IStrategy):
     # Custom stoploss
     use_custom_stoploss = True
 
-    # Run "populate_indicators()" only for new candle.
+    # Run "populate_indicators()" only for new candles.
     process_only_new_candles = True
 
     # Number of candles the strategy requires before producing valid signals
@@ -286,8 +292,7 @@ class MyEnsembleStrategy(IStrategy):
         added to the buy_tag. Open to constructive criticism!
         """
         strategies = STRATEGIES.copy()
-        dataframe['buy_tag'] = ''
-        dataframe['buy_strategies'] = ''
+        dataframe.loc[:, "buy_tag"] = ""
         for strategy_name in strategies:
             # load instance of strategy_name
             strategy = self.get_strategy(strategy_name)
@@ -295,40 +300,23 @@ class MyEnsembleStrategy(IStrategy):
             # I use copy() here to prevent duplicate columns from being populated
             strategy_dataframe = strategy.advise_buy(dataframe.copy(), metadata)
             # create column for `strategy`
-            strategy_dataframe.loc[:, "buy_strategies"] = ""
+            strategy_dataframe.loc[:, "new_buy_tag"] = ""
             # On every candle that a buy signal is found, strategy_name
             # name will be added to its 'new_buy_tag' column
             strategy_dataframe.loc[
-                strategy_dataframe.buy == 1, "buy_strategies"
+                strategy_dataframe.buy == 1, "new_buy_tag"
             ] = strategy_name
             # get the strategies that already exist for the row in the original dataframe
-            strategy_dataframe.loc[:, "existing_strategies"] = dataframe[
-                "buy_strategies"
-            ]
+            strategy_dataframe.loc[:, "existing_buy_tag"] = dataframe["buy_tag"]
             # join the strategies found in the original dataframe's row with the new strategy
-            strategy_dataframe.loc[:, "buy_strategies"] = strategy_dataframe.apply(
-                lambda x: ",".join(
-                    (x["buy_strategies"], x["existing_strategies"])
-                ).strip(","),
+            strategy_dataframe.loc[:, "buy_tag"] = strategy_dataframe.apply(
+                lambda x: ",".join((x["new_buy_tag"], x["existing_buy_tag"])).strip(
+                    ","
+                ),
                 axis=1,
             )
-            # # update the original dataframe with the new strategies buy signals
-            dataframe.loc[:, "buy_strategies"] = strategy_dataframe["buy_strategies"]
-            for k in strategy_dataframe:
-                if k not in dataframe:
-                    dataframe[k] = strategy_dataframe[k]
-            # drop unnecessary columns
-        dataframe.drop(
-            [
-                'existing_strategies',
-            ],
-            axis=1,
-            inplace=True,
-            errors="ignore",
-        )
-        dataframe.loc[
-            (dataframe.buy_strategies != ''), 'buy_tag'
-        ] = dataframe.buy_strategies
+            # update the original dataframe with the new strategies buy signals
+            dataframe.loc[:, "buy_tag"] = strategy_dataframe["buy_tag"]
         # set `buy` column of rows with a buy_tag to 1
         dataframe.loc[dataframe.buy_tag != "", "buy"] = 1
         return dataframe
@@ -339,8 +327,8 @@ class MyEnsembleStrategy(IStrategy):
         This will only add the strategy name to the `ensemble_sells` column.
         custom_sell will then sell based on the strategies in that column.
         """
-        dataframe['sell_tag'] = ''
-        dataframe['sell_strategies'] = ''
+        # dataframe.loc[:, 'ensemble_sells'] = ''
+        dataframe.loc[:, "sell_tag"] = ""
 
         strategies = STRATEGIES.copy()
         # only populate strategies with open trades
@@ -360,42 +348,75 @@ class MyEnsembleStrategy(IStrategy):
             dataframe_copy = strategy.advise_sell(dataframe.copy(), metadata)
 
             # create column for `strategy`
-            dataframe_copy.loc[:, "sell_strategies"] = ""
-            # On every candle that a sell signal is found, strategy_name
-            # name will be added to its 'sell_strategies' column
-            dataframe_copy.loc[
-                dataframe_copy.sell == 1, "sell_strategies"
-            ] = strategy_name
+            dataframe_copy.loc[:, "strategy"] = ""
+            # On every candle that a buy signal is found, strategy_name
+            # name will be added to its 'strategy' column
+            dataframe_copy.loc[dataframe_copy.sell == 1, "strategy"] = strategy_name
             # get the strategies that already exist for the row in the original dataframe
-            dataframe_copy.loc[:, "existing_strategies"] = dataframe["sell_strategies"]
+            dataframe_copy.loc[:, "existing_sells"] = dataframe["sell_tag"]
             # join the strategies found in the original dataframe's row with the new strategy
-            dataframe_copy.loc[:, "sell_strategies"] = dataframe_copy.apply(
-                lambda x: ",".join(
-                    (x["sell_strategies"], x["existing_strategies"])
-                ).strip(","),
+            dataframe_copy.loc[:, "new_sell_tag"] = dataframe_copy.apply(
+                lambda x: ",".join((x["strategy"], x["existing_sells"])).strip(","),
                 axis=1,
             )
             # update the original dataframe with the new strategies sell signals
-            dataframe.loc[:, "sell_strategies"] = dataframe_copy["sell_strategies"]
-            for k in dataframe_copy:
-                if k not in dataframe:
-                    dataframe[k] = dataframe_copy[k]
+            dataframe.loc[:, "sell_tag"] = dataframe_copy["new_sell_tag"]
+        # clear sell signals so they can be handled by custom_sell
+        dataframe.loc[:, "sell"] = 0
 
         dataframe.drop(
-            [
-                'new_sell_tag',
-                'existing_strategies',
-            ],
+            ["strategy"],
             axis=1,
             inplace=True,
             errors="ignore",
         )
-        dataframe.loc[dataframe.sell_strategies != '', 'sell'] = 1
-        # noinspection PyComparisonWithNone
-        dataframe.loc[
-            (dataframe.sell_strategies != '') & dataframe.exit_tag.isna(), 'exit_tag'
-        ] = (dataframe.sell_strategies + f'-ss')
         return dataframe
+
+    def custom_sell(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        **kwargs,
+    ) -> Optional[Union[str, bool]]:
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        # Obtain last available candle. Do not use current_time to look up latest candle, because
+        # current_time points to current incomplete candle whose data is not available.
+        # last_candle = dataframe.iloc[-1].squeeze()
+        # In dry/live runs trade open date will not match candle open date therefore it must be
+        # rounded.
+        last_candle = dataframe.iloc[-1].squeeze()
+        if not last_candle['sell_tag']:
+            return
+        # check to see if any candle has a sell signal
+        for strategy_name in STRATEGIES:
+            if strategy_name not in trade.buy_tag:
+                continue
+            # strategy = self.get_strategy(strategy_name)
+            # regular sell signal. this does not cover custom_sells
+            if (
+                strategy_name in last_candle["sell_tag"]
+                and strategy_name in trade.buy_tag
+            ):
+                return "sell_signal"
+            #
+            # buy_tag = trade_candle['buy_tag']
+            # strategy_in_buy_tag = strategy_name in buy_tag
+            # valid_buy_signal = bool(trade_candle['buy']) and strategy_in_buy_tag
+            # should_sell = strategy.should_sell(
+            #     trade,
+            #     current_rate,
+            #     current_time,
+            #     valid_buy_signal,
+            #     False,
+            #     trade_candle['low'],
+            #     last_candle['high'],
+            # )  # scan for strategies roi/stoploss/custom_sell
+            # if should_sell.sell_flag:
+            #     return strategy_name + '-' + should_sell.sell_reason
+            # return should_sell.sell_reason
 
     def should_sell(
         self,
@@ -408,41 +429,12 @@ class MyEnsembleStrategy(IStrategy):
         high: float = None,
         force_stoploss: float = 0,
     ) -> SellCheckTuple:
-        # load the valid strategies for the pair
-        strategies = STRATEGIES.copy()
-        # go through each strategy and ask if it should sell
-        dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
-        last_candle = dataframe.iloc[-1].squeeze()
-
-        # do not honor the sell signal of a strategy that is not in the buy tag
-        if sell:
-            buy_strategies = set(trade.buy_tag.split(','))
-            sell_strategies = set(last_candle['sell_strategies'].split(','))
-            # make sure at least 1 sell strategy is in the buy strategies
-            if not sell_strategies.intersection(buy_strategies):
-                sell = False
-            else:
-                return SellCheckTuple(
-                    SellType.SELL_SIGNAL,
-                    f'({last_candle["sell_strategies"]}-ss',
-                )
-
-        for strategy_name in strategies:
-            strategy = self.get_strategy(strategy_name)
-            if strategy_name not in trade.buy_tag:
-                # do not honor the should_sell of a strategy that is not in the buy tag
-                continue
-            sell_check = strategy.should_sell(
-                trade, rate, date, buy, sell, low, high, force_stoploss
-            )
-            if sell_check is not None:
-                sell_check.sell_reason = (
-                    f'{strategy.get_strategy_name()}-{sell_check.sell_reason}'
-                )
-                return sell_check
-        return super().should_sell(
+        should_sell = super().should_sell(
             trade, rate, date, buy, sell, low, high, force_stoploss
         )
+        if should_sell.sell_flag:
+            should_sell.sell_reason = trade.buy_tag + "-" + should_sell.sell_reason
+        return should_sell
 
     def confirm_trade_exit(
         self,

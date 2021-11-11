@@ -226,7 +226,7 @@ class Populator:
             inplace=True,
             errors="ignore",
         )
-        # clear sell signals so they can be handled by custom_sell
+
         dataframe.loc[dataframe.sell_strategies != '', 'sell'] = 1
         # noinspection PyComparisonWithNone
         dataframe.loc[

@@ -123,26 +123,22 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.data = [r for r in self if r.exchange == exchange]
         return self
 
-    def dataframe(self) -> Optional[pd.DataFrame]:
-        failed = []
+    def dataframe(self) -> pd.DataFrame:
         frames = []
         for r in self:
             try:
                 frames.append(r.df)
-            except FileNotFoundError:
-                failed.append(r)
-                logger.error(
-                    'Failed to find backtest_results for: {}',
-                    ', '.join([f'"{f.id}"' for f in failed]),
-                )
             except Exception as e:
-                failed.append(r)
-                logger.exception(e)
+                logger.exception('Failed to create dataframe for report: %s', r)
+                logger.debug(e)
         if not len(frames):
-            return None
+            logger.info('No dataframes created')
+            return pd.DataFrame()
         frame = pd.DataFrame(pd.concat(frames, ignore_index=True))
         frame.set_index('id', inplace=True)
         frame.loc[frame.stake == -1.0, 'stake'] = 'unlimited'
+        frame['avg_profit_pct'] = frame['avg_profit_pct'] * 100
+        frame.sort_values(by='date', ascending=False, inplace=True)
         return frame
 
     def delete(self, *id: int):
@@ -166,7 +162,7 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
 
 
 class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
-    def reset(self):
+    def reset(self) -> '_BacktestRepoExplorer':
         with Session(engine) as session:
             statement = select(BacktestReport)
             results = session.exec(statement)
@@ -244,7 +240,7 @@ class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
 
 
 class _HyperoptRepoExplorer(_RepoExplorer, HyperoptReportList):
-    def reset(self):
+    def reset(self) -> '_HyperoptRepoExplorer':
         with Session(engine) as session:
             statement = select(HyperoptReport)
             results = session.exec(statement)

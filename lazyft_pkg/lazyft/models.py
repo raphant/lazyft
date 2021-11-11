@@ -1,18 +1,22 @@
 from abc import abstractmethod
+from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
 import rapidjson
-import sh
-from diskcache import FanoutCache
+from diskcache import FanoutCache, Index
+from freqtrade.misc import deep_merge_dicts
+from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
+from pandas import json_normalize
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 from sqlmodel import SQLModel, Session, Field, Relationship
 
 from lazyft import logger, paths, tmp_dir
+from lazyft.strategy import StrategyTools
 from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
@@ -21,7 +25,7 @@ from lazyft.loss_functions import (
     sortino_hyperopt_loss,
 )
 
-cache = FanoutCache(tmp_dir)
+cache = Index(str(tmp_dir))
 
 
 class PerformanceBase(BaseModel):
@@ -70,12 +74,6 @@ class PerformanceBase(BaseModel):
     def win_loss_ratio(self):
         return self.wins / (self.losses or 1)
 
-    def save(self):
-        with Session(engine) as session:
-            session.add(self)
-            session.commit()
-            session.refresh(self)
-
 
 class HyperoptPerformance(PerformanceBase):
     wins: int
@@ -103,7 +101,6 @@ class HyperoptPerformance(PerformanceBase):
 
 
 class BacktestPerformance(PerformanceBase):
-
     profit_mean_pct: float
     profit_sum_pct: float
     profit_total_abs: float
@@ -212,7 +209,7 @@ class BacktestReport(ReportBase, table=True):
         return self.backtest_data['exchange']
 
     @property
-    @cache.memoize(tag='load_data')
+    @cache.memoize()
     def load_data(self):
         with Session(engine) as session:
             return rapidjson.loads(session.get(BacktestData, self.data_id).text)
@@ -393,14 +390,24 @@ class HyperoptReport(ReportBase, table=True):
     epoch: int
     hyperopt_file_str: str = Field(default='')
 
+    # region properties
     @property
     def filtered_results(self):
         config = {'user_data_dir': paths.USER_DATA_DIR}
         return HyperoptTools.load_filtered_results(self.hyperopt_file, config)
 
     @property
+    @cache.memoize()
     def result_dict(self):
-        return self.all_epochs[self.epoch]
+        logger.info('Loading hyperopt results for id {} for the first time', self.id)
+        try:
+            return self.all_epochs[self.epoch]
+        except IndexError:
+            logger.error(
+                'Epoch {} not found in hyperopt results for {}', self.epoch, self.id
+            )
+            logger.info('Available epochs: {}', self.total_epochs)
+            raise
 
     @property
     def all_epochs(self) -> list[dict]:
@@ -441,6 +448,10 @@ class HyperoptReport(ReportBase, table=True):
         )
 
     @property
+    def stake_currency(self):
+        return self.backtest_data['stake_currency']
+
+    @property
     def stake_amount(self):
         return self.backtest_data['stake_amount']
 
@@ -461,42 +472,90 @@ class HyperoptReport(ReportBase, table=True):
         return self.backtest_data['timerange']
 
     @property
+    def pairlist(self):
+        return self.backtest_data['pairlist']
+
+    @property
     def log_file(self):
-        return paths.HYPEROPT_LOG_PATH(str(self.id) + '.log')
+        try:
+            return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
+        except FileNotFoundError:
+            logger.warning('Log file not found for {}', self.id)
 
     @property
     def loss(self):
         return self.result_dict['loss']
 
+    @property
+    def parameters(self) -> dict:
+        final_params = deepcopy(self.result_dict['params_not_optimized'])
+        final_params = deep_merge_dicts(
+            self.result_dict['params_details'], final_params
+        )
+        # datetime to str
+        date = self.date.strftime('%x %X')
+        final_params = {
+            'strategy_name': self.strategy,
+            'params': final_params,
+            'ft_stratparam_v': 1,
+            'export_time': date,
+        }
+        return final_params
+
+    @property
+    def parameters_path(self) -> Path:
+        file_name = StrategyTools.get_file_name(self.strategy)
+        return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
+
+    # endregion
+
     def export_parameters(self):
-        config = {'user_data_dir': paths.USER_DATA_DIR}
-        HyperoptTools.try_export_params(config, self.strategy, self.result_dict)
+        self.parameters_path.write_text(rapidjson.dumps(self.parameters))
+        logger.info('Exported parameters for {} to {}', self.id, self.parameters_path)
 
     def delete(self, _):
         # self.hyperopt_file.unlink(missing_ok=True)
         self.log_file.unlink(missing_ok=True)
 
-    def print_hyperopt_list(self):
-        text = sh.freqtrade(
-            'hyperopt-list',
-            '--hyperopt-filename',
-            str(self.hyperopt_file),
-            '--userdir',
-            str(paths.USER_DATA_DIR),
+    def hyperopt_list(self):
+        trials = json_normalize(self.all_epochs, max_level=1)
+        trials = HyperoptTools.prepare_trials_columns(
+            trials,
+            'results_metrics.total_trades' not in trials,
+            'results_metrics.max_drawdown_abs' in trials.columns,
         )
-        print(text)
+        trials.drop(
+            columns=['is_initial_point', 'is_best', 'best'],
+            inplace=True,
+        )
+        trials.set_index('Epoch', inplace=True)
+        return trials
 
     def show_hyperopt(self, epoch: int = None):
         if epoch:
-            result = self.all_epochs[epoch]
+            result = self.all_epochs[epoch - 1]
         else:
             result = self.result_dict
+        optimize_reports.show_backtest_result(
+            self.strategy,
+            self.backtest_data,
+            self.stake_currency,
+            [],
+        )
         HyperoptTools.show_epoch_details(
             result,
             self.total_epochs,
             False,
             True,
             header_str="Epoch details",
+        )
+
+    def new_report_from_epoch(self, epoch: int):
+        return HyperoptReport(
+            epoch=epoch,
+            hyperopt_file_str=str(self.hyperopt_file),
+            exchange=self.exchange,
+            tag=self.tag,
         )
 
 
@@ -550,7 +609,7 @@ class Strategy:
 
     @property
     def as_pair(self):
-        return self.name, self.id
+        return self.name, str(self.id)
 
     def __str__(self) -> str:
         return '-'.join(self.as_pair)

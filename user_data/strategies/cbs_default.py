@@ -1,25 +1,19 @@
 """
 78/100:    245 trades. Avg profit   1.40%. Total profit  0.03034187 BTC ( 342.11Σ%). Avg duration 301.9 min. Objective: -154.45381
 """
-# --- Do not remove these libs ---
+import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
 
 from freqtrade.constants import ListPairsWithTimeframes
 from freqtrade.enums import SellType
-from freqtrade.exchange import timeframe_to_prev_date
-
-from cbs import CbsConfiguration
-from cbs.populator import Populator
 from freqtrade.persistence import Trade
 from freqtrade.strategy.interface import IStrategy, SellCheckTuple
 from pandas import DataFrame
-from finta import TA as ta
-import pandas_ta
-import cbs
+
+from cbs import CbsConfiguration
 from cbs.mapper import Mapper
-import logging
+from cbs.populator import Populator
 
 logger = logging.getLogger(__name__)
 try:
@@ -73,43 +67,6 @@ class CbsStrategy(IStrategy):
         dataframe = Populator.sell_trend(dataframe, metadata['pair'], self.mapper)
         return dataframe
 
-    def custom_sell(
-        self,
-        pair: str,
-        trade: Trade,
-        current_time: datetime,
-        current_rate: float,
-        current_profit: float,
-        **kwargs,
-    ) -> Optional[Union[str, bool]]:
-        return super().custom_sell(
-            pair, trade, current_time, current_rate, current_profit
-        )
-        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-        # Obtain last available candle. Do not use current_time to look up latest candle, because
-        # current_time points to current incomplete candle whose data is not available.
-        # last_candle = dataframe.iloc[-1].squeeze()
-        # In dry/live runs trade open date will not match candle open date therefore it must be
-        # rounded.
-        trade_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
-        # Look up trade candle.
-        trade_candle = dataframe.loc[dataframe["date"] == trade_date]
-        if trade_candle.empty:
-            return
-
-        trade_candle = trade_candle.squeeze()
-        # check to see if any candle has a sell signal
-        for strategy in self.mapper.get_strategies(pair):
-            if strategy.strategy_name not in trade.buy_tag:
-                continue
-            # strategy = self.get_strategy(strategy_name)
-            # regular sell signal. this does not cover custom_sells
-            if (
-                strategy.strategy_name in trade_candle["sell_tag"]
-                and strategy.strategy_name in trade.buy_tag
-            ):
-                return "sell_signal"
-
     def should_sell(
         self,
         trade: Trade,
@@ -142,20 +99,18 @@ class CbsStrategy(IStrategy):
 
         for strategy in strategies:
             if strategy.get_strategy_name() not in trade.buy_tag:
+                # do not honor the should_sell of a strategy that is not in the buy tag
                 continue
             sell_check = strategy.should_sell(
                 trade, rate, date, buy, sell, low, high, force_stoploss
             )
             if sell_check is not None:
                 sell_check.sell_reason = (
-                    f'({trade.pair.replace("/", "_")}) '
+                    f'({trade.pair}) '
                     f'{strategy.get_strategy_name()}-'
                     f'{sell_check.sell_reason}'
                 )
                 return sell_check
-        return super().should_sell(
-            trade, rate, date, buy, sell, low, high, force_stoploss
-        )
 
     # def confirm_trade_exit(
     #     self,

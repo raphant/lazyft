@@ -32,27 +32,19 @@ def human_format(num):
 
 class ParameterTools:
     @classmethod
-    def set_params_file(cls, strategy: str, id: str):
+    def set_params_file(cls, hyperopt_id: str):
         """Load strategy parameters from a saved report."""
 
-        from lazyft import paths
-        from lazyft.strategy import StrategyTools
+        from lazyft.reports import get_hyperopt_repo
 
-        parameters = cls.get_parameters(id)
-        logger.debug('fetched parameters: {}', parameters)
-        # get full name that the params file will be saved as
-        strategy_json = StrategyTools.create_strategy_params_filepath(strategy)
-        # setup the file path
-        new_params_file = paths.STRATEGY_DIR.joinpath(strategy_json)
-        # write into the new params file
-        new_params_file.write_text(rapidjson.dumps(parameters))
-        logger.info('Created parameter file {} with id {}', strategy_json, id)
+        report = get_hyperopt_repo().get(hyperopt_id)
+        report.export_parameters()
 
     @classmethod
     def get_parameters(cls, id: str) -> dict:
         from lazyft.reports import get_hyperopt_repo
 
-        return get_hyperopt_repo().get_by_param_id(id).parameters
+        return get_hyperopt_repo().get(id).parameters
 
     @classmethod
     def remove_params_file(cls, strategy) -> None:

@@ -14,7 +14,7 @@ def set_ensemble_strategies(strategies: list[Strategy]):
         return []
     for strategy in strategies:
         if strategy.id:
-            ParameterTools.set_params_file(strategy.name, strategy.id)
+            ParameterTools.set_params_file(strategy.id)
         else:
             ParameterTools.remove_params_file(strategy.name)
 

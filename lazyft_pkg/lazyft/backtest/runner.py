@@ -10,11 +10,9 @@ from sqlmodel import Session
 
 from lazyft import logger, paths, regex
 from lazyft.backtest.commands import BacktestCommand
-from lazyft.backtest.report import BacktestReportExporter
 from lazyft.database import engine
-from lazyft.models import BacktestReport, BacktestRepo, BacktestData
-from lazyft.paths import BACKTEST_RESULTS_FILE
-from lazyft.reports import get_backtest_repo, BacktestExplorer
+from lazyft.models import BacktestReport, BacktestData
+from lazyft.reports import get_backtest_repo
 from lazyft.runner import Runner
 from lazyft.util import ParameterTools
 
@@ -94,7 +92,7 @@ class BacktestRunner(Runner):
             logger.info('Loaded report with same hash - {}', self.command.hash)
             return
         if self.command.id:
-            ParameterTools.set_params_file(self.strategy, self.command.id)
+            ParameterTools.set_params_file(self.command.id)
         else:
             ParameterTools.remove_params_file(self.strategy)
         logger.debug('Running command: "{}"', self.command.command_string)

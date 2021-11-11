@@ -14,7 +14,7 @@ class Command:
         self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None
     ):
         self.strategy = strategy
-        self.id = id
+        self.hyperopt_id = id
         self.config = params.config
         self.params = params
         self.args = ['hyperopt', f'-s {strategy}']

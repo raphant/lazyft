@@ -144,15 +144,17 @@ class HyperoptRunner(runner.Runner):
             raise RuntimeError('Hyperopt is already running')
         self.reset()
         # set or remove parameter file in strategy directory
-        if self.command.id:
-            ParameterTools.set_params_file(self.strategy, self.command.id)
+        if self.command.hyperopt_id:
+            ParameterTools.set_params_file(self.command.hyperopt_id)
         else:
             ParameterTools.remove_params_file(self.strategy)
         logger.debug(self.command.params)
         logger.debug('Running command: "{}"', self.command.command_string)
         logger_exec.info('Running command: "{}"', self.command.command_string)
         logger.info(
-            'Hyperopting {} with id "{}"', self.strategy, self.command.id or 'null'
+            'Hyperopting {} with id "{}"',
+            self.strategy,
+            self.command.hyperopt_id or 'null',
         )
         self.start_time = time.time()
 

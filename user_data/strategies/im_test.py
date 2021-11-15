@@ -29,16 +29,12 @@ from numpy import number
 from pandas import DataFrame
 from pandas_ta import ema
 import logging
-from indicator_opt import (
-    IndicatorOptHelper,
-    indicators,
-    Comparison,
-    InvalidSeriesError,
-    CombinationTester,
-)
+
 
 sys.path.append(str(Path(__file__).parent))
-
+from indicatormix import indicators
+from indicatormix.indicator_opt import IndicatorOptHelper
+from indicatormix import state
 
 logger = logging.getLogger(__name__)
 
@@ -65,14 +61,21 @@ sell_params = {
     "sell_series_1": "stoch80_sma10",
     "sell_series_2": "T3Average",
 }
-
-ct = CombinationTester(buy_params, sell_params)
-iopt = ct.iopt
+load = True
+if __name__ == '':
+    load = False
+else:
+    indicators.Indicators.set_indicator_names()
+    indicators.Indicators.create_informatives()
+    state.indicators = indicators.Indicators.indicators
+    ct = CombinationTester(buy_params, sell_params)
+    iopt = ct.iopt
 
 
 class IMTest(IStrategy):
     # region Parameters
-    ct.update_local_parameters(locals())
+    if load:
+        ct.update_local_parameters(locals())
     # endregion
     # region Params
     minimal_roi = {"0": 0.10, "20": 0.05, "64": 0.03, "168": 0}

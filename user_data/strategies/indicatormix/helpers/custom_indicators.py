@@ -292,3 +292,41 @@ def stoch_sma(dataframe: DataFrame, window=80, sma_window=10):
     """"""
     stoch = qtpylib.stoch(dataframe, window)
     return qtpylib.sma((stoch['slow_k'] + stoch['slow_d']) / 2, sma_window)
+
+
+def tsi(
+    dataframe: DataFrame, window_slow: int, window_fast: int, fillna=False
+) -> Series:
+    """
+    Indicator: True Strength Index (TSI)
+    :param dataframe: DataFrame The original OHLC dataframe
+    :param window_slow: slow smoothing period
+    :param window_fast: fast smoothing period
+    :param fillna: If True fill NaN values
+    """
+    df = dataframe.copy()
+
+    min_periods_slow = 0 if fillna else window_slow
+    min_periods_fast = 0 if fillna else window_fast
+
+    close_diff = df['close'].diff()
+    close_diff_abs = close_diff.abs()
+    smooth_close_diff = (
+        close_diff.ewm(span=window_slow, min_periods=min_periods_slow, adjust=False)
+        .mean()
+        .ewm(span=window_fast, min_periods=min_periods_fast, adjust=False)
+        .mean()
+    )
+    smooth_close_diff_abs = (
+        close_diff_abs.ewm(span=window_slow, min_periods=min_periods_slow, adjust=False)
+        .mean()
+        .ewm(span=window_fast, min_periods=min_periods_fast, adjust=False)
+        .mean()
+    )
+
+    tsi = smooth_close_diff / smooth_close_diff_abs * 100
+
+    if fillna:
+        tsi = tsi.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+    return tsi

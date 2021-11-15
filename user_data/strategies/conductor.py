@@ -41,8 +41,6 @@ if not STRATEGIES and ensemble_path.exists():
     STRATEGIES = rapidjson.loads(ensemble_path.resolve().read_text())
 
 # raise an exception if no strategies are in the list
-if not STRATEGIES:
-    raise ValueError("No strategies added to strategy list")
 
 
 keys_to_delete = [
@@ -134,6 +132,8 @@ class ConductorStrategy(IStrategy):
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
+        if not STRATEGIES:
+            raise ValueError("No strategies added to strategy list")
         # self.gui_thread = None
         if not self.is_live_or_dry:
             from manigold_spaces import HyperOpt

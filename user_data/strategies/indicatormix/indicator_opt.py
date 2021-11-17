@@ -144,6 +144,10 @@ class InformativeSeries(Series):
                 f'dataframe. Available columns: {dataframe.columns}'
             )
 
+    @property
+    def indicator(self):
+        return series_map[self.series_name]
+
 
 @dataclass(frozen=True)
 class IndicatorSeries(Series):
@@ -192,12 +196,6 @@ class Comparison(ABC):
             series1 = InformativeSeries(
                 series_name, timeframe=series1_indicator.timeframe
             )
-            # check if "30m", "1h", or "15m" is not found in the series_name, breakpoint
-            if not any(
-                [timeframe in series_name for timeframe in ['30m', '1h', '15m']]
-            ):
-                breakpoint()
-
         else:
             series1 = IndicatorSeries(series_name)
         # return comparison based on the compare type
@@ -447,6 +445,19 @@ class CombinationTester:
         self.parameter_name_map: dict = {}
         self.populate_comparisons(buy_params.copy(), sell_params.copy())
 
+    def get_loaded_indicators(self):
+        """
+        Returns a list of loaded indicators found in self.buy_comparisons and self.sell_comparisons
+        """
+        loaded_indicators = set()
+        for comparison in self.buy_comparisons + self.sell_comparisons:
+            loaded_indicators.add(series_map.get(comparison.series1.series_name))
+            if hasattr(comparison, 'series2') and hasattr(
+                comparison.series2, 'indicator'
+            ):
+                loaded_indicators.add(series_map.get(comparison.series2.series_name))
+        return list(loaded_indicators)
+
     def populate_comparisons(self, buy_params, sell_params):
         """
         Create comparisons for buy and sell
@@ -471,24 +482,48 @@ class CombinationTester:
                 sell_series = sell_params.pop(f'sell_series_{i}')
                 sell_operator = sell_params.pop(f'sell_operator_{i}')
                 sell_comparison_series = sell_params.pop(f'sell_comparison_series_{i}')
-                self.sell_comparisons.append(
-                    Comparison.create(
-                        sell_series, sell_operator, sell_comparison_series
+                try:
+                    self.sell_comparisons.append(
+                        Comparison.create(
+                            sell_series, sell_operator, sell_comparison_series
+                        )
                     )
-                )
+                except Exception as e:
+                    raise e.__class__(
+                        f'Error creating sell comparison {sell_series} {sell_operator} {sell_comparison_series}'
+                    )
             i += 1
 
     def create_parameters(self):
-        parameters = {'buy': {}, 'sell': {}, 'period': {}}
+        parameters = {'buy': {}, 'sell': {}, 'timeperiods': {}}
         for bs in ['buy', 'sell']:
+            logger.info(f'Creating {bs} parameters')
             for i, comparison in enumerate(getattr(self, f'{bs}_comparisons')):
+                series1 = comparison.series1
+                indicator1: ind.Indicator = series1.indicator
                 if isinstance(comparison, ValueComparison):
-                    series1 = comparison.series1
-                    indicator = series1.indicator
-                    p_map = indicator.get_parameters()
-                    parameters[bs].update(p_map[bs])
-                    for name in p_map[bs]:
-                        self.parameter_name_map[comparison.series1.series_name] = name
+                    # only keep the indicator.value_parameters keys with that contain the bs
+                    p_map = {
+                        k: v for k, v in indicator1.value_parameters.items() if bs in k
+                    }
+                    parameters[bs].update(p_map)
+                    for name in p_map:
+                        self.parameter_name_map[name] = comparison.series1.series_name
+                if indicator1.function_parameters:
+                    parameters['timeperiods'].update(indicator1.function_parameters)
+                    for name in indicator1.function_parameters:
+                        self.parameter_name_map[name] = comparison.series1.series_name
+                if (
+                    hasattr(comparison, 'series2')
+                    and not isinstance(comparison.series2, OhlcSeries)
+                    and comparison.series2.indicator.function_parameters
+                ):
+                    series2: IndicatorSeries = comparison.series2
+                    indicator2: ind.Indicator = series2.indicator
+                    parameters['timeperiods'].update(indicator2.function_parameters)
+                    for name in indicator2.function_parameters:
+                        self.parameter_name_map[name] = comparison.series2.series_name
+
         # for c in self.buy_comparisons + self.sell_comparisons:
         #     if isinstance(c, ValueComparison):
         #         series1 = c.series1
@@ -518,9 +553,18 @@ class CombinationTester:
         data: DataFrame,
         comparison: Comparison,
         bs: str,
+        strategy_locals: dict,
         optimized_parameter: BaseParameter = None,
     ) -> Series:
+        series1 = comparison.series1
+        indicator1 = series1.indicator
+        relative_params = {}
+        indicator1_func_params = indicator1.function_parameters
         if isinstance(comparison, ValueComparison):
+            indicator1_value_params = indicator1.value_parameters
+            for name, value in indicator1_value_params.items():
+                if bs in name:
+                    indicator1_value_params[name] = strategy_locals[name]
             return comparison.compare(data, bs, optimized_parameter)
         else:
             return comparison.compare(data, bs)

@@ -1,13 +1,16 @@
 """
 Solipsis Custom Indicators and Maths
 """
+import math
+import random
+
 import numpy as np
+import pandas as pd
 import talib.abstract as ta
 import pandas_ta as pta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 from pandas import DataFrame, Series
-
 
 """
 Misc. Helper Functions
@@ -267,7 +270,6 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
 
 
 def bollinger_bands(dataframe: DataFrame, timeperiod=20, stds=2):
-
     # Bollinger bands
     df = dataframe.copy()
     bollinger = qtpylib.bollinger_bands(
@@ -292,3 +294,226 @@ def stoch_sma(dataframe: DataFrame, window=80, sma_window=10):
     """"""
     stoch = qtpylib.stoch(dataframe, window)
     return qtpylib.sma((stoch['slow_k'] + stoch['slow_d']) / 2, sma_window)
+
+
+def heiken_ashi(dataframe, smooth_inputs=False, smooth_outputs=False, length=10):
+    df = dataframe[['open', 'close', 'high', 'low']].copy().fillna(0)
+    if smooth_inputs:
+        df['open_s'] = ta.EMA(df['open'], timeframe=length)
+        df['high_s'] = ta.EMA(df['high'], timeframe=length)
+        df['low_s'] = ta.EMA(df['low'], timeframe=length)
+        df['close_s'] = ta.EMA(df['close'], timeframe=length)
+
+        open_ha = (df['open_s'].shift(1) + df['close_s'].shift(1)) / 2
+        high_ha = df.loc[:, ['high_s', 'open_s', 'close_s']].max(axis=1)
+        low_ha = df.loc[:, ['low_s', 'open_s', 'close_s']].min(axis=1)
+        close_ha = (df['open_s'] + df['high_s'] + df['low_s'] + df['close_s']) / 4
+    else:
+        open_ha = (df['open'].shift(1) + df['close'].shift(1)) / 2
+        high_ha = df.loc[:, ['high', 'open', 'close']].max(axis=1)
+        low_ha = df.loc[:, ['low', 'open', 'close']].min(axis=1)
+        close_ha = (df['open'] + df['high'] + df['low'] + df['close']) / 4
+
+    open_ha = open_ha.fillna(0)
+    high_ha = high_ha.fillna(0)
+    low_ha = low_ha.fillna(0)
+    close_ha = close_ha.fillna(0)
+
+    if smooth_outputs:
+        open_sha = ta.EMA(open_ha, timeframe=length)
+        high_sha = ta.EMA(high_ha, timeframe=length)
+        low_sha = ta.EMA(low_ha, timeframe=length)
+        close_sha = ta.EMA(close_ha, timeframe=length)
+        # return as ohlc dataframe
+        return DataFrame(
+            {'open': open_sha, 'high': high_sha, 'low': low_sha, 'close': close_sha}
+        )
+    else:
+        # return as ohlc dataframe
+        return DataFrame(
+            {'open': open_ha, 'high': high_ha, 'low': low_ha, 'close': close_ha}
+        )
+
+
+# def super_trend(df, multiplier, timeperiod=10):
+#     """
+#     From https://github.com/kennedyCzar/FORECASTING-1.0
+#     :Arguments:
+#       df:
+#         dataframe
+#       :ATR:
+#         Average True range
+#       :multiplier:
+#         factor to multiply with ATR for upper and lower band
+#       :n:
+#         period
+#
+#     :Return type:
+#       Supertrend
+#     """
+#     df = df.copy(deep=True)
+#     ATR = ta.ATR(df, timeperiod=timeperiod)
+#     df['Upper_band_start'] = (df.high + df.low) / 2 + (multiplier * ATR)
+#     df['Lower_band_start'] = (df.high + df.low) / 2 - (multiplier * ATR)
+#     df = df.fillna(0)
+#     df['SuperTrend'] = np.nan
+#     # Upper_band
+#     df['Upper_band'] = df['Upper_band_start']
+#     df['Lower_band'] = df['Lower_band_start']
+#     # Upper_band
+#     for ii in range(timeperiod, df.shape[0]):
+#         if df['close'][ii - 1] <= df['Upper_band'][ii - 1]:
+#             df['Upper_band'][ii] = min(
+#                 df['Upper_band_start'][ii], df['Upper_band'][ii - 1]
+#             )
+#         else:
+#             df['Upper_band'][ii] = df['Upper_band_start'][ii]
+#
+#             # Lower_band
+#     for ij in range(timeperiod, df.shape[0]):
+#         if df['close'][ij - 1] >= df['Lower_band'][ij - 1]:
+#             df['Lower_band'][ij] = max(
+#                 df['Lower_band_start'][ij], df['Lower_band'][ij - 1]
+#             )
+#         else:
+#             df['Lower_band'][ij] = df['Lower_band_start'][ij]
+#
+#             # SuperTrend
+#     for ik in range(1, len(df['SuperTrend'])):
+#         if df['close'][timeperiod - 1] <= df['Upper_band'][timeperiod - 1]:
+#             df['SuperTrend'][timeperiod - 1] = df['Upper_band'][timeperiod - 1]
+#         elif df['close'][timeperiod - 1] > df['Upper_band'][ik]:
+#             df = df.fillna(0)
+#             df['SuperTrend'][timeperiod - 1] = df['Lower_band'][timeperiod - 1]
+#     for sp in range(timeperiod, df.shape[0]):
+#         if (
+#             df['SuperTrend'][sp - 1] == df['Upper_band'][sp - 1]
+#             and df['close'][sp] <= df['Upper_band'][sp]
+#         ):
+#             df['SuperTrend'][sp] = df['Upper_band'][sp]
+#         elif (
+#             df['SuperTrend'][sp - 1] == df['Upper_band'][sp - 1]
+#             and df['close'][sp] >= df['Upper_band'][sp]
+#         ):
+#             df['SuperTrend'][sp] = df['Lower_band'][sp]
+#         elif (
+#             df['SuperTrend'][sp - 1] == df['Lower_band'][sp - 1]
+#             and df['close'][sp] >= df['Lower_band'][sp]
+#         ):
+#             df['SuperTrend'][sp] = df['Lower_band'][sp]
+#         elif (
+#             df['SuperTrend'][sp - 1] == df['Lower_band'][sp - 1]
+#             and df['close'][sp] <= df['Lower_band'][sp]
+#         ):
+#             df['SuperTrend'][sp] = df['Upper_band'][sp]
+#     # return supertrend only
+#     return df['SuperTrend']
+
+
+def chop_zone(dataframe, length=30):
+    """
+    PineScript to Python conversion.
+    """
+    color_dict = {
+        'dark_red': 'dark_red',
+        'red': 'red',
+        'orange': 'orange',
+        'light_orange': 'light_orange',
+        'yellow': 'yellow',
+        'turquoise': 'turquoise',
+        'dark_green': 'dark_green',
+        'pale_green': 'pale_green',
+        'lime': 'lime',
+    }
+    # source = close
+    df: pd.DataFrame = dataframe.copy(deep=True)
+    source = dataframe['close']
+    # avg = hlc3
+    avg = pta.hlc3(dataframe['high'], dataframe['low'], dataframe['close'])
+    # print('avg', avg.head())
+    # highestHigh
+    df['highestHigh'] = df['high'].rolling(length).max()
+    # lowestLow = ta.lowest(periods)
+    df['lowestLow'] = df['low'].rolling(length).min()
+    # print('lowestLow', df['lowestLow'].tail())
+    # print('highestHigh', df['highestHigh'].tail())
+    # span = 25 / (highestHigh - lowestLow) * lowestLow
+    df['span'] = 25 / (df['highestHigh'] - df['lowestLow']) * df['lowestLow']
+    # ema34 = ta.ema(source, 34)
+    df['ema34'] = ta.EMA(source, 34)
+    # print('span', df['span'].tail())
+    # print('ema34', df['ema34'].tail())
+    # y2_ema34 = (ema34[1] - ema34) / avg * span
+    df['y2_ema34'] = (df['ema34'].shift(1) - df['ema34']) / avg * df['span']
+    # print('y2_ema34', df['y2_ema34'].tail())
+    # c_ema34 = math.sqrt((x2_ema34 - x1_ema34)*(x2_ema34 - x1_ema34) + (y2_ema34 - y1_ema34)*(y2_ema34 - y1_ema34))
+    df['c_ema34'] = np.sqrt(1 + (df['y2_ema34'] ** 2))
+    # print('c_ema34', df['c_ema34'].tail())
+    # emaAngle_1 = math.round(180 * math.acos((x2_ema34 - x1_ema34)/c_ema34) / pi)
+    df['emaAngle_1'] = np.round(180 * np.arccos(1 / df['c_ema34']) / np.pi)
+    # emaAngle = if y2_ema34 is greater than 0, make it negative.
+    df['emaAngle'] = np.where(df['y2_ema34'] > 0, -df['emaAngle_1'], df['emaAngle_1'])
+    # print('emaAngle', df['emaAngle'].tail())
+    # chopZoneColor = emaAngle >= 5 ? colorTurquoise :
+    # emaAngle < 5 and emaAngle >= 3.57 ? colorDarkGreen :
+    # emaAngle < 3.57 and emaAngle >= 2.14 ? colorPaleGreen :
+    # emaAngle < 2.14 and emaAngle >= .71 ? colorLime :
+    # emaAngle <= -1 * 5 ? colorDarkRed :
+    # emaAngle > -1 * 5 and emaAngle <= -1 * 3.57 ? colorRed :
+    # emaAngle > -1 * 3.57 and emaAngle <= -1 * 2.14 ? colorOrange :
+    # emaAngle > -1 * 2.14 and emaAngle <= -1 * .71 ? colorLightOrange : colorYellow
+    df.loc[(df['emaAngle'] >= 5), 'color'] = color_dict['turquoise']
+    df.loc[(df['emaAngle'] < 5) & (df['emaAngle'] >= 3.57), 'color'] = color_dict[
+        'dark_green'
+    ]
+    df.loc[(df['emaAngle'] < 3.57) & (df['emaAngle'] >= 2.14), 'color'] = color_dict[
+        'pale_green'
+    ]
+    df.loc[(df['emaAngle'] < 2.14) & (df['emaAngle'] >= 0.71), 'color'] = color_dict[
+        'lime'
+    ]
+    df.loc[
+        (df['emaAngle'] > -1 * 5) & (df['emaAngle'] <= -1 * 3.57), 'color'
+    ] = color_dict['red']
+    df.loc[
+        (df['emaAngle'] > -1 * 3.57) & (df['emaAngle'] <= -1 * 2.14), 'color'
+    ] = color_dict['orange']
+    df.loc[
+        (df['emaAngle'] > -1 * 2.14) & (df['emaAngle'] <= -1 * 0.71), 'color'
+    ] = color_dict['light_orange']
+    df.loc[df['emaAngle'] < -1 * 0.71, 'color'] = color_dict['yellow']
+    df.loc[df['emaAngle'] <= -1 * 5, 'color'] = color_dict['dark_red']
+    return df['color']
+
+
+def supertrend(dataframe: DataFrame, multiplier, period):
+    dataframe = dataframe.copy()
+    supertrend = pta.supertrend(
+        dataframe['high'],
+        dataframe['low'],
+        dataframe['close'],
+        length=period,
+        multiplier=multiplier,
+    )
+    dataframe['supertrend_crossed_up'] = (
+        supertrend.iloc[:, 1].rolling(3).mean().round(3) == -0.333
+    ).astype(int)
+    dataframe['supertrend_crossed_down'] = (
+        supertrend.iloc[:, 1].rolling(3).mean().round(3) == 0.333
+    ).astype(int)
+    return dataframe[['supertrend_crossed_up', 'supertrend_crossed_down']]
+
+
+if __name__ == '__main__':
+    # fill dataframe with fake ohlc data from zero to 100
+    df = DataFrame(
+        {
+            'open': list(random.randint(0, 100) for _ in range(1000)),
+            'high': list(random.randint(0, 100) for _ in range(1000)),
+            'low': list(random.randint(0, 100) for _ in range(1000)),
+            'close': list(random.randint(0, 100) for _ in range(1000)),
+        }
+    )
+
+    s = supertrend(df, 3, 20)
+    print(s[s != 0])

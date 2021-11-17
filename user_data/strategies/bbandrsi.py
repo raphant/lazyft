@@ -42,7 +42,7 @@ class BbandRsi(IStrategy):
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
-
+    minimal_roi = {"0": 0.01}
     # Recommended
     use_sell_signal = True
     sell_profit_only = True
@@ -106,6 +106,10 @@ class BbandRsi(IStrategy):
     #     return informative_pairs
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        ohlc = cta.heiken_ashi(dataframe)
+        # replace dataframe ohlc data with each series in ohlc
+        dataframe = dataframe.assign(**ohlc)
+
         dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
 
         # Bollinger bands

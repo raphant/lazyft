@@ -1,4 +1,6 @@
 """all indicators will be defined here"""
+from __future__ import annotations
+
 import sys
 from collections import namedtuple
 from pathlib import Path
@@ -140,6 +142,20 @@ VALUE_INDICATORS = {
         optimize_value__adx__sell=IP(0, 25, default=25, space='sell'),
         inf_timeframes=['1h', '30m'],
     ),
+    "supertrend": ind.ValueIndicator(
+        func=lambda dataframe, timeperiod: ci.supertrend(
+            dataframe, 3, period=timeperiod
+        ),
+        columns=['supertrend_crossed_up', 'supertrend_crossed_down'],
+        optimize_func__timeperiod=IP(5, 20, default=5, space='buy'),
+        optimize_value__supertrend_crossed_up__buy=IP(
+            0, 1, default=1, space='buy', optimize=False
+        ),
+        optimize_value__supertrend_crossed_down__sell=IP(
+            0, 1, default=1, space='sell', optimize=False
+        ),
+        inf_timeframes=['1h', '30m'],
+    ),
 }
 # endregion
 
@@ -169,7 +185,7 @@ SERIES_INDICATORS = {
             "bb_upperband",
         ],
         inf_timeframes=['1h', '30m'],
-        optimize_func__timeperiod=IP(40, 60, default=50, space='buy'),
+        optimize_func__timeperiod=IP(40, 60, default=50, space='buy', optimize=False),
     ),
     "tema_fast": ind.SeriesIndicator(
         func=ta.TEMA,
@@ -182,7 +198,7 @@ SERIES_INDICATORS = {
         func=ta.TEMA,
         columns=["TEMA"],
         inf_timeframes=['1h', '30m'],
-        optimize_func__timeperiod=IP(80, 120, default=100, space='buy'),
+        optimize_func__timeperiod=IP(80, 120, default=100, space='buy', optimize=False),
     ),
     "hema_slow": ind.SeriesIndicator(
         func=lambda dataframe, timeperiod: qta.hull_moving_average(
@@ -192,7 +208,9 @@ SERIES_INDICATORS = {
         columns=["hma"],
         inf_timeframes=['1h', '30m'],
         optimize_timeperiod=True,
-        optimize_func__timeperiod=IP(180, 210, default=200, space='buy'),
+        optimize_func__timeperiod=IP(
+            180, 210, default=200, space='buy', optimize=False
+        ),
     ),
     "hema_fast": ind.SeriesIndicator(
         func=lambda dataframe, timeperiod: qta.hull_moving_average(
@@ -216,7 +234,7 @@ SERIES_INDICATORS = {
         columns=["EMA"],
         inf_timeframes=['1h', '30m'],
         optimize_timeperiod=True,
-        optimize_func__timeperiod=IP(90, 110, default=100, space='buy'),
+        optimize_func__timeperiod=IP(90, 110, default=100, space='buy', optimize=False),
     ),
     "wma_fast": ind.SeriesIndicator(
         func=ta.WMA,
@@ -229,7 +247,7 @@ SERIES_INDICATORS = {
         func=ta.WMA,
         columns=["WMA"],
         optimize_timeperiod=False,
-        optimize_func__timeperiod=IP(90, 110, default=100, space='buy'),
+        optimize_func__timeperiod=IP(90, 110, default=100, space='buy', optimize=False),
     ),
     "sma_fast": ind.SeriesIndicator(
         func=ta.SMA,
@@ -241,7 +259,9 @@ SERIES_INDICATORS = {
         func=ta.SMA,
         columns=["SMA"],
         optimize_timeperiod=False,
-        optimize_func__timeperiod=IP(190, 210, default=200, space='buy'),
+        optimize_func__timeperiod=IP(
+            190, 210, default=200, space='buy', optimize=False
+        ),
     ),
     "t3": ind.SeriesIndicator(
         func=lambda df, timeperiod: ci.T3(df, length=timeperiod),
@@ -260,6 +280,13 @@ SERIES_INDICATORS = {
         inf_timeframes=['1h', '30m'],
         optimize_timeperiod=False,
         optimize_func__timeperiod=IP(5, 80, default=20, space='buy'),
+    ),
+    "vwap": ind.SeriesIndicator(
+        func=qta.rolling_vwap,
+        columns=[
+            "vwap",
+        ],
+        inf_timeframes=['1h', '30m'],
     ),
 }
 # endregion

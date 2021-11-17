@@ -30,6 +30,7 @@ from pandas import DataFrame
 # warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 sys.path.append(str(Path(__file__).parent))
+import custom_indicators as cta
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +260,8 @@ class MyEnsembleStrategy(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         inf_frames: list[pd.DataFrame] = []
-
+        ohlc = cta.heiken_ashi(dataframe)
+        dataframe = dataframe.assign(**ohlc)
         for strategy_name in STRATEGIES:
             strategy = self.get_strategy(strategy_name)
             dataframe = strategy.advise_indicators(dataframe, metadata)

@@ -15,6 +15,7 @@
             <excludedPath local="true" path="$PROJECT_DIR$/.direnv" />
             <excludedPath local="true" path="$PROJECT_DIR$/lazyft_pkg/lazyft/loss_functions" />
             <excludedPath local="true" path="$PROJECT_DIR$/lazyft.db" />
+            <excludedPath local="true" path="$PROJECT_DIR$/venv" />
           </excludedPaths>
         </serverdata>
       </paths>

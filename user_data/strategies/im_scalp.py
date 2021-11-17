@@ -19,8 +19,8 @@ sys.path.append(str(Path(__file__).parent))
 from indicatormix.indicator_opt import CombinationTester, indicators
 
 logger = logging.getLogger(__name__)
-
-
+import custom_indicators as cta
+import talib as ta
 # Buy hyperspace params:
 buy_params = {
     "buy_comparison_series_1": "zema_1h__zema",  # value loaded from strategy
@@ -215,7 +215,8 @@ class IMTestOpt(IStrategy):
                 continue
             dataframe = indicator.populate(dataframe)
         dataframe = self.populate_informative_indicators(dataframe, metadata)
-
+        ohlc = cta.heiken_ashi(dataframe)
+        dataframe = dataframe.assign(**ohlc)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

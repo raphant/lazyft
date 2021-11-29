@@ -32,6 +32,7 @@ cols_to_print = [
 ]
 BacktestReportList = UserList[BacktestReport]
 HyperoptReportList = UserList[HyperoptReport]
+RepoList = Union[UserList[BacktestReport], UserList[HyperoptReport]]
 AbstractReport = Union[BacktestReport, HyperoptReport]
 
 
@@ -42,7 +43,7 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.df = self.dataframe
 
     @abstractmethod
-    def reset(self):
+    def reset(self) -> '_RepoExplorer':
         pass
 
     def get(self, id: int) -> AbstractReport:
@@ -63,7 +64,7 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.data = list(filter(func, self.data))
         return self
 
-    def sort(self, func: Callable[[ReportBase], bool]):
+    def sort(self, func: Callable[[ReportBase], bool]) -> '_RepoExplorer':
         self.data = sorted(self.data, key=func, reverse=True)
         return self
 
@@ -138,7 +139,7 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         frame.set_index('id', inplace=True)
         frame.loc[frame.stake == -1.0, 'stake'] = 'unlimited'
         frame['avg_profit_pct'] = frame['avg_profit_pct'] * 100
-        frame.sort_values(by='date', ascending=False, inplace=True)
+        frame.sort_values(by='id', ascending=False, inplace=True)
         return frame
 
     def delete(self, *id: int):
@@ -240,13 +241,13 @@ class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
 
 
 class _HyperoptRepoExplorer(_RepoExplorer, HyperoptReportList):
-    def reset(self) -> '_HyperoptRepoExplorer':
+    def reset(self):
         with Session(engine) as session:
             statement = select(HyperoptReport)
             results = session.exec(statement)
             self.data = results.fetchall()
 
-        return self.sort_by_date()
+        return self.sort(lambda r: r.id)
 
     def get_by_param_id(self, id: str):
         """Get the report with the uuid or the first report in the repo"""
@@ -301,5 +302,6 @@ if __name__ == '__main__':
 
     t1 = time.time()
     # print(get_backtest_repo().head(25).get_pair_totals().to_markdown())
-    print(get_backtest_repo().get(6))
+    print(get_hyperopt_repo()[0].hyperopt_list().to_markdown())
+
     print('Elapsed time:', time.time() - t1, 'seconds')

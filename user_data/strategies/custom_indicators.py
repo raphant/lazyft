@@ -262,10 +262,9 @@ def rvi(dataframe: DataFrame, periods: int = 14, ema_length=14) -> DataFrame:
 
 
 def EWO(dataframe, ema_length=5, ema2_length=35):
-    df = dataframe.copy()
-    ema1 = ta.EMA(df, timeperiod=ema_length)
-    ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df["low"] * 100
+    ema1 = pta.ema(dataframe['close'], length=ema_length)
+    ema2 = pta.ema(dataframe['close'], length=ema2_length)
+    emadif = (ema1 - ema2) / dataframe["low"] * 100
     return emadif
 
 
@@ -502,18 +501,3 @@ def supertrend(dataframe: DataFrame, multiplier, period):
         supertrend.iloc[:, 1].rolling(3).mean().round(3) == 0.333
     ).astype(int)
     return dataframe[['supertrend_crossed_up', 'supertrend_crossed_down']]
-
-
-if __name__ == '__main__':
-    # fill dataframe with fake ohlc data from zero to 100
-    df = DataFrame(
-        {
-            'open': list(random.randint(0, 100) for _ in range(1000)),
-            'high': list(random.randint(0, 100) for _ in range(1000)),
-            'low': list(random.randint(0, 100) for _ in range(1000)),
-            'close': list(random.randint(0, 100) for _ in range(1000)),
-        }
-    )
-
-    s = supertrend(df, 3, 20)
-    print(s[s != 0])

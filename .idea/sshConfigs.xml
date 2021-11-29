@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig host="sage-server1.local" id="6e958538-8461-4b20-9a35-7104839fc9fd" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="sage" />
+      <sshConfig host="sage-server1.local" id="b9f2c4a8-ae5e-40d3-aceb-00a2cc187850" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="sage" />
     </configs>
   </component>
 </project>

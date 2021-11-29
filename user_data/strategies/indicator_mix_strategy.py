@@ -1,9 +1,7 @@
 import logging
 
 # --- Do not remove these libs ---
-import sys
 from functools import reduce
-from pathlib import Path
 
 from freqtrade.constants import ListPairsWithTimeframes
 from freqtrade.strategy import (
@@ -12,10 +10,10 @@ from freqtrade.strategy import (
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
 
-sys.path.append(str(Path(__file__).parent))
-sys.path.append(str(Path(__file__).parent.joinpath('indicatormix')))
-from indicatormix.indicator_opt import IndicatorOptHelper, indicators
-
+from indicatormix.main import IndicatorMix
+from indicatormix.parameter_tools import ParameterTools
+from indicatormix.conditions import Conditions
+from indicatormix.populator import Populator
 
 logger = logging.getLogger(__name__)
 
@@ -24,23 +22,39 @@ if __name__ == '':
     load = False
 
 
-class IndicatorMix(IStrategy):
+class IndicatorMixStrategy(IStrategy):
+    # region config
+    num_of_buy_conditions = 3
+    num_of_sell_conditions = 9
+
+    n_buy_conditions_per_group = 0
+    n_sell_conditions_per_group = 3
+    # endregion
     # region Parameters
     if load:
-        iopt = IndicatorOptHelper.get()
-        buy_comparisons, sell_comparisons = iopt.create_local_parameters(
-            locals(), num_buy=8, num_sell=4
+        im = IndicatorMix()
+        im.main()
+        buy_comparisons, sell_comparisons = ParameterTools.create_local_parameters(
+            im.state,
+            locals(),
+            num_buy=num_of_buy_conditions,
+            num_sell=num_of_sell_conditions,
+            # buy_skip_groups=[1, 2],
         )
     # endregion
     # region Params
-    minimal_roi = {"0": 0.10, "20": 0.05, "64": 0.03, "168": 0}
-    stoploss = -0.25
+    sell_params = {
+        "sell_comparison_series_2": "bb_slow__bb_middleband",
+        "sell_operator_1": ">",
+        "sell_operator_2": ">=",
+        "sell_series_1": "stoch_sma__stoch_sma",
+        "sell_series_2": "t3__T3Average",
+    }
+    minimal_roi = {"0": 0.05, "30": 0.03, "60": 0.01, "100": 0}
+    stoploss = -0.10
     # endregion
     timeframe = '5m'
     use_custom_stoploss = False
-
-    buy_comparisons_per_group = 4
-    sell_comparisons_per_group = 2
 
     # Recommended
     use_sell_signal = True
@@ -57,65 +71,73 @@ class IndicatorMix(IStrategy):
         return [
             (pair, timeframe)
             for pair in pairs
-            for timeframe in self.iopt.inf_timeframes
+            for timeframe in self.im.state.indicator_depot.inf_timeframes
         ]
 
     def populate_informative_indicators(self, dataframe: DataFrame, metadata):
         inf_dfs = {}
-        for timeframe in self.iopt.inf_timeframes:
+        for timeframe in self.im.state.indicator_depot.inf_timeframes:
             inf_dfs[timeframe] = self.dp.get_pair_dataframe(
                 pair=metadata['pair'], timeframe=timeframe
             )
-        for indicator in indicators.values():
+        for indicator in self.im.indicators.values():
             if not indicator.informative:
                 continue
-            inf_dfs[indicator.timeframe] = indicator.populate(
-                inf_dfs[indicator.timeframe]
+            inf_dfs[indicator.timeframe] = Populator.populate(
+                self.im.state, indicator.name, inf_dfs[indicator.timeframe]
             )
         for tf, df in inf_dfs.items():
             dataframe = merge_informative_pair(dataframe, df, self.timeframe, tf)
         return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        for indicator in indicators.values():
+        for indicator in self.im.indicators.values():
             if indicator.informative:
                 continue
-            dataframe = indicator.populate(dataframe)
+            dataframe = Populator.populate(self.im.state, indicator.name, dataframe)
         dataframe = self.populate_informative_indicators(dataframe, metadata)
 
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        conditions = self.iopt.create_conditions(
+        conditions = Conditions.create_conditions(
+            self.im.state,
             dataframe=dataframe,
             comparison_parameters=self.buy_comparisons,
             strategy=self,
             bs='buy',
-            n_per_group=self.buy_comparisons_per_group,
+            n_per_group=self.n_buy_conditions_per_group,
         )
-
         if conditions:
-            if self.buy_comparisons_per_group == 1:
-                dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
-            else:
+            if self.n_buy_conditions_per_group > 0:
+                dataframe.loc[:, 'buy_tag'] = ''
+                dataframe = Conditions.label_tags(dataframe, conditions, 'buy_tag')
+                # replace empty tags with None
+                dataframe['buy_tag'] = dataframe['buy_tag'].replace('', None)
                 dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
+            else:
+                dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        conditions = self.iopt.create_conditions(
+        dataframe.loc[:, 'exit_tag'] = ''
+        conditions = Conditions.create_conditions(
+            self.im.state,
             dataframe=dataframe,
             comparison_parameters=self.sell_comparisons,
             strategy=self,
             bs='sell',
-            n_per_group=self.sell_comparisons_per_group,
+            n_per_group=self.n_sell_conditions_per_group,
         )
+
         if conditions:
             # if sell_comparisons_per_group equals 1, then all conditions will have to be true
             # for a sell signal
-            if self.sell_comparisons_per_group == 1:
-                dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
+            if self.n_sell_conditions_per_group > 0:
+                dataframe = Conditions.label_tags(dataframe, conditions, 'exit_tag')
+                dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
             # if sell_comparisons_per_group does not equal 1, then any group in the conditions
             # can be True to generate a sell signal
             else:
-                dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+                dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
         return dataframe

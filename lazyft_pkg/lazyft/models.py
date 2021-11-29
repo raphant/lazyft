@@ -24,6 +24,7 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
+from util import hhmmss_to_seconds
 
 cache = Index(str(tmp_dir))
 
@@ -440,8 +441,8 @@ class HyperoptReport(ReportBase, table=True):
             profit_percent=self.backtest_data['profit_total'],
             tot_profit=self.backtest_data['profit_total_abs'],
             avg_duration=self.backtest_data['holding_avg'],
-            end_date=self.backtest_data['backtest_start'],
-            start_date=self.backtest_data['backtest_end'],
+            start_date=self.backtest_data['backtest_start'],
+            end_date=self.backtest_data['backtest_end'],
             seed=-1,
             trades=self.backtest_data['total_trades'],
             loss=self.loss,
@@ -525,10 +526,15 @@ class HyperoptReport(ReportBase, table=True):
             'results_metrics.max_drawdown_abs' in trials.columns,
         )
         trials.drop(
-            columns=['is_initial_point', 'is_best', 'best'],
+            columns=['is_initial_point', 'is_best', 'Best'],
             inplace=True,
         )
         trials.set_index('Epoch', inplace=True)
+        # "Avg duration" is a column with values the format of HH:MM:SS.
+        # We want to turn this into seconds
+        avg_duration_seconds = trials['Avg duration'].apply(hhmmss_to_seconds)
+        # insert avg_duration_seconds in the seventh position
+        trials.insert(6, 'Avg duration seconds', avg_duration_seconds)
         return trials
 
     def show_hyperopt(self, epoch: int = None):
@@ -552,7 +558,7 @@ class HyperoptReport(ReportBase, table=True):
 
     def new_report_from_epoch(self, epoch: int):
         return HyperoptReport(
-            epoch=epoch,
+            epoch=epoch - 1,
             hyperopt_file_str=str(self.hyperopt_file),
             exchange=self.exchange,
             tag=self.tag,

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import talib.abstract as ta
 import pandas_ta as pta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
+from technical import qtpylib
 
 from pandas import DataFrame, Series
 
@@ -486,31 +486,30 @@ def chop_zone(dataframe, length=30):
     return df['color']
 
 
-def supertrend(dataframe: DataFrame, multiplier, period):
+def supertrend_crossed(dataframe: DataFrame, multiplier=3, period=5):
+    supertrend_ = supertrend(dataframe, multiplier, period)
+    dataframe['crossed_up'] = np.where(
+        supertrend_ == 1,
+        supertrend_.shift(1) == -1,
+        False,
+    )
+    # If the current Supertrend value is -1 and the previous Supertrend  == 1,
+    # then Supertrend has crossed down.
+    dataframe['crossed_down'] = np.where(
+        supertrend_ == -1,
+        supertrend_.shift(1) == 1,
+        False,
+    )
+    return dataframe[['crossed_up', 'crossed_down']]
+
+
+def supertrend(dataframe: DataFrame, multiplier=3, period=5):
     dataframe = dataframe.copy()
-    supertrend = pta.supertrend(
+    dataframe['supertrend'] = pta.supertrend(
         dataframe['high'],
         dataframe['low'],
         dataframe['close'],
-        length=20,
-        multiplier=3,
-    )
-    dataframe['supertrend_crossover'] = (
-        supertrend.iloc[:, 1].rolling(3).mean().round(3) == -0.333
-    )
-    return dataframe['supertrend_crossover'].astype(int)
-
-
-if __name__ == '__main__':
-    # fill dataframe with fake ohlc data from zero to 100
-    df = DataFrame(
-        {
-            'open': list(random.randint(0, 100) for _ in range(1000)),
-            'high': list(random.randint(0, 100) for _ in range(1000)),
-            'low': list(random.randint(0, 100) for _ in range(1000)),
-            'close': list(random.randint(0, 100) for _ in range(1000)),
-        }
-    )
-
-    s = supertrend(df, 3, 20)
-    print(s[s != 0])
+        length=period,
+        multiplier=multiplier,
+    ).iloc[:, 1]
+    return dataframe['supertrend']

@@ -1,0 +1,11 @@
+loguru
+pandas
+sh
+rich
+pyyaml
+rapidjson
+pytest
+python-dotenv
+pydantic
+diskcache
+finta

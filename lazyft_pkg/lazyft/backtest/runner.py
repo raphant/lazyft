@@ -22,21 +22,16 @@ logger_exec = logger.bind(type='backtest')
 class BacktestMultiRunner:
     def __init__(self, commands: list[BacktestCommand]) -> None:
         self.runners: list[BacktestRunner] = []
-        download_list = []
         for c in commands:
-            if (
-                c.params.download_data
-                and (sort := ' '.join(sorted(c.pairs))) not in download_list
-            ):
-                download_list.append(sort)
-                c.download_data()
             self.runners.append(BacktestRunner(c))
         self.errors = []
         self.session_id = str(uuid.uuid4())
+        self.current_runner: BacktestRunner = None
 
     def execute(self):
         self.errors.clear()
         for r in self.runners:
+            self.current_runner = r
             try:
                 r.execute()
             except Exception as e:

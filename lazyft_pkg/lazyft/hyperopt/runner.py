@@ -314,7 +314,7 @@ class HyperoptRunner(runner.Runner):
         if out or self.verbose:
             self.console.print(text, end="")
         if error:
-            self.error_list.append(text.strip())
+            self.error_list.append
 
     @property
     def log_path(self) -> pathlib.Path:

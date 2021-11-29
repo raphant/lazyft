@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/lazyft_pkg" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lazyft_pkg/lazyft" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/coin_based_strategy" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/indicatormix" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/venv/lib/python3.9/site-packages/jupyterlab_widgets/labextension/static" />
       <excludeFolder url="file://$MODULE_DIR$/lazyft_pkg/tests/lazyft/.pytest_cache" />
       <excludeFolder url="file://$MODULE_DIR$/lazyft_pkg/tests/.pytest_cache" />

@@ -57,3 +57,11 @@ class ParameterTools:
         filepath = StrategyTools.create_strategy_params_filepath(strategy)
         logger.info('Removing strategy params: {}', filepath)
         filepath.unlink(missing_ok=True)
+
+
+def hhmmss_to_seconds(timestamp: str):
+    """
+    Convert a timestamp in the format HH:MM:SS to seconds.
+    """
+    h, m, s = timestamp.split(':')
+    return int(h) * 3600 + int(m) * 60 + int(s)

@@ -126,34 +126,15 @@ class QuickTools:
             "refresh_period": 1800,
         }
         if filter_kwargs['AgeFilter']:
-            config['pairlists'].append(
-                {"method": "AgeFilter", "min_days_listed": age_limit}
-            )
+            config['pairlists'].append
         if filter_kwargs['PriceFilter']:
-            config['pairlists'].append({"method": "PriceFilter", "min_price": 0.001})
+            config['pairlists'].append
         if filter_kwargs['SpreadFilter']:
-            config['pairlists'].append(
-                {"method": "SpreadFilter", "max_spread_ratio": 0.005}
-            )
+            config['pairlists'].append
         if filter_kwargs['RangeStabilityFilter']:
-            config['pairlists'].append(
-                {
-                    "method": "RangeStabilityFilter",
-                    "lookback_days": 3,
-                    "min_rate_of_change": 0.1,
-                    "refresh_period": 1440,
-                }
-            )
+            config['pairlists'].append
         if filter_kwargs['VolatilityFilter']:
-            config['pairlists'].append(
-                {
-                    "method": "VolatilityFilter",
-                    "lookback_days": 3,
-                    "min_volatility": 0.02,
-                    "max_volatility": 0.75,
-                    "refresh_period": 86400,
-                }
-            )
+            config['pairlists'].append
 
         # set blacklist
         if config['stake_currency'] in STABLE_COINS:

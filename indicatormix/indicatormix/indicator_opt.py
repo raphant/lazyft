@@ -19,7 +19,7 @@ from pydantic.dataclasses import dataclass
 
 sys.path.append(str(Path(__file__).parent))
 sys.path.append(str(Path(__file__).parent.parent))
-from indicators import Indicators
+from indicatormix import IndicatorDepot
 import entities.indicator as ind
 
 logger = logging.getLogger('freqtrade').getChild('indicator_opt')
@@ -46,9 +46,9 @@ class IndicatorTools:
         """
         Load indicators from file
         """
-        Indicators.set_indicator_names()
-        Indicators.create_informatives()
-        return Indicators.indicators
+        IndicatorDepot.set_indicator_names()
+        IndicatorDepot.create_informatives()
+        return IndicatorDepot.indicators
 
     @staticmethod
     def get_max_columns():
@@ -593,9 +593,9 @@ if __name__ != 'indicatormix.indicator_opt':
     logger.info('Most likely not hyperopting or backtesting. Not loading indicators')
 else:
     logger.info('Most likely backtesting or hyperopting. Loading indicators')
-    Indicators.set_indicator_names()
-    Indicators.create_informatives()
-    indicators = Indicators.indicators
+    IndicatorDepot.set_indicator_names()
+    IndicatorDepot.create_informatives()
+    indicators = IndicatorDepot.indicators
     series_map = IndicatorTools.create_series_indicator_map()
 
 if __name__ == '__main__':

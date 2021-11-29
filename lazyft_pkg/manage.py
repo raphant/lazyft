@@ -271,8 +271,8 @@ def refresh_pairlist(
         "sort_key": "quoteVolume",
         "refresh_period": 1800,
     }
-    config['pairlists'].append({"method": "AgeFilter", "min_days_listed": 100})
-    config['pairlists'].append({"method": "PriceFilter", "low_price_ratio": 0.02})
+    config['pairlists'].append
+    config['pairlists'].append
     save_config(config, ctx.obj)
     output = []
 
@@ -305,7 +305,7 @@ def refresh_pairlist(
         )
         config['exchange']['pair_blacklist'] = []
     config['pairlists'] = []
-    config['pairlists'].append(static_pair_conf)
+    config['pairlists'].append
     save_config(config, ctx.obj)
     logger.debug(
         'Exchange info after: {}', load_config(ctx.obj)['exchange']['pair_whitelist']

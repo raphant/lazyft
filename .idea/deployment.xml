@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="Sage-desktop" createEmptyFolders="true" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc;*.json;*.db;" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="Sage-desktop" createEmptyFolders="true" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc;*.json;*.db;" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
       <paths name="Sage-desktop">
         <serverdata>
@@ -16,9 +16,13 @@
             <excludedPath local="true" path="$PROJECT_DIR$/lazyft_pkg/lazyft/loss_functions" />
             <excludedPath local="true" path="$PROJECT_DIR$/lazyft.db" />
             <excludedPath local="true" path="$PROJECT_DIR$/venv" />
+            <excludedPath local="true" path="$PROJECT_DIR$/user_data/hyperopt.lock" />
+            <excludedPath local="true" path="$PROJECT_DIR$/user_data/hyperopt_results" />
+            <excludedPath local="true" path="$PROJECT_DIR$/user_data/data" />
           </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

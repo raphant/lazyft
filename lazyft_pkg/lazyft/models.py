@@ -1,22 +1,21 @@
 from abc import abstractmethod
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
 import rapidjson
-from diskcache import FanoutCache, Index
+from diskcache import Index
 from freqtrade.misc import deep_merge_dicts
 from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from pandas import json_normalize
 from pydantic import BaseModel
-from pydantic.dataclasses import dataclass
 from sqlmodel import SQLModel, Session, Field, Relationship
 
 from lazyft import logger, paths, tmp_dir
-from lazyft.strategy import StrategyTools
 from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
@@ -24,7 +23,8 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
-from util import hhmmss_to_seconds
+from lazyft.strategy import StrategyTools
+from lazyft.util import hhmmss_to_seconds
 
 cache = Index(str(tmp_dir))
 
@@ -528,6 +528,7 @@ class HyperoptReport(ReportBase, table=True):
         trials.drop(
             columns=['is_initial_point', 'is_best', 'Best'],
             inplace=True,
+            errors='ignore',
         )
         trials.set_index('Epoch', inplace=True)
         # "Avg duration" is a column with values the format of HH:MM:SS.
@@ -544,7 +545,7 @@ class HyperoptReport(ReportBase, table=True):
             result = self.result_dict
         optimize_reports.show_backtest_result(
             self.strategy,
-            self.backtest_data,
+            result['results_metrics'],
             self.stake_currency,
             [],
         )
@@ -553,7 +554,6 @@ class HyperoptReport(ReportBase, table=True):
             self.total_epochs,
             False,
             True,
-            header_str="Epoch details",
         )
 
     def new_report_from_epoch(self, epoch: int):

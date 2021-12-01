@@ -1,10 +1,8 @@
-import threading
 from datetime import datetime
 from typing import Union, Optional
 
 import dateutil.parser
 import pytz
-import rapidjson
 from freqtrade.data.history import load_pair_history
 from pydantic import BaseModel
 

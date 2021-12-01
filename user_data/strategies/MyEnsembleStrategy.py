@@ -204,15 +204,11 @@ class MyEnsembleStrategy(IStrategy):
 
     def analyze(self, pairs: list[str]) -> None:
         """used in live"""
-        t1 = time.time()
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for pair in pairs:
-                futures.append(executor.submit(self.analyze_pair, pair))
-            for future in concurrent.futures.as_completed(futures):
-                future.result()
-        logger.info("Analyzed everything in %f seconds", time.time() - t1)
-        # super().analyze(pairs)
+        for pair in pairs:
+            try:
+                self.analyze_pair(pair)
+            except Exception as e:
+                logger.exception('Error analyzing pair %s', pair, exc_info=e)
 
     def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         """only used in backtesting"""

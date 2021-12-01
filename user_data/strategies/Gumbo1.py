@@ -43,11 +43,12 @@ class Gumbo1(IStrategy):
 
     stoch_high = IntParameter(60, 100, default=80, space="sell", optimize=True)
     stock_periods = IntParameter(70, 90, default=80, space="sell", optimize=True)
-
+    buy_params = {"ewo_low": -6.137, "t3_periods": 5}
+    sell_params = {"stoch_high": 96, "stock_periods": 70}
     # endregion
     # region Params
-    minimal_roi = {"0": 0.10, "20": 0.05, "64": 0.03, "168": 0}
-    stoploss = -0.25
+    minimal_roi = {"0": 0.28900000000000003, "31": 0.097, "90": 0.037, "194": 0}
+    stoploss = -0.343
     # endregion
     timeframe = '5m'
     use_custom_stoploss = False
@@ -88,7 +89,7 @@ class Gumbo1(IStrategy):
         # ewo
         dataframe['EWO'] = ci.EWO(dataframe)
         # ema
-        dataframe['EMA'] = ta.EMA(dataframe)
+        dataframe['EMA'] = pandas_ta.ema(dataframe['close'], length=30)
         # t3
         for i in self.t3_periods.range:
             dataframe[f'T3_{i}'] = ci.T3(dataframe, i)

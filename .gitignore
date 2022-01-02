@@ -238,3 +238,4 @@ lazyft_pkg/lazyft/api/*
 /.envrc
 /buildfiles/
 *cache*
+/lazyft_pkg/tradesv3.Gumbo3.sqlite

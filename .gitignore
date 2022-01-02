@@ -236,3 +236,5 @@ lazyft_pkg/lazyft/api/*
 /.vscode/launch.json
 /lazyft_pkg/lazyft/loss_functions
 /.envrc
+/buildfiles/
+*cache*

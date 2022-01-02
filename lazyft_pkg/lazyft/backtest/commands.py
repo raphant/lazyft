@@ -2,8 +2,6 @@ from lazyft import logger, util
 from lazyft.command import Command
 from lazyft.command_parameters import BacktestParameters
 from lazyft.config import Config
-from lazyft.pairlist import load_pairlist_from_id
-from lazyft.reports import get_hyperopt_repo
 
 
 class BacktestCommand(Command):
@@ -48,19 +46,19 @@ class BacktestCommand(Command):
         return self._hash
 
 
-def create_commands(
-    backtest_params: BacktestParameters,
-    verbose=False,
-):
-    """Create `HyperoptCommand` for each strategy in strategies."""
-    logger.debug('Using config: {}', backtest_params.config.path)
-    commands = []
-    for s, id in backtest_params.strategy_id_pairs:
-        command = BacktestCommand(
-            s,
-            backtest_params,
-            id=id,
-            verbose=verbose,
-        )
-        commands.append(command)
-    return commands
+# def create_commands(
+#     backtest_params: BacktestParameters,
+#     verbose=False,
+# ):
+#     """Create `HyperoptCommand` for each strategy in strategies."""
+#     logger.debug('Using config: {}', backtest_params.config.path)
+#     commands = []
+#     for s, id in backtest_params.strategy_id_pairs:
+#         command = BacktestCommand(
+#             s,
+#             backtest_params,
+#             id=id,
+#             verbose=verbose,
+#         )
+#         commands.append(command)
+#     return commands

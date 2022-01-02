@@ -34,3 +34,32 @@ class Command:
             arg_line = f"{command_map[key]} {value}".strip()
             args.append(arg_line)
         return ' '.join(args)
+
+
+def create_commands(
+    parameters: Union[HyperoptParameters, BacktestParameters],
+    verbose=False,
+):
+    """
+    Create `HyperoptCommand` for each strategy in strategies.
+    Args:
+        parameters:
+        verbose:
+    Returns:
+    """
+    from lazyft.backtest.commands import BacktestCommand
+    from lazyft.hyperopt.commands import HyperoptCommand
+
+    commands = []
+    CommandClass = (
+        HyperoptCommand if isinstance(parameters, HyperoptParameters) else BacktestCommand
+    )
+    for s, id in parameters.strategy_id_pairs:
+        command = CommandClass(
+            s,
+            params=parameters,
+            verbose=verbose,
+            id=id,
+        )
+        commands.append(command)
+    return commands

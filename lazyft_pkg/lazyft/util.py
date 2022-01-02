@@ -3,7 +3,11 @@ from datetime import timedelta, datetime
 from pathlib import Path
 from typing import Union
 
+from freqtrade.commands import Arguments
+from freqtrade.configuration import setup_utils_configuration
 from freqtrade.constants import LAST_BT_RESULT_FN
+from freqtrade.data.btanalysis import get_latest_hyperopt_file
+from freqtrade.enums import RunMode
 from freqtrade.misc import file_dump_json
 from loguru import logger
 from pandas import DataFrame
@@ -128,3 +132,34 @@ def store_backtest_stats(recordfilename: Path, stats: dict[str, DataFrame]) -> P
     latest_filename = Path.joinpath(filename.parent, LAST_BT_RESULT_FN)
     file_dump_json(latest_filename, {'latest_backtest': str(filename.name)})
     return filename
+
+
+def get_best_hyperopt() -> int:
+    command_best = 'hyperopt-show --best'.split()
+    command_all = 'hyperopt-show'.split()
+    args_best = Arguments(command_best).get_parsed_arg()
+    args_all = Arguments(command_all).get_parsed_arg()
+
+    from freqtrade.optimize.hyperopt_tools import HyperoptTools
+
+    config_best = setup_utils_configuration(args_best, RunMode.UTIL_NO_EXCHANGE)
+    config_all = setup_utils_configuration(args_all, RunMode.UTIL_NO_EXCHANGE)
+
+    results_file_best = get_latest_hyperopt_file(
+        config_best['user_data_dir'] / 'hyperopt_results', config_best.get('hyperoptexportfilename')
+    )
+    results_file_all = get_latest_hyperopt_file(
+        config_all['user_data_dir'] / 'hyperopt_results', config_all.get('hyperoptexportfilename')
+    )
+
+    n = config_best.get('hyperopt_show_index', -1)
+
+    # Previous evaluations
+    epochs_all, _ = HyperoptTools.load_filtered_results(results_file_all, config_all)
+    # Best evaluation
+    epochs_best, _ = HyperoptTools.load_filtered_results(results_file_best, config_best)
+
+    # Translate epoch index from human-readable format to pythonic
+    if n > 0:
+        n -= 1
+    return epochs_all.index(epochs_best[n])

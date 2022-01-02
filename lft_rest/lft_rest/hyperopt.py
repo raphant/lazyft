@@ -4,7 +4,8 @@ import rapidjson
 from loguru import logger
 from sqlmodel import Session, select
 
-from lazyft import hyperopt, backtest
+import lazyft.command
+from lazyft import hyperopt, backtest, downloader
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import HyperoptParameters, BacktestParameters
 from lazyft.hyperopt.runner import HyperoptRunner
@@ -76,14 +77,18 @@ def execute_hyperopt(hyperopt_inputs: HyperoptInput) -> Optional[HyperoptReport]
         f' days ({State.failed_backtest[hyperopt_inputs.pair] + 1} attempt(s))'
     )
     params.tag += f'_{hyperopt_inputs.timeframe}'
-    commands = hyperopt.create_commands(
+    commands = lazyft.command.create_commands(
         params,
         verbose=False,
     )
     runner = HyperoptRunner(commands[0], notify=False)
     runner.execute(background=True)
     runner.join()
-    if runner.error:
+    if runner.exception:
+        if str(runner.exception) == "No data found. Terminating.":
+            downloader.remove_pair_record(hyperopt_inputs.pair, runner.strategy, params)
+        else:
+            logger.error('\n'.join(runner.output_list[-100:]))
         State.failed_hyperopts[hyperopt_inputs.pair] += 1
         raise HyperoptError(f'Failed to hyperopt {hyperopt_inputs.pair}')
     try:

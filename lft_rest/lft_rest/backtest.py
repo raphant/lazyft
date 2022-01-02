@@ -3,10 +3,10 @@ from typing import Optional
 from loguru import logger
 from sqlmodel import Session, select
 
-from lazyft import backtest
+from lazyft import downloader
 from lazyft.backtest.runner import BacktestRunner
+from lazyft.command import create_commands
 from lazyft.command_parameters import BacktestParameters
-
 from lazyft.models import BacktestReport
 from lft_rest import State, Settings
 from lft_rest.errors import BacktestError, MaxAttemptError
@@ -90,14 +90,17 @@ def execute_backtest(backtest_input: BacktestInput) -> BacktestReport:
         download_data=True,
         tag=f'{backtest_input.pair}-{timerange}',
     )
-    commands = backtest.create_commands(
+    commands = create_commands(
         b_params,
         verbose=False,
     )
     b_runner = BacktestRunner(commands[0])
     b_runner.execute()
     if b_runner.exception:
-        logger.error('\n'.join(b_runner.output_list[-100:]))
+        if str(b_runner.exception) == "No data found. Terminating.":
+            downloader.remove_pair_record(backtest_input.pair, b_runner.strategy, b_params)
+        else:
+            logger.error('\n'.join(b_runner.output_list[-100:]))
         State.failed_backtest[backtest_input.pair] += 1
         raise BacktestError(f'Failed to backtest {backtest_input.pair}') from b_runner.exception
     return b_runner.save()

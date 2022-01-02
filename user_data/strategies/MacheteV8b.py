@@ -26,6 +26,7 @@ from freqtrade.exchange import timeframe_to_minutes
 from freqtrade.persistence import Trade
 from skopt.space import Dimension
 
+from lft_rest.rest_strategy import BaseRestStrategy
 
 """
 NOTE:
@@ -211,9 +212,7 @@ class MacheteV8b(IStrategy):
     )
 
     # Custom Stoploss
-    cstp_threshold = DecimalParameter(
-        -0.05, 0, default=sell_params['cstp_threshold'], space='sell'
-    )
+    cstp_threshold = DecimalParameter(-0.05, 0, default=sell_params['cstp_threshold'], space='sell')
     cstp_bail_how = CategoricalParameter(
         ['roc', 'time', 'any'],
         default=sell_params['cstp_bail_how'],
@@ -223,9 +222,7 @@ class MacheteV8b(IStrategy):
     cstp_bail_roc = DecimalParameter(
         -0.05, -0.01, default=sell_params['cstp_bail_roc'], space='sell'
     )
-    cstp_bail_time = IntParameter(
-        720, 1440, default=sell_params['cstp_bail_time'], space='sell'
-    )
+    cstp_bail_time = IntParameter(720, 1440, default=sell_params['cstp_bail_time'], space='sell')
     cstp_trailing_only_offset_is_reached = DecimalParameter(
         0.01,
         0.06,
@@ -324,9 +321,7 @@ class MacheteV8b(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
-        self.custom_trade_info[metadata['pair']] = self.populate_trades(
-            metadata['pair']
-        )
+        self.custom_trade_info[metadata['pair']] = self.populate_trades(metadata['pair'])
 
         if not self.dp:
             return dataframe
@@ -336,9 +331,7 @@ class MacheteV8b(IStrategy):
         informative_tmp = self.dp.get_pair_dataframe(
             pair=metadata['pair'], timeframe=self.informative_timeframe
         )
-        informative = self.get_market_condition_indicators(
-            informative_tmp.copy(), metadata
-        )
+        informative = self.get_market_condition_indicators(informative_tmp.copy(), metadata)
         informative = self.get_custom_stoploss_indicators(informative, metadata)
         dataframe = merge_informative_pair(
             dataframe,
@@ -349,9 +342,7 @@ class MacheteV8b(IStrategy):
         )
 
         dataframe.rename(
-            columns=lambda s: s.replace(
-                "_{}".format(self.informative_timeframe), "_inf"
-            ),
+            columns=lambda s: s.replace("_{}".format(self.informative_timeframe), "_inf"),
             inplace=True,
         )
 
@@ -393,9 +384,7 @@ class MacheteV8b(IStrategy):
 
         return dataframe
 
-    def get_buy_signal_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def get_buy_signal_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
         # get_buy_signal_awesome_macd
         dataframe['adx'] = ta.ADX(dataframe, timeperiod=14)
@@ -443,15 +432,9 @@ class MacheteV8b(IStrategy):
         dataframe['rsi_7'] = ta.RSI(dataframe, timeperiod=7)
         dataframe['roc_6'] = ta.ROC(dataframe, timeperiod=6)
         dataframe['primed'] = np.where(dataframe['color'].rolling(3).sum() == 3, 1, 0)
-        dataframe['in-the-mood'] = (
-            dataframe['rsi_7'] > dataframe['rsi_7'].rolling(12).mean()
-        )
-        dataframe['moist'] = qtpylib.crossed_above(
-            dataframe['macd'], dataframe['macdsignal']
-        )
-        dataframe['throbbing'] = (
-            dataframe['roc_6'] > dataframe['roc_6'].rolling(12).mean()
-        )
+        dataframe['in-the-mood'] = dataframe['rsi_7'] > dataframe['rsi_7'].rolling(12).mean()
+        dataframe['moist'] = qtpylib.crossed_above(dataframe['macd'], dataframe['macdsignal'])
+        dataframe['throbbing'] = dataframe['roc_6'] > dataframe['roc_6'].rolling(12).mean()
         dataframe['ready-to-go'] = np.where(
             dataframe['close'] > dataframe['open'].rolling(12).mean(), 1, 0
         )
@@ -536,9 +519,7 @@ class MacheteV8b(IStrategy):
 
         return dataframe
 
-    def get_market_condition_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def get_market_condition_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
         displacement = 30
         ichimoku = ftt.ichimoku(
@@ -597,9 +578,7 @@ class MacheteV8b(IStrategy):
 
         return dataframe
 
-    def get_custom_stoploss_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def get_custom_stoploss_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
         bollinger_neutral = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=1
@@ -619,18 +598,10 @@ class MacheteV8b(IStrategy):
         ssldown, sslup = SSLChannels_ATR(dataframe, length=21)
         dataframe['sroc'] = SROC(dataframe, roclen=21, emalen=13, smooth=21)
         dataframe['ssl-dir'] = np.where(sslup > ssldown, 'up', 'down')
-        dataframe['rmi-up'] = np.where(
-            dataframe['rmi'] >= dataframe['rmi'].shift(), 1, 0
-        )
-        dataframe['rmi-up-trend'] = np.where(
-            dataframe['rmi-up'].rolling(5).sum() >= 3, 1, 0
-        )
-        dataframe['candle-up'] = np.where(
-            dataframe['close'] >= dataframe['close'].shift(), 1, 0
-        )
-        dataframe['candle-up-trend'] = np.where(
-            dataframe['candle-up'].rolling(5).sum() >= 3, 1, 0
-        )
+        dataframe['rmi-up'] = np.where(dataframe['rmi'] >= dataframe['rmi'].shift(), 1, 0)
+        dataframe['rmi-up-trend'] = np.where(dataframe['rmi-up'].rolling(5).sum() >= 3, 1, 0)
+        dataframe['candle-up'] = np.where(dataframe['close'] >= dataframe['close'].shift(), 1, 0)
+        dataframe['candle-up-trend'] = np.where(dataframe['candle-up'].rolling(5).sum() >= 3, 1, 0)
 
         return dataframe
 
@@ -791,9 +762,7 @@ class MacheteV8b(IStrategy):
             (self.buy_should_use_get_buy_signal_simple.value == True)
             & (dataframe['macd'] > 0)  # over 0
             & (dataframe['macd'] > dataframe['macdsignal'])  # over signal
-            & (
-                dataframe['bb_upperband'] > dataframe['bb_upperband'].shift(1)
-            )  # pointed up
+            & (dataframe['bb_upperband'] > dataframe['bb_upperband'].shift(1))  # pointed up
             & (dataframe['rsi_7'] > 70)  # optional filter, need to investigate
         )
         return signal
@@ -808,21 +777,17 @@ class MacheteV8b(IStrategy):
         return signal
 
     def get_buy_signal_technical_example_strategy(self, dataframe: DataFrame):
-        signal = (
-            self.buy_should_use_get_buy_signal_technical_example_strategy.value == True
-        ) & (dataframe['cmf'] < 0)
+        signal = (self.buy_should_use_get_buy_signal_technical_example_strategy.value == True) & (
+            dataframe['cmf'] < 0
+        )
         return signal
 
     def get_buy_signal_tema_rsi_strategy(self, dataframe: DataFrame):
         signal = (
             (self.buy_should_use_get_buy_signal_tema_rsi_strategy.value == True)
             & (qtpylib.crossed_above(dataframe['rsi'], 30))
-            & (  # Signal: RSI crosses above 30
-                dataframe['tema'] <= dataframe['bb_middleband']
-            )
-            & (  # Guard: tema below BB middle
-                dataframe['tema'] > dataframe['tema'].shift(1)
-            )
+            & (dataframe['tema'] <= dataframe['bb_middleband'])  # Signal: RSI crosses above 30
+            & (dataframe['tema'] > dataframe['tema'].shift(1))  # Guard: tema below BB middle
         )
         return signal
 
@@ -834,16 +799,8 @@ class MacheteV8b(IStrategy):
         dataframe.loc[
             (qtpylib.crossed_above(dataframe['sslDown_inf'], dataframe['sslUp_inf']))
             & (
-                (
-                    qtpylib.crossed_below(
-                        dataframe['tenkan_sen_inf'], dataframe['kijun_sen_inf']
-                    )
-                )
-                | (
-                    qtpylib.crossed_below(
-                        dataframe['close_inf'], dataframe['kijun_sen_inf']
-                    )
-                )
+                (qtpylib.crossed_below(dataframe['tenkan_sen_inf'], dataframe['kijun_sen_inf']))
+                | (qtpylib.crossed_below(dataframe['close_inf'], dataframe['kijun_sen_inf']))
             )  # &
             # NOTE: I keep the volume checks of feels like it has not much benifit when trading leverage tokens, maybe im wrong!?
             # (dataframe['vfi'] < 0.0) &
@@ -867,9 +824,7 @@ class MacheteV8b(IStrategy):
         current_profit: float,
         **kwargs,
     ) -> float:
-        trade_dur = int(
-            (current_time.timestamp() - trade.open_date_utc.timestamp()) // 60
-        )
+        trade_dur = int((current_time.timestamp() - trade.open_date_utc.timestamp()) // 60)
 
         if self.config['runmode'].value in ('live', 'dry_run'):
             dataframe, last_updated = self.dp.get_analyzed_dataframe(
@@ -879,12 +834,10 @@ class MacheteV8b(IStrategy):
             bb_trailing = dataframe[self.cstp_bb_trailing_input.value].iat[-1]
         # If in backtest or hyperopt, get the indicator values out of the trades dict (Thanks @JoeSchr!)
         else:
-            sroc = self.custom_trade_info[trade.pair]['sroc_inf'].loc[current_time][
-                'sroc_inf'
-            ]
-            bb_trailing = self.custom_trade_info[trade.pair][
-                self.cstp_bb_trailing_input.value
-            ].loc[current_time][self.cstp_bb_trailing_input.value]
+            sroc = self.custom_trade_info[trade.pair]['sroc_inf'].loc[current_time]['sroc_inf']
+            bb_trailing = self.custom_trade_info[trade.pair][self.cstp_bb_trailing_input.value].loc[
+                current_time
+            ][self.cstp_bb_trailing_input.value]
 
         if current_profit < self.cstp_threshold.value:
             if self.cstp_bail_how.value == 'roc' or self.cstp_bail_how.value == 'any':
@@ -934,34 +887,25 @@ class MacheteV8b(IStrategy):
                 rmi_trend = self.custom_trade_info[trade.pair]['rmi-up-trend_inf'].loc[
                     current_time
                 ]['rmi-up-trend_inf']
-                candle_trend = self.custom_trade_info[trade.pair][
-                    'candle-up-trend_inf'
-                ].loc[current_time]['candle-up-trend_inf']
-                ssl_dir = self.custom_trade_info[trade.pair]['ssl-dir_inf'].loc[
+                candle_trend = self.custom_trade_info[trade.pair]['candle-up-trend_inf'].loc[
                     current_time
-                ]['ssl-dir_inf']
+                ]['candle-up-trend_inf']
+                ssl_dir = self.custom_trade_info[trade.pair]['ssl-dir_inf'].loc[current_time][
+                    'ssl-dir_inf'
+                ]
 
             min_roi = table_roi
             max_profit = trade.calc_profit_ratio(trade.max_rate)
             pullback_value = max_profit - self.droi_pullback_amount.value
             in_trend = False
 
-            if (
-                self.droi_trend_type.value == 'rmi'
-                or self.droi_trend_type.value == 'any'
-            ):
+            if self.droi_trend_type.value == 'rmi' or self.droi_trend_type.value == 'any':
                 if rmi_trend == 1:
                     in_trend = True
-            if (
-                self.droi_trend_type.value == 'ssl'
-                or self.droi_trend_type.value == 'any'
-            ):
+            if self.droi_trend_type.value == 'ssl' or self.droi_trend_type.value == 'any':
                 if ssl_dir == 'up':
                     in_trend = True
-            if (
-                self.droi_trend_type.value == 'candle'
-                or self.droi_trend_type.value == 'any'
-            ):
+            if self.droi_trend_type.value == 'candle' or self.droi_trend_type.value == 'any':
                 if candle_trend == 1:
                     in_trend = True
 
@@ -969,9 +913,7 @@ class MacheteV8b(IStrategy):
             if in_trend == True:
                 min_roi = 100
                 # If pullback is enabled, allow to sell if a pullback from peak has happened regardless of trend
-                if self.droi_pullback.value == True and (
-                    current_profit < pullback_value
-                ):
+                if self.droi_pullback.value == True and (current_profit < pullback_value):
                     if self.droi_pullback_respect_table.value == True:
                         min_roi = table_roi
                     else:
@@ -983,17 +925,11 @@ class MacheteV8b(IStrategy):
         return trade_dur, min_roi
 
     # Change here to allow loading of the dynamic_roi settings
-    def min_roi_reached(
-        self, trade: Trade, current_profit: float, current_time: datetime
-    ) -> bool:
-        trade_dur = int(
-            (current_time.timestamp() - trade.open_date_utc.timestamp()) // 60
-        )
+    def min_roi_reached(self, trade: Trade, current_profit: float, current_time: datetime) -> bool:
+        trade_dur = int((current_time.timestamp() - trade.open_date_utc.timestamp()) // 60)
 
         if self.use_dynamic_roi:
-            _, roi = self.min_roi_reached_dynamic(
-                trade, current_profit, current_time, trade_dur
-            )
+            _, roi = self.min_roi_reached_dynamic(trade, current_profit, current_time, trade_dur)
         else:
             _, roi = self.min_roi_reached_entry(trade_dur)
         if roi is None:
@@ -1053,6 +989,11 @@ class MacheteV8b(IStrategy):
         return trade_data
 
 
+class MacheteV8bRest(MacheteV8b, BaseRestStrategy):
+    rest_strategy_name = "MacheteV8b"
+    backtest_days = 7
+
+
 #
 # Custom indicators
 #
@@ -1072,9 +1013,7 @@ def RMI(dataframe, *, length=20, mom=5):
     df["emaInc"] = ta.EMA(df, price='maxup', timeperiod=length)
     df["emaDec"] = ta.EMA(df, price='maxdown', timeperiod=length)
 
-    df['RMI'] = np.where(
-        df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"])
-    )
+    df['RMI'] = np.where(df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"]))
 
     return df["RMI"]
 

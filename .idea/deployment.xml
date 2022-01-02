@@ -19,7 +19,15 @@
             <excludedPath local="true" path="$PROJECT_DIR$/user_data/hyperopt.lock" />
             <excludedPath local="true" path="$PROJECT_DIR$/user_data/hyperopt_results" />
             <excludedPath local="true" path="$PROJECT_DIR$/user_data/data" />
+            <excludedPath local="true" path="$PROJECT_DIR$/logs" />
           </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="pi4-bot3">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
+          </mappings>
         </serverdata>
       </paths>
     </serverData>

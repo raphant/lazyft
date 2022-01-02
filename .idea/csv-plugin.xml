@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/venv/lib/python3.9/site-packages/matplotlib/mpl-data/sample_data/percent_bachelors_degrees_women_usa.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>

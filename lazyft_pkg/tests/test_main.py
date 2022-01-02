@@ -19,7 +19,7 @@ def test_refresh_pairlist():
 
 
 def test_download_data():
-    QuickTools.download_data(refresh_config, '5m', days=5, verbose=True)
+    download_data(refresh_config, '5m', days=5, verbose=True)
 
 
 def test_pairlist_loading():

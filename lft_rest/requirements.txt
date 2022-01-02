@@ -1,0 +1,9 @@
+loguru
+pandas
+rapidjson
+numpy
+pydantic
+pushbullet.py
+diskcache
+fastapi
+python-dotenv

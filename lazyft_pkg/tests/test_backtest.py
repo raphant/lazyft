@@ -1,13 +1,11 @@
-import pathlib
-
-from lazyft import backtest, paths, models
+from lazyft import backtest, models
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import BacktestParameters
 from lazyft.models import Strategy
 
 param_id = 'test'
-STRATEGY_WITH_ID = [Strategy(id='1')]
+# STRATEGY_WITH_ID = [Strategy(id=1)]
 STRATEGIES = ['TestStrategy-test', 'TestStrategy']
 config_name = 'config_test.json'
 
@@ -28,7 +26,10 @@ def get_parameters(strategies):
 
 
 def test_backtest_command_no_id():
-    commands = get_commands(STRATEGIES)
+    cp = BacktestParameters(
+        strategies=STRATEGIES, config_path=config_name, days=days, download_data=True
+    )
+    commands = create_commands(cp, verbose=True)
     runner = BacktestRunner(commands[1])
     runner.execute()
     if runner.error:

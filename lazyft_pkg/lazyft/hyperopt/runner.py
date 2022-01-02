@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 import time
 from queue import Queue
@@ -31,9 +33,13 @@ columns = [
 
 
 class HyperoptManager:
-    def __init__(
-        self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True
-    ) -> None:
+    def __init__(self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True) -> None:
+        """
+        Runs multiple instances of HyperoptRunner sequentially.
+
+        :param commands: A list of HyperoptCommand objects that will be passed to the runner.
+        :param autosave: If True, the results will be saved to the database on completion.
+        """
         self.commands = commands
         self.autosave = autosave
         self.stop_flag = False
@@ -44,12 +50,17 @@ class HyperoptManager:
         self.runners: list[HyperoptRunner] = []
         self.current_runner: Optional[HyperoptRunner] = None
         self.failed_runners: list[HyperoptRunner] = []
-        self.thread: Thread = None
+        self.thread: Optional[Thread] = None
         for c in self.commands:
             self.queue.put(HyperoptRunner(c, autosave=True))
             self.runners.append(HyperoptRunner(c))
 
     def execute(self):
+        """
+        Executes the hyperopt commands in a non-blocking way.
+
+        :return: The thread object.
+        """
         logger.info('Hyperopting in the background')
         thread = Thread(target=self._runner)
         thread.start()
@@ -57,6 +68,9 @@ class HyperoptManager:
         return thread
 
     def _runner(self):
+        """
+        Runs each HyperoptRunner found in the queue.
+        """
         self.running = True
         while not self.queue.empty() and not self.stop_flag:
             r: HyperoptRunner = self.queue.get(timeout=5)
@@ -72,6 +86,12 @@ class HyperoptManager:
         notify_pb('Hyperopt Manager', 'Finished hyperopting')
 
     def on_finished(self, runner: 'HyperoptRunner'):
+        """
+        Called when a runner finishes.
+
+        :param runner: The runner that finished.
+        :return: None
+        """
         if runner.error:
             logger.error('Failed while hyperopting {}', runner.strategy)
             logger.error(runner.output[-300:])
@@ -82,6 +102,11 @@ class HyperoptManager:
                 runner.save()
 
     def stop(self):
+        """
+        Stops the hyperopt manager and clears the queue.
+
+        :return: None
+        """
         # clear queue
         while not self.queue.empty():
             self.queue.get(block=False)
@@ -96,33 +121,28 @@ class HyperoptManager:
 
 
 class HyperoptRunner(runner.Runner):
+    lock = False
+
     def __init__(
         self,
         command: hyperopt.HyperoptCommand,
-        task_id=None,
-        celery=False,
-        loaded_from_celery=False,
         autosave=False,
         notify: bool = True,
         verbose: bool = False,
     ) -> None:
         """
-        Args:
-            command: The command to execute
-            task_id: A custom ID to give to the runner. Used as a celery task ID and saving.
-            celery: Is this ran by celery?
-            loaded_from_celery: Is this loaded with CeleryRunner.load?
-            autosave: Should the report be saved after the command completes?
-            notify: Should a notification be sent after the command completes?
-            verbose: Should debug-level logs be printed?
+        Runs a single instance of HyperoptRunner.
+
+        :param command: A HyperoptCommand object.
+        :param autosave: If True, the results will be saved to the database on completion.
+        :param notify: If True, a notification will be sent on finish.
+        :param verbose: If True, more output will be printed to the console.
         """
-        super().__init__(verbose, task_id=task_id)
+        super().__init__(verbose)
         self.command = command
         self.verbose = verbose or command.verbose
         self.notify = notify
         self.autosave = autosave
-        self.loaded_from_celery = loaded_from_celery
-        self.celery = celery
         self._report = None
         self.start_time = None
         self.epoch_text = ''
@@ -136,18 +156,17 @@ class HyperoptRunner(runner.Runner):
         return self._report
 
     def pre_execute(self):
-        if self.loaded_from_celery:
-            raise RuntimeError(
-                'This hyperopt was loaded from celery and can not be executed.'
-            )
-        if self.running:
+        """
+        Initializes the HyperoptRunner.
+        """
+        if HyperoptRunner.lock:
             raise RuntimeError('Hyperopt is already running')
         self.reset()
         # set or remove parameter file in strategy directory
         if self.command.hyperopt_id:
             ParameterTools.set_params_file(self.command.hyperopt_id)
         else:
-            ParameterTools.remove_params_file(self.strategy)
+            ParameterTools.remove_params_file(self.strategy, self.command.config.path)
         logger.debug(self.command.params)
         logger.debug('Running command: "{}"', self.command.command_string)
         logger_exec.info('Running command: "{}"', self.command.command_string)
@@ -156,31 +175,32 @@ class HyperoptRunner(runner.Runner):
             self.strategy,
             self.command.hyperopt_id or 'null',
         )
+        HyperoptRunner.lock = True
         self.start_time = time.time()
 
     def execute(self, background=False):
+        """
+        Executes the Hyperopt command.
+
+        :param background: If True, the command will be executed in the background.
+        """
         # validate run
         self.pre_execute()
 
         # Execute VIA sh
         try:
+            self.running = True
+            self.write_worker.start()
             self.process = sh.freqtrade(
                 self.command.command_string.split(" "),
                 no_color=True,
                 _out=lambda log: self.sub_process_log(log),
                 _err=lambda log: self.sub_process_log(log),
                 _cwd=str(paths.BASE_DIR),
-                _bg=True,
+                _bg=background,
                 _done=self.on_finished,
             )
-            self.running = True
             logger.info('Process ID: {}', self.process.pid)
-            self.write_worker.start()
-            if not background:
-                try:
-                    self.process.wait()
-                except KeyboardInterrupt:
-                    self.stop()
         except Exception:
             logger.error(self.output)
             raise
@@ -217,77 +237,84 @@ class HyperoptRunner(runner.Runner):
 
     def on_finished(self, _, success, _2):
         """The callback for the sh command in execute()"""
-        self.running = False
-        if not success:
-            logger.error("Finished with errors")
-            self.error = True
-            logger.error(self.output)
-            if self.notify:
-                notify_pb('Hyperopt Failed', 'Hyperopt finished with errors')
+        HyperoptRunner.lock = False
+        ParameterTools.remove_params_file(self.strategy, self.command.config.path)
+        try:
+            if not success:
+                logger.error("Finished with errors")
+                self.error = True
+                logger.error(self.output)
+                if self.notify:
+                    notify_pb('Hyperopt Failed', 'Hyperopt finished with errors')
 
-        else:
-            logger.success("Finished successfully.")
-            if self.notify and not self.manually_stopped:
-                notify_pb(
-                    'Hyperopt Finished',
-                    'Hyperopt finished successfully. Elapsed time: %sminutes '
-                    % ((time.time() - self.start_time) // 60),
-                )
-            self.write_worker.join()
-            self._report = self.generate_report()
-            logger.debug('Report generated')
-            if self.autosave:
-                logger.info('Auto-saved: {}', self.save())
+            else:
+                logger.success("Finished successfully.")
+                if self.notify and not self.manually_stopped:
+                    notify_pb(
+                        'Hyperopt Finished',
+                        'Hyperopt finished successfully. Elapsed time: %sminutes '
+                        % ((time.time() - self.start_time) // 60),
+                    )
+                try:
+                    self._report = self.generate_report()
+                except IndexError:
+                    return
+                logger.debug('Report generated')
+                if self.autosave:
+                    logger.info('Auto-saved: {}', self.save())
+        finally:
+            self.running = False
+        self.write_worker.join()
 
-    def save(self):
-        """Saves the report to lazy_params.json"""
-        if self.loaded_from_celery:
-            raise RuntimeError(
-                'This hyperopt was loaded from celery and can not be executed.'
-            )
+    def save(self, epoch=None) -> HyperoptReport:
+        """
+        Save the the hyperopt result to the database.
 
+        :param epoch: An optional epoch to save. If None, the best epoch is used.
+        :return: The saved report
+        """
+        if not self._report:
+            raise ValueError('No report available')
         with Session(engine) as session:
             report = self.report
+            if epoch:
+                report = self.report.new_report_from_epoch(epoch)
             session.add(report)
             session.commit()
             session.refresh(report)
             logger.info('Created report id: {}'.format(report.id))
             try:
-                self.log_path.rename(
-                    paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log')
-                )
+                self.log_path.rename(paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log'))
             except FileNotFoundError:
                 pass
 
         self._report = report
         return report
 
-    # @staticmethod
-    # def get_report_backtest(idx=0):
-    #     hyperopt_file = pathlib.Path(
-    #         paths.LAST_HYPEROPT_RESULTS_FILE.parent,
-    #         rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
-    #             'latest_hyperopt'
-    #         ],
-    #     ).resolve()
-    #     results = HyperoptTools.load_previous_results(hyperopt_file)
-    #     result = results[idx]
-    #
-    #     return pd.DataFrame(result['results_metrics']['results_per_pair'])
-    @property
-    def current_epoch(self):
-        findall = regex.CURRENT_EPOCH.findall(self.epoch_text)
-        if not findall:
-            return 0
-        return findall[0]
+    def get_epoch_report(self, epoch: int) -> HyperoptReport:
+        """
+        Get the report for a specific epoch.
+
+        :param epoch: The epoch to get the report for.
+        :return: The report for the epoch.
+        """
+        hyperopt_file = pathlib.Path(
+            paths.LAST_HYPEROPT_RESULTS_FILE.parent,
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())['latest_hyperopt'],
+        ).resolve()
+        report = HyperoptReport(
+            hyperopt_file_str=str(hyperopt_file),
+            epoch=epoch - 1,
+            exchange=self.command.config['exchange'],
+        )
+        return report
 
     def generate_report(self):
         """Creates a report that can saved later on."""
+
         hyperopt_file = pathlib.Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
-            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
-                'latest_hyperopt'
-            ],
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())['latest_hyperopt'],
         ).resolve()
         epoch = regex.FINAL_REGEX.findall(self.output)[0][0]
         # noinspection PyUnresolvedReferences
@@ -314,10 +341,13 @@ class HyperoptRunner(runner.Runner):
         if out or self.verbose:
             self.console.print(text, end="")
         if error:
-            self.error_list.append
+            self.error_list.append(text)
 
     @property
     def log_path(self) -> pathlib.Path:
+        """
+        Returns the path to the log file.
+        """
         return paths.HYPEROPT_LOG_PATH.joinpath(self.report_id + '.log')
 
 

@@ -30,6 +30,8 @@ from pandas import DataFrame
 from pandas_ta import ema
 import logging
 
+from lft_rest.rest_strategy import BaseRestStrategy
+
 sys.path.append(str(Path(__file__).parent))
 import custom_indicators as ci
 
@@ -98,7 +100,6 @@ class Gumbo1(IStrategy):
         dataframe['bb_lowerband_40'] = bbands['lowerband']
         dataframe['bb_middleband_40'] = bbands['middleband']
         dataframe['bb_upperband_40'] = bbands['upperband']
-        # stochastic
         # stochastic windows
         for i in self.stock_periods.range:
             dataframe[f'stoch_{i}'] = ci.stoch_sma(dataframe, window=i)
@@ -120,13 +121,18 @@ class Gumbo1(IStrategy):
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         # stoch > 80
-        conditions.append(
-            dataframe[f'stoch_{self.stock_periods.value}'] > self.stoch_high.value
-        )
+        conditions.append(dataframe[f'stoch_{self.stock_periods.value}'] > self.stoch_high.value)
         # t3 >= middleband_40
-        conditions.append(
-            dataframe[f'T3_{self.t3_periods.value}'] >= dataframe['bb_middleband_40']
-        )
+        conditions.append(dataframe[f'T3_{self.t3_periods.value}'] >= dataframe['bb_middleband_40'])
         if conditions:
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
         return dataframe
+
+
+class Gumbo1Rest(BaseRestStrategy, Gumbo1):
+    rest_strategy_name = 'Gumbo1'
+    backtest_days = 10
+    hyperopt_days = 5
+    hyperopt_epochs = 65
+    min_avg_profit = 0.01
+    request_hyperopt = True

@@ -40,23 +40,16 @@ class CbsStrategy(IStrategy):
         cbs_config = CbsConfiguration(map_file=map_file)
         self.mapper = Mapper(cbs_config)
 
-    def bot_loop_start(self, **kwargs) -> None:
-        for pair in self.dp.current_whitelist():
-            Populator.prep(self, pair, self.mapper)
-
     def informative_pairs(self) -> ListPairsWithTimeframes:
         pair_timeframe_tuples = set()
-        logger.info(
-            f'Found {len(Populator._cached_strategies)} strategies in Populator cache'
-        )
-        for s in Populator._cached_strategies.values():
+        logger.info(f'Found {len(Populator.cached_strategies)} strategies in Populator cache')
+        for s in Populator.cached_strategies.values():
             pair_timeframe_tuples.update(s.informative_pairs())
         return list(pair_timeframe_tuples)
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe = Populator.populate_indicators(
-            dataframe, metadata['pair'], self.mapper
-        )
+        Populator.prep(self, metadata['pair'], self.mapper)
+        dataframe = Populator.populate_indicators(dataframe, metadata['pair'], self.mapper)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

@@ -31,7 +31,7 @@ def patch_mapper(mocker, return_value=None):
 
 
 def test_load_strategy():
-    strategy = Populator._load_strategy(strategy_obj, parent_strategy=ft_config)
+    strategy = Populator.load_strategy(strategy_obj, parent_strategy=ft_config)
     assert isinstance(strategy, IStrategy)
     assert strategy_obj.tmp_path.exists()
     assert (strategy_obj.tmp_path / strategy_obj.strategy_file_name).exists()
@@ -90,6 +90,6 @@ def test_coin_strategy_config(mocker):
 
 def test_cache_strategy(mocker):
     patch_mapper(mocker)
-    strategy = Populator._load_strategy(strategy_obj, parent_strategy=ft_config)
+    strategy = Populator.load_strategy(strategy_obj, parent_strategy=ft_config)
     print(strategy)
-    assert strategy_obj.joined_name in Populator._cached_strategies
+    assert strategy_obj.joined_name in Populator.cached_strategies

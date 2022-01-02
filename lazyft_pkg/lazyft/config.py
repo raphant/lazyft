@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import shutil
@@ -8,7 +10,9 @@ from typing import Union, Iterable
 import rapidjson
 
 from lazyft.paths import CONFIG_DIR
-from lazyft import logger, tmp_dir
+from lazyft import logger
+
+tmp_dir = tempfile.mkdtemp()
 
 
 class Config:
@@ -63,9 +67,7 @@ class Config:
         tmp = Path(temp_path, 'config.json')
         return Config(self.save(save_as=tmp))
 
-    def update_whitelist_and_save(
-        self, whitelist: Iterable[str], append=False
-    ) -> list[str]:
+    def update_whitelist_and_save(self, whitelist: Iterable[str], append=False) -> list[str]:
         if append:
             existing = set(self['exchange']['pair_whitelist'])
             existing.update(whitelist)

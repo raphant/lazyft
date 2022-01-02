@@ -15,6 +15,8 @@ from pandas import DataFrame
 # @Rallipanos
 
 # Buy hyperspace params:
+from lft_rest.rest_strategy import BaseRestStrategy
+
 buy_params = {
     "base_nb_candles_buy": 14,
     "ewo_high": 2.327,
@@ -70,9 +72,7 @@ class Elliotv8(IStrategy):
     ewo_high = DecimalParameter(
         2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
     )
-    rsi_buy = IntParameter(
-        30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True
-    )
+    rsi_buy = IntParameter(30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True)
 
     # Trailing stop:
     trailing_stop = False
@@ -214,3 +214,7 @@ class Elliotv8(IStrategy):
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
 
         return dataframe
+
+
+class Elliotv8Rest(Elliotv8, BaseRestStrategy):
+    rest_strategy_name = 'Elliotv8'

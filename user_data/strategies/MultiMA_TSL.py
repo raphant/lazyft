@@ -37,6 +37,7 @@ from technical.indicators import zema, VIDYA
 
 # I hope you do enough testing before proceeding, either backtesting and/or dry run.
 # Any profits and losses are all your responsibility
+from lft_rest.rest_strategy import BaseRestStrategy
 
 
 class MultiMA_TSL(IStrategy):
@@ -173,18 +174,12 @@ class MultiMA_TSL(IStrategy):
     ewo_check_optimize = True
     # region Protection
     # Protection
-    ewo_low = DecimalParameter(
-        -20.0, -8.0, default=-20.0, space='buy', optimize=ewo_check_optimize
-    )
-    ewo_high = DecimalParameter(
-        2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize
-    )
+    ewo_low = DecimalParameter(-20.0, -8.0, default=-20.0, space='buy', optimize=ewo_check_optimize)
+    ewo_high = DecimalParameter(2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize)
     ewo_low2 = DecimalParameter(
         -20.0, -8.0, default=-20.0, space='buy', optimize=ewo_check_optimize
     )
-    ewo_high2 = DecimalParameter(
-        2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize
-    )
+    ewo_high2 = DecimalParameter(2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize)
     # endregion
 
     rsi_buy_optimize = True
@@ -209,9 +204,7 @@ class MultiMA_TSL(IStrategy):
         "stoploss_stop_duration": 20,  # value loaded from strategy
     }
 
-    cooldown_lookback = IntParameter(
-        2, 48, default=2, space="protection", optimize=False
-    )
+    cooldown_lookback = IntParameter(2, 48, default=2, space="protection", optimize=False)
 
     low_profit_optimize = True
     # region low_profit
@@ -310,9 +303,7 @@ class MultiMA_TSL(IStrategy):
                 if hasattr(trade, 'buy_tag') and trade.buy_tag is not None:
                     buy_tag = trade.buy_tag
                 else:
-                    trade_open_date = timeframe_to_prev_date(
-                        self.timeframe, trade.open_date_utc
-                    )
+                    trade_open_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
                     buy_signal = dataframe.loc[dataframe['date'] < trade_open_date]
                     if not buy_signal.empty:
                         buy_signal_candle = buy_signal.iloc[-1]
@@ -410,10 +401,7 @@ class MultiMA_TSL(IStrategy):
             heikinashi, MAtype=1, length=9, multiplier=27, period=10, src=3
         )
         dataframe['source'] = (
-            dataframe['high']
-            + dataframe['low']
-            + dataframe['open']
-            + dataframe['close']
+            dataframe['high'] + dataframe['low'] + dataframe['open'] + dataframe['close']
         ) / 4
         dataframe['pmax_thresh'] = ta_old.EMA(dataframe['source'], timeperiod=9)
 
@@ -429,16 +417,12 @@ class MultiMA_TSL(IStrategy):
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         dataframe['ema_offset_buy'] = (
-            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema.value))
-            * self.low_offset_ema.value
+            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema.value)) * self.low_offset_ema.value
         )
         dataframe['ema_offset_buy2'] = (
-            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema2.value))
-            * self.low_offset_ema2.value
+            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema2.value)) * self.low_offset_ema2.value
         )
-        dataframe['ema_sell'] = ta.EMA(
-            dataframe, int(self.base_nb_candles_ema_sell.value)
-        )
+        dataframe['ema_sell'] = ta.EMA(dataframe, int(self.base_nb_candles_ema_sell.value))
 
         dataframe.loc[:, 'buy_tag'] = ''
         dataframe.loc[:, 'buy_copy'] = 0
@@ -513,10 +497,7 @@ class MultiMA_TSL(IStrategy):
 
         add_check = (
             (dataframe['close'] < dataframe['Smooth_HA_L'])
-            & (
-                dataframe['close']
-                < (dataframe['ema_sell'] * self.high_offset_sell_ema.value)
-            )
+            & (dataframe['close'] < (dataframe['ema_sell'] * self.high_offset_sell_ema.value))
             & (dataframe['close'].rolling(288).max() >= (dataframe['close'] * 1.10))
             & (dataframe['Smooth_HA_O'].shift(1) < dataframe['Smooth_HA_H'].shift(1))
             & (dataframe['rsi_fast'] < self.buy_rsi_fast.value)
@@ -561,6 +542,11 @@ class MultiMA_TSL(IStrategy):
         dataframe.loc[:, 'sell'] = 0
 
         return dataframe
+
+
+class MultiMA_TSLRest(MultiMA_TSL, BaseRestStrategy):
+    rest_strategy_name = "MultiMA_TSL"
+    backtest_days = 7
 
 
 # Elliot Wave Oscillator
@@ -676,10 +662,7 @@ def HA(dataframe, smoothing=None):
     df.reset_index(inplace=True)
 
     ha_open = [(df['open'][0] + df['close'][0]) / 2]
-    [
-        ha_open.append((ha_open[i] + df['HA_Close'].values[i]) / 2)
-        for i in range(0, len(df) - 1)
-    ]
+    [ha_open.append((ha_open[i] + df['HA_Close'].values[i]) / 2) for i in range(0, len(df) - 1)]
     df['HA_Open'] = ha_open
 
     df.set_index('index', inplace=True)

@@ -29,6 +29,8 @@ import technical.indicators as ftt
 # with help from @stash86 and @Perkmeister
 
 # Buy hyperspace params:
+from lft_rest.rest_strategy import BaseRestStrategy
+
 buy_params = {
     "low_offset": 0.981,
     "base_nb_candles_buy": 8,  # value loaded from strategy
@@ -115,9 +117,7 @@ class NASOSv5(IStrategy):
         -6.0, 12.0, default=buy_params['ewo_high_2'], space='buy', optimize=True
     )
 
-    rsi_buy = IntParameter(
-        10, 80, default=buy_params['rsi_buy'], space='buy', optimize=True
-    )
+    rsi_buy = IntParameter(10, 80, default=buy_params['rsi_buy'], space='buy', optimize=True)
     rsi_fast_buy = IntParameter(
         10, 50, default=buy_params['rsi_fast_buy'], space='buy', optimize=True
     )
@@ -235,14 +235,10 @@ class NASOSv5(IStrategy):
         informative_pairs = [(pair, '15m') for pair in pairs]
         return informative_pairs
 
-    def informative_1h_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def informative_1h_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
-        informative_1h = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_1h
-        )
+        informative_1h = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.inf_1h)
         # EMA
         # informative_1h['ema_50'] = ta.EMA(informative_1h, timeperiod=50)
         # informative_1h['ema_200'] = ta.EMA(informative_1h, timeperiod=200)
@@ -256,14 +252,10 @@ class NASOSv5(IStrategy):
 
         return informative_1h
 
-    def informative_15m_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def informative_15m_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
-        informative_15m = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_15m
-        )
+        informative_15m = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.inf_15m)
         # EMA
         # informative_1h['ema_50'] = ta.EMA(informative_1h, timeperiod=50)
         # informative_1h['ema_200'] = ta.EMA(informative_1h, timeperiod=200)
@@ -440,3 +432,13 @@ class NASOSv5(IStrategy):
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
 
         return dataframe
+
+
+class NASOSv5Rest(BaseRestStrategy, NASOSv5):
+    rest_strategy_name = 'NASOSv5'
+    backtest_days = 10
+    hyperopt_days = 5
+    hyperopt_epochs = 65
+    min_avg_profit = 0.01
+    request_hyperopt = False
+    min_trades = 1

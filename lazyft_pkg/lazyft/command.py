@@ -1,26 +1,23 @@
 from typing import Union
 
+from lazyft import downloader
 from lazyft.command_parameters import (
     command_map,
     BacktestParameters,
     HyperoptParameters,
 )
-from lazyft.quicktools import QuickTools
-from lazyft import downloader
 
 
 class Command:
-    def __init__(
-        self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None
-    ):
+    def __init__(self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None):
         self.strategy = strategy
         self.hyperopt_id = id
         self.config = params.config
         self.params = params
-        self.args = ['hyperopt', f'-s {strategy}']
         self.pairs = None
+        self.args = []
         if params.download_data:
-            downloader.download_missing_historical_data(self.config, params)
+            downloader.download_missing_historical_data(strategy, self.config, params)
 
     @property
     def command_string(self):
@@ -37,13 +34,3 @@ class Command:
             arg_line = f"{command_map[key]} {value}".strip()
             args.append(arg_line)
         return ' '.join(args)
-
-    def download_data(self):
-        QuickTools.download_data(
-            config=self.params.config,
-            pairs=self.pairs,
-            interval=self.params.intervals_to_download,
-            days=self.params.days,
-            timerange=self.params.timerange,
-            secrets_config=self.params.secrets_config,
-        )

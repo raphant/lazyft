@@ -392,7 +392,7 @@ class Strategy:
             assert self.id, 'Need a strategy name or ID'
             from lazyft.strategy import StrategyTools
 
-            self.name = StrategyTools.get_name_from_id(self.id)
+            self.name = get_name_from_id(self.id)
 
     @property
     def as_pair(self):

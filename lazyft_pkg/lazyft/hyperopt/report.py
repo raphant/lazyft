@@ -5,7 +5,7 @@ import rapidjson
 from lazyft import logger, regex, paths
 from lazyft.config import Config
 from lazyft.models import HyperoptPerformance, HyperoptReport
-from lazyft.strategy import StrategyTools
+from lazyft.strategy import create_strategy_params_filepath, get_strategy_param_path
 
 
 class HyperoptReportExporter:
@@ -33,9 +33,7 @@ class HyperoptReportExporter:
         self.performance = extracted
         self.hyperopt_file = pathlib.Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
-            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
-                'latest_hyperopt'
-            ],
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())['latest_hyperopt'],
         ).resolve()
 
     def generate(self):
@@ -44,9 +42,7 @@ class HyperoptReportExporter:
             performance_string=rapidjson.dumps(
                 self.performance.dict(), datetime_mode=rapidjson.DM_ISO8601
             ),
-            param_data_str=StrategyTools.create_strategy_params_filepath(
-                self.strategy
-            ).read_text(),
+            param_data_str=get_strategy_param_path(self.strategy, self.config.path).read_text(),
             pairlist=','.join(self.config.whitelist),
             exchange=self.config['exchange']['name'],
             tag=self.tag,

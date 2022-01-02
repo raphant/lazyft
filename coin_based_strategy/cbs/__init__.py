@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import rapidjson
@@ -34,12 +33,10 @@ class Strategy:
         self.tmp_path.mkdir(exist_ok=True)
 
     def copy_params(self):
-        file_name = StrategyTools.create_strategy_params_filepath(
-            self.strategy_name
-        ).name
+        file_name = create_strategy_params_filepath(self.strategy_name).name
 
         # copy the params to the temporary directory as a json file
-        path = Path(self.tmp_path, f"{file_name}")
+        path = self.tmp_path / f"{file_name}"
         if not self.params:
             logger.info(f"No params for strategy {self.strategy_name}")
             # delete the file if it exists
@@ -52,10 +49,8 @@ class Strategy:
         """copy the strategy to the temporary directory"""
         strategy_path = paths.STRATEGY_DIR / self.strategy_file_name
         self.create_tmp_dir()
-        Path(self.tmp_path, f"{strategy_path.name}").write_text(
-            strategy_path.read_text()
-        )
+        Path(self.tmp_path, f"{strategy_path.name}").write_text(strategy_path.read_text())
 
     @property
     def strategy_file_name(self):
-        return StrategyTools.get_file_name(self.strategy_name)
+        return get_file_name(self.strategy_name)

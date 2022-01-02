@@ -45,7 +45,7 @@ logger.configure(
         dict(
             sink=paths.LOG_DIR.joinpath('hyperopt.log'),
             retention="5 days",
-            rotation='1 MB',
+            rotation='2.5 MB',
             format='{message}',
             filter=lambda r: filter_log_file(r, log_type='hyperopt'),
             enqueue=True,
@@ -53,7 +53,7 @@ logger.configure(
         dict(
             sink=paths.LOG_DIR.joinpath('backtest.log'),
             retention="5 days",
-            rotation='1 MB',
+            rotation='2.5 MB',
             format='{message}',
             filter=lambda r: filter_log_file(r, log_type='backtest'),
             enqueue=True,

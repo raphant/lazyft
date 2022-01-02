@@ -1,6 +1,7 @@
 """
 Designed to work with the Ensemble strategy.
 """
+from __future__ import annotations
 import rapidjson
 
 from lazyft import paths

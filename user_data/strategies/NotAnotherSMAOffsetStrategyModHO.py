@@ -1,52 +1,17 @@
 # --- Do not remove these libs ---
 
-import datetime
 from datetime import datetime, timedelta
 from functools import reduce
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 # --------------------------------
-import talib.abstract as ta_old
 from finta import TA as ta
 from freqtrade.exchange import timeframe_to_prev_date, timeframe_to_seconds
 from freqtrade.persistence import Trade
 from freqtrade.strategy import DecimalParameter, IntParameter
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
-
-# @Rallipanos
-# Buy hyperspace params:
-# buy_params = {
-#     "base_nb_candles_buy": 7,
-#     "ewo_high": 3.004,
-#     "ewo_low": -9.551,
-#     "low_offset": 0.984,
-#     "rsi_buy": 56,
-# }
-
-# # Sell hyperspace params:
-# sell_params = {
-#     "base_nb_candles_sell": 19,
-#     "high_offset": 1.0,
-#     "high_offset_2": 0.998,
-# }
-
-# # Buy hyperspace params:
-# buy_params = {
-#     "base_nb_candles_buy": 12,
-#     "ewo_high": 2.38,
-#     "ewo_low": -9.496,
-#     "low_offset": 0.986,
-#     "rsi_buy": 65,
-# }
-
-# Sell hyperspace params:
-# sell_params = {
-#     "base_nb_candles_sell": 11,
-#     "high_offset": 1.0,
-#     "high_offset_2": 0.995,
-# }
 
 # Buy hyperspace params:
 # buy_params = {
@@ -73,6 +38,38 @@ from pandas import DataFrame
 #     "rsi_buy": 65,
 # }
 # Buy hyperspace params:
+from lft_rest.rest_strategy import BaseRestStrategy
+
+# @Rallipanos
+# Buy hyperspace params:
+# buy_params = {
+#     "base_nb_candles_buy": 7,
+#     "ewo_high": 3.004,
+#     "ewo_low": -9.551,
+#     "low_offset": 0.984,
+#     "rsi_buy": 56,
+# }
+# # Sell hyperspace params:
+# sell_params = {
+#     "base_nb_candles_sell": 19,
+#     "high_offset": 1.0,
+#     "high_offset_2": 0.998,
+# }
+# # Buy hyperspace params:
+# buy_params = {
+#     "base_nb_candles_buy": 12,
+#     "ewo_high": 2.38,
+#     "ewo_low": -9.496,
+#     "low_offset": 0.986,
+#     "rsi_buy": 65,
+# }
+# Sell hyperspace params:
+# sell_params = {
+#     "base_nb_candles_sell": 11,
+#     "high_offset": 1.0,
+#     "high_offset_2": 0.995,
+# }
+
 buy_params = {
     "base_nb_candles_buy": 10,
     "ewo_high": 3.206,
@@ -139,11 +136,9 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
     ewo_high = DecimalParameter(
         2.0, 12.0, default=buy_params["ewo_high"], space="buy", optimize=True
     )
-    rsi_buy = IntParameter(
-        30, 70, default=buy_params["rsi_buy"], space="buy", optimize=True
-    )
+    rsi_buy = IntParameter(30, 70, default=buy_params["rsi_buy"], space="buy", optimize=True)
 
-    # Trailing stop:
+    # Trailing stop
     trailing_stop = True
     trailing_stop_positive = 0.0075
     trailing_stop_positive_offset = 0.03
@@ -198,9 +193,7 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
             if sell_reason in ["sell_signal"]:
                 if last_candle["block_trade_exit"]:
                     return False
-                if last_candle["di_up"] and (
-                    last_candle["adx"] > previous_candle_1["adx"]
-                ):
+                if last_candle["di_up"] and (last_candle["adx"] > previous_candle_1["adx"]):
                     return False
                 if (last_candle["hma_50"] * 1.149 > last_candle["ema_100"]) and (
                     last_candle["close"] < last_candle["ema_100"] * 0.951
@@ -244,8 +237,7 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
 
         trade_date = timeframe_to_prev_date(
             self.timeframe,
-            trade.open_date_utc
-            - timedelta(seconds=timeframe_to_seconds(self.timeframe)),
+            trade.open_date_utc - timedelta(seconds=timeframe_to_seconds(self.timeframe)),
         )
         trade_candle = dataframe.loc[dataframe["date"] == trade_date]
         if trade_candle.empty:
@@ -310,20 +302,14 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
             (dataframe["rsi_fast"] < 35)
             & (
                 dataframe["close"]
-                < (
-                    dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
-                    * self.low_offset.value
-                )
+                < (dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"] * self.low_offset.value)
             )
             & (dataframe["EWO"] > self.ewo_high.value)
             & (dataframe["rsi"] < self.rsi_buy.value)
             & (dataframe["volume"] > 0)
             & (
                 dataframe["close"]
-                < (
-                    dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
-                    * self.high_offset.value
-                )
+                < (dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"] * self.high_offset.value)
             )
         )
 
@@ -331,19 +317,13 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
             (dataframe["rsi_fast"] < 35)
             & (
                 dataframe["close"]
-                < (
-                    dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
-                    * self.low_offset.value
-                )
+                < (dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"] * self.low_offset.value)
             )
             & (dataframe["EWO"] < self.ewo_low.value)
             & (dataframe["volume"] > 0)
             & (
                 dataframe["close"]
-                < (
-                    dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
-                    * self.high_offset.value
-                )
+                < (dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"] * self.high_offset.value)
             )
         )
 
@@ -387,3 +367,14 @@ class NotAnotherSMAOffsetStrategyModHO(IStrategy):
             dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
 
         return dataframe
+
+
+class NotAnotherSMAOffsetStrategyModHORest(BaseRestStrategy, NotAnotherSMAOffsetStrategyModHO):
+    rest_strategy_name = 'NotAnotherSMAOffsetStrategyModHO'
+    backtest_days = 7
+    hyperopt_days = 60
+    hyperopt_epochs = 65
+    min_avg_profit = 0.015
+    request_hyperopt = True
+    min_trades = 3
+    min_hyperopt_trades = 7

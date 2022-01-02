@@ -3,7 +3,14 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="3a38962d-24ed-4ec6-b711-d7f9202f55f6" name="Sage-desktop">
-        <fileTransfer rootFolder="/home/sage/ftworkdir" accessType="SFTP" host="sage-server1.local" port="22" sshConfigId="6e958538-8461-4b20-9a35-7104839fc9fd" sshConfig="sage@sage-server1.local:22 key" keyPair="true">
+        <fileTransfer rootFolder="/home/sage/ftworkdir" accessType="SFTP" host="sage-server1.local" port="22" sshConfigId="b9f2c4a8-ae5e-40d3-aceb-00a2cc187850" sshConfig="sage@sage-server1.local:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="4df55987-9306-4930-a531-5ba70ef178ed" name="pi4-bot3">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot3" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

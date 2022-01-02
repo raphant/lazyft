@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class Runner(abc.ABC, metaclass=ABCMeta):
-    def __init__(self, verbose=False, task_id=''):
-        self.report_id = task_id or str(uuid.uuid4())
+    def __init__(self, verbose=False):
+        self.report_id = str(uuid.uuid4())
         self.write_worker = Thread(target=self._writer_thread)
         self.verbose = verbose
         self.console = Console(width=200)

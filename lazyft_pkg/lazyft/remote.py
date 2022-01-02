@@ -9,11 +9,13 @@ import rapidjson
 import sh
 from freqtrade.data.btanalysis import load_trades_from_db
 
-from lazyft import logger, paths, tmp_dir
+from lazyft import logger, paths
 from lazyft.config import Config
 from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy
-from lazyft.strategy import StrategyTools
+from lazyft.strategy import create_strategy_params_filepath, get_file_name
 from lazyft.util import ParameterTools
+
+tmp_dir = tempfile.mkdtemp()
 
 RUN_MODES = ["dry", "live"]
 remotes_file = paths.BASE_DIR.joinpath("remotes.json")
@@ -69,9 +71,7 @@ class RemoteBot:
         return env
 
     def print_logs(self, n_lines: int = 20):
-        project_dir = self.preset.path + RemoteTools.FORMATTABLE_BOT_STRING.format(
-            self.bot_id
-        )
+        project_dir = self.preset.path + RemoteTools.FORMATTABLE_BOT_STRING.format(self.bot_id)
         command = f"cd {project_dir} && docker-compose logs --tail {n_lines}"
         sh.ssh(
             [self.preset.address, "-p", self.preset.port, " ".join(command.split())],
@@ -198,10 +198,7 @@ class RemoteTools:
         # create the remote path to save as
         local_params = Path(tmp_dir, 'params.json')
         local_params.write_text(rapidjson.dumps(ParameterTools.get_parameters(id)))
-        remote_path = (
-            f"user_data/strategies/"
-            f"{StrategyTools.create_strategy_params_filepath(strategy).name}"
-        )
+        remote_path = f"user_data/strategies/" f"{create_strategy_params_filepath(strategy).name}"
         # send the local params to the remote path
         self.send_file(bot_id, local_params, remote_path)
 
@@ -226,11 +223,9 @@ class RemoteTools:
         strategy_name: str,
         strategy_id: str = "",
     ):
-        strategy_file_name = StrategyTools.get_file_name(strategy=strategy_name)
+        strategy_file_name = get_file_name(strategy=strategy_name)
         if not strategy_file_name:
-            raise FileNotFoundError(
-                "Could not find strategy file that matches %s" % strategy_name
-            )
+            raise FileNotFoundError("Could not find strategy file that matches %s" % strategy_name)
 
         self.send_file(
             bot_id,
@@ -240,9 +235,7 @@ class RemoteTools:
         if strategy_id:
             self.update_strategy_params(bot_id, strategy_name, strategy_id)
 
-    def send_file(
-        self, bot_id: int, local_path: Union[str, os.PathLike[str]], remote_path: str
-    ):
+    def send_file(self, bot_id: int, local_path: Union[str, os.PathLike[str]], remote_path: str):
         """
 
         Args:
@@ -256,9 +249,7 @@ class RemoteTools:
         logger.debug('[send] "{}" -> bot {}', local_path, bot_id)
         self.rsync(local_path, self.format_remote_path(bot_id, remote_path))
 
-    def fetch_file(
-        self, bot_id: int, remote_path: str, local_path: Optional[Path] = None
-    ):
+    def fetch_file(self, bot_id: int, remote_path: str, local_path: Optional[Path] = None):
         """
 
         Args:
@@ -289,9 +280,7 @@ class RemoteTools:
     def format_remote_path(self, bot_id: int, path: str) -> Path:
         return Path(self.path, self.FORMATTABLE_BOT_STRING.format(bot_id), path)
 
-    def rsync(
-        self, origin: os.PathLike[str], destination: os.PathLike[str], fetch=False
-    ):
+    def rsync(self, origin: os.PathLike[str], destination: os.PathLike[str], fetch=False):
         if fetch:
             origin = f"{self.address}:{origin}"
         else:
@@ -310,7 +299,7 @@ class RemoteTools:
 
     def delete_strategy_params(self, bot_id: int, strategy: str):
         project_dir = self.path + self.FORMATTABLE_BOT_STRING.format(bot_id)
-        params_file = StrategyTools.create_strategy_params_filepath(strategy)
+        params_file = create_strategy_params_filepath(strategy)
         command = f"cd {project_dir};rm -vf user_data/strategies/{params_file.name}"
 
         sh.ssh(

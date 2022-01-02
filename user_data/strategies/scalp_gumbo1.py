@@ -61,9 +61,7 @@ class ScalpGumbo1(IStrategy):
         super().__init__(config)
 
     @informative('30m')
-    def populate_indicators_30m(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def populate_indicators_30m(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         ohlc = cta.heiken_ashi(dataframe)
         dataframe['hma_fast'] = qta.hull_moving_average(ohlc['close'], window=9)
         dataframe['hma_slow'] = qta.hull_moving_average(ohlc['close'], window=200)
@@ -88,9 +86,7 @@ class ScalpGumbo1(IStrategy):
             dataframe[f'T3_{i}'] = ci.T3(ohlc, i)
 
         # Scalp
-        dataframe['atr'] = ta.ATR(
-            ohlc['high'], ohlc['low'], ohlc['close'], timeperiod=5
-        )
+        dataframe['atr'] = ta.ATR(ohlc['high'], ohlc['low'], ohlc['close'], timeperiod=5)
         dataframe['atr_ts1'] = ohlc['close'] - (3 * dataframe['atr'])
         dataframe['atr_ts2'] = dataframe['atr_ts1'].cummax()
         dataframe = dataframe.join(cta.supertrend(ohlc, multiplier=3, period=5))
@@ -102,9 +98,7 @@ class ScalpGumbo1(IStrategy):
 
         conditions.append((dataframe['supertrend_crossed_up']))
         conditions.append(dataframe['close'] > dataframe['atr_ts1'])
-        conditions.append(
-            dataframe['color'].str.contains('turquoise|dark_green|pale_green')
-        )
+        conditions.append(dataframe['color'].str.contains('turquoise|dark_green|pale_green'))
         conditions.append(dataframe['volume'].gt(0))
 
         if conditions:

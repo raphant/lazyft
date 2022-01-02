@@ -24,6 +24,8 @@ import technical.indicators as ftt
 # @Rallipanos # changes by IcHiAT
 
 # Buy hyperspace params:
+from lft_rest.rest_strategy import BaseRestStrategy
+
 buy_params = {
     "base_nb_candles_buy": 12,
     "ewo_high": 3.147,
@@ -129,9 +131,7 @@ class ElliotV8_original_ichiv2(IStrategy):
     ewo_high = DecimalParameter(
         2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
     )
-    rsi_buy = IntParameter(
-        30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True
-    )
+    rsi_buy = IntParameter(30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True)
 
     # Trailing stop:
     trailing_stop = True
@@ -273,3 +273,13 @@ class ElliotV8_original_ichiv2(IStrategy):
             dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
 
         return dataframe
+
+
+class ElliotV8_original_ichiv2Rest(BaseRestStrategy, ElliotV8_original_ichiv2):
+    rest_strategy_name = 'ElliotV8_original_ichiv2'
+    backtest_days = 10
+    hyperopt_days = 5
+    hyperopt_epochs = 65
+    min_avg_profit = 0.01
+    request_hyperopt = False
+    min_trades = 1

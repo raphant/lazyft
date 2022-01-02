@@ -1,6 +1,9 @@
+from __future__ import annotations
+
+import tempfile
 from abc import abstractmethod
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Union
@@ -15,7 +18,7 @@ from pandas import json_normalize
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Session, Field, Relationship
 
-from lazyft import logger, paths, tmp_dir
+from lazyft import logger, paths, util
 from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
@@ -23,10 +26,11 @@ from lazyft.loss_functions import (
     sharpe_hyperopt_loss,
     sortino_hyperopt_loss,
 )
-from lazyft.strategy import StrategyTools
-from lazyft.util import hhmmss_to_seconds
+from lazyft.strategy import get_file_name, get_name_from_id
+from lazyft.util import get_last_hyperopt_file_path
 
-cache = Index(str(tmp_dir))
+cache = Index(str(paths.BASE_DIR / "cache"))
+tmp_cache = Index(tempfile.gettempdir())
 
 
 class PerformanceBase(BaseModel):
@@ -113,7 +117,7 @@ class BacktestPerformance(PerformanceBase):
 
     @property
     def profit_ratio(self) -> float:
-        return self.profit_mean_pct
+        return self.profit_mean_pct / 100
 
     @property
     def profit(self):
@@ -184,6 +188,200 @@ class BacktestData(SQLModel, table=True):
         return rapidjson.loads(self.text)['strategy']
 
 
+class HyperoptReport(ReportBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    epoch: int
+    hyperopt_file_str: str = Field(default='')
+
+    # region properties
+    @property
+    def filtered_results(self):
+        config = {'user_data_dir': paths.USER_DATA_DIR}
+        return HyperoptTools.load_filtered_results(self.hyperopt_file, config)
+
+    @property
+    def result_dict(self) -> dict:
+        """
+        Returns a dictionary with the results of the hyperopt run
+        Will cache the result for future use. If the report is not saved to the database,
+        the report will be temporarily cached.
+        """
+        _cache = cache if self.id else tmp_cache
+        if (self.hyperopt_file_str, self.epoch) in _cache:
+            return _cache[self.hyperopt_file_str, self.epoch]
+        logger.info('Loading and caching hyperopt results for id {}...', self.id)
+        try:
+            data = self.all_epochs[self.epoch]
+        except IndexError:
+            logger.error('Epoch {} not found in hyperopt results for {}', self.epoch, self.id)
+            logger.info('Available epochs: {}', self.total_epochs)
+            raise
+        _cache[self.hyperopt_file_str, self.epoch] = data
+        return data
+
+    @property
+    def all_epochs(self) -> list[dict]:
+        return self.filtered_results[0]
+
+    @property
+    def total_epochs(self):
+        return self.filtered_results[1]
+
+    @property
+    def backtest_data(self):
+        return self.result_dict['results_metrics']
+
+    @property
+    def strategy(self):
+        return self.backtest_data['strategy_name']
+
+    @property
+    def hyperopt_file(self) -> Path:
+        return Path(self.hyperopt_file_str)
+
+    @property
+    def performance(self) -> HyperoptPerformance:
+        return HyperoptPerformance(
+            wins=self.backtest_data['wins'],
+            losses=self.backtest_data['losses'],
+            draws=self.backtest_data['draws'],
+            avg_profits=self.backtest_data['profit_mean'],
+            med_profit=self.backtest_data['profit_median'],
+            profit_percent=self.backtest_data['profit_total'],
+            tot_profit=self.backtest_data['profit_total_abs'],
+            avg_duration=self.backtest_data['holding_avg'],
+            start_date=self.backtest_data['backtest_start'],
+            end_date=self.backtest_data['backtest_end'],
+            seed=-1,
+            trades=self.backtest_data['total_trades'],
+            loss=self.loss,
+        )
+
+    @property
+    def stake_currency(self):
+        return self.backtest_data['stake_currency']
+
+    @property
+    def stake_amount(self):
+        return self.backtest_data['stake_amount']
+
+    @property
+    def starting_balance(self):
+        return self.backtest_data['starting_balance']
+
+    @property
+    def max_open_trades(self):
+        return self.backtest_data['max_open_trades']
+
+    @property
+    def timeframe(self):
+        return self.backtest_data['timeframe']
+
+    @property
+    def timerange(self):
+        return self.backtest_data['timerange']
+
+    @property
+    def pairlist(self):
+        return self.backtest_data['pairlist']
+
+    @property
+    def log_file(self):
+        try:
+            return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
+        except FileNotFoundError:
+            logger.warning('Log file not found for {}', self.id)
+
+    @property
+    def loss(self):
+        return self.result_dict['loss']
+
+    @property
+    def parameters(self) -> dict:
+        final_params = deepcopy(self.result_dict['params_not_optimized'])
+        final_params = deep_merge_dicts(self.result_dict['params_details'], final_params)
+        date = self.date.strftime('%x %X')
+        final_params = {
+            'strategy_name': self.strategy,
+            'params': final_params,
+            'ft_stratparam_v': 1,
+            'export_time': date,
+        }
+        return final_params
+
+    @property
+    def parameters_path(self) -> Path:
+        file_name = get_file_name(self.strategy)
+        return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
+
+    # endregion
+
+    def export_parameters(self):
+        self.parameters_path.write_text(rapidjson.dumps(self.parameters))
+        logger.info('Exported parameters for {} to {}', self.id, self.parameters_path)
+
+    def delete(self, _):
+        # self.hyperopt_file.unlink(missing_ok=True)
+        self.log_file.unlink(missing_ok=True)
+
+    def hyperopt_list_to_df(self) -> pd.DataFrame:
+        trials = json_normalize(self.all_epochs, max_level=1)
+        trials = HyperoptTools.prepare_trials_columns(
+            trials,
+            'results_metrics.total_trades' not in trials,
+            'results_metrics.max_drawdown_abs' in trials.columns,
+        )
+        trials.drop(
+            columns=['is_initial_point', 'is_best', 'Best'],
+            inplace=True,
+            errors='ignore',
+        )
+        trials.set_index('Epoch', inplace=True)
+        # "Avg duration" is a column with values the format of HH:MM:SS.
+        # We want to turn this into hours
+        avg_duration_hours = trials['Avg duration'].apply(
+            lambda s: util.duration_string_to_timedelta(s).total_seconds() / 3600,
+        )
+        # insert avg_duration_seconds in the seventh position
+        trials.insert(6, 'Avg duration hours', avg_duration_hours)
+        return trials
+
+    def show_hyperopt(self, epoch: int = None):
+        if epoch:
+            result = self.all_epochs[epoch - 1]
+        else:
+            result = self.result_dict
+        optimize_reports.show_backtest_result(
+            self.strategy,
+            result['results_metrics'],
+            self.stake_currency,
+            [],
+        )
+        HyperoptTools.show_epoch_details(
+            result,
+            self.total_epochs,
+            False,
+            True,
+        )
+
+    def new_report_from_epoch(self, epoch: int):
+        return HyperoptReport(
+            epoch=epoch - 1,
+            hyperopt_file_str=str(self.hyperopt_file),
+            exchange=self.exchange,
+            tag=self.tag,
+        )
+
+    @classmethod
+    def from_last_result(cls, epoch=0, exchange='kucoin'):
+        """
+        Return a HyperoptReport object from the last result of a hyperopt run.
+        """
+        return HyperoptReport(
+            epoch=epoch, hyperopt_file_str=str(get_last_hyperopt_file_path()), exchange=exchange
+        )
+
+
 class BacktestReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     hash: str
@@ -210,7 +408,6 @@ class BacktestReport(ReportBase, table=True):
         return self.backtest_data['exchange']
 
     @property
-    @cache.memoize()
     def load_data(self):
         with Session(engine) as session:
             return rapidjson.loads(session.get(BacktestData, self.data_id).text)
@@ -386,185 +583,6 @@ class BacktestReport(ReportBase, table=True):
         self.log_file.unlink()
 
 
-class HyperoptReport(ReportBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    epoch: int
-    hyperopt_file_str: str = Field(default='')
-
-    # region properties
-    @property
-    def filtered_results(self):
-        config = {'user_data_dir': paths.USER_DATA_DIR}
-        return HyperoptTools.load_filtered_results(self.hyperopt_file, config)
-
-    @property
-    @cache.memoize()
-    def result_dict(self):
-        logger.info('Loading hyperopt results for id {} for the first time', self.id)
-        try:
-            return self.all_epochs[self.epoch]
-        except IndexError:
-            logger.error(
-                'Epoch {} not found in hyperopt results for {}', self.epoch, self.id
-            )
-            logger.info('Available epochs: {}', self.total_epochs)
-            raise
-
-    @property
-    def all_epochs(self) -> list[dict]:
-        return self.filtered_results[0]
-
-    @property
-    def total_epochs(self):
-        return self.filtered_results[1]
-
-    @property
-    def backtest_data(self):
-        return self.result_dict['results_metrics']
-
-    @property
-    def strategy(self):
-        return self.backtest_data['strategy_name']
-
-    @property
-    def hyperopt_file(self) -> Path:
-        return Path(self.hyperopt_file_str)
-
-    @property
-    def performance(self) -> HyperoptPerformance:
-        return HyperoptPerformance(
-            wins=self.backtest_data['wins'],
-            losses=self.backtest_data['losses'],
-            draws=self.backtest_data['draws'],
-            avg_profits=self.backtest_data['profit_mean'],
-            med_profit=self.backtest_data['profit_median'],
-            profit_percent=self.backtest_data['profit_total'],
-            tot_profit=self.backtest_data['profit_total_abs'],
-            avg_duration=self.backtest_data['holding_avg'],
-            start_date=self.backtest_data['backtest_start'],
-            end_date=self.backtest_data['backtest_end'],
-            seed=-1,
-            trades=self.backtest_data['total_trades'],
-            loss=self.loss,
-        )
-
-    @property
-    def stake_currency(self):
-        return self.backtest_data['stake_currency']
-
-    @property
-    def stake_amount(self):
-        return self.backtest_data['stake_amount']
-
-    @property
-    def starting_balance(self):
-        return self.backtest_data['starting_balance']
-
-    @property
-    def max_open_trades(self):
-        return self.backtest_data['max_open_trades']
-
-    @property
-    def timeframe(self):
-        return self.backtest_data['timeframe']
-
-    @property
-    def timerange(self):
-        return self.backtest_data['timerange']
-
-    @property
-    def pairlist(self):
-        return self.backtest_data['pairlist']
-
-    @property
-    def log_file(self):
-        try:
-            return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
-        except FileNotFoundError:
-            logger.warning('Log file not found for {}', self.id)
-
-    @property
-    def loss(self):
-        return self.result_dict['loss']
-
-    @property
-    def parameters(self) -> dict:
-        final_params = deepcopy(self.result_dict['params_not_optimized'])
-        final_params = deep_merge_dicts(
-            self.result_dict['params_details'], final_params
-        )
-        # datetime to str
-        date = self.date.strftime('%x %X')
-        final_params = {
-            'strategy_name': self.strategy,
-            'params': final_params,
-            'ft_stratparam_v': 1,
-            'export_time': date,
-        }
-        return final_params
-
-    @property
-    def parameters_path(self) -> Path:
-        file_name = StrategyTools.get_file_name(self.strategy)
-        return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
-
-    # endregion
-
-    def export_parameters(self):
-        self.parameters_path.write_text(rapidjson.dumps(self.parameters))
-        logger.info('Exported parameters for {} to {}', self.id, self.parameters_path)
-
-    def delete(self, _):
-        # self.hyperopt_file.unlink(missing_ok=True)
-        self.log_file.unlink(missing_ok=True)
-
-    def hyperopt_list(self):
-        trials = json_normalize(self.all_epochs, max_level=1)
-        trials = HyperoptTools.prepare_trials_columns(
-            trials,
-            'results_metrics.total_trades' not in trials,
-            'results_metrics.max_drawdown_abs' in trials.columns,
-        )
-        trials.drop(
-            columns=['is_initial_point', 'is_best', 'Best'],
-            inplace=True,
-            errors='ignore',
-        )
-        trials.set_index('Epoch', inplace=True)
-        # "Avg duration" is a column with values the format of HH:MM:SS.
-        # We want to turn this into seconds
-        avg_duration_seconds = trials['Avg duration'].apply(hhmmss_to_seconds)
-        # insert avg_duration_seconds in the seventh position
-        trials.insert(6, 'Avg duration seconds', avg_duration_seconds)
-        return trials
-
-    def show_hyperopt(self, epoch: int = None):
-        if epoch:
-            result = self.all_epochs[epoch - 1]
-        else:
-            result = self.result_dict
-        optimize_reports.show_backtest_result(
-            self.strategy,
-            result['results_metrics'],
-            self.stake_currency,
-            [],
-        )
-        HyperoptTools.show_epoch_details(
-            result,
-            self.total_epochs,
-            False,
-            True,
-        )
-
-    def new_report_from_epoch(self, epoch: int):
-        return HyperoptReport(
-            epoch=epoch - 1,
-            hyperopt_file_str=str(self.hyperopt_file),
-            exchange=self.exchange,
-            tag=self.tag,
-        )
-
-
 class BacktestRepo(BaseModel):
     reports: list[BacktestReport] = []
 
@@ -609,9 +627,8 @@ class Strategy:
     def __post_init__(self):
         if not self.name:
             assert self.id, 'Need a strategy name or ID'
-            from lazyft.strategy import StrategyTools
 
-            self.name = StrategyTools.get_name_from_id(self.id)
+            self.name = get_name_from_id(self.id)
 
     @property
     def as_pair(self):

@@ -1,14 +1,13 @@
-from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from __future__ import annotations
 
-import dateutil.parser
-import sh
+from datetime import datetime, timedelta
+from typing import Tuple
+
 from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
 
 from lazyft import logger
 from lazyft.config import Config
-from lazyft.paths import USER_DATA_DIR
 
 STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
 blacklist = [
@@ -37,17 +36,11 @@ class QuickTools:
         start_day = datetime.now() - timedelta(days=days)
         hyperopt_days = round(days - days / 3)
         backtest_days = round(days / 3) - 1
-        hyperopt_start, hyperopt_end = start_day, start_day + timedelta(
-            days=hyperopt_days
-        )
+        hyperopt_start, hyperopt_end = start_day, start_day + timedelta(days=hyperopt_days)
         backtest_start, backtest_end = (today - timedelta(days=backtest_days), today)
 
-        hyperopt_range = (
-            f'{hyperopt_start.strftime("%Y%m%d")}-{hyperopt_end.strftime("%Y%m%d")}'
-        )
-        backtest_range = (
-            f'{backtest_start.strftime("%Y%m%d")}-{backtest_end.strftime("%Y%m%d")}'
-        )
+        hyperopt_range = f'{hyperopt_start.strftime("%Y%m%d")}-{hyperopt_end.strftime("%Y%m%d")}'
+        backtest_range = f'{backtest_start.strftime("%Y%m%d")}-{backtest_end.strftime("%Y%m%d")}'
         return hyperopt_range, backtest_range
 
     # @staticmethod
@@ -93,9 +86,7 @@ class QuickTools:
         )
         logger.info('Refreshing pairlist...')
         filter_kwargs.update(kwargs)
-        QuickTools.set_pairlist_settings(
-            config_copy, n_coins, age_limit, **filter_kwargs
-        )
+        set_pairlist_settings(config_copy, n_coins, age_limit, **filter_kwargs)
         exchange = Exchange(config_copy.data)
         manager = PairListManager(exchange, config_copy.data)
         try:
@@ -106,95 +97,54 @@ class QuickTools:
         logger.info('Finished refreshing pairlist ({})', len(manager.whitelist))
         return manager.whitelist
 
-    @staticmethod
-    def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
-        """
 
-        Args:
-            config: A config file object
-            n_coins: The number of coins to get
-            age_limit: Filter the coins based on an age limit
+def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
+    """
 
-        Returns: None
+    Args:
+        config: A config file object
+        n_coins: The number of coins to get
+        age_limit: Filter the coins based on an age limit
 
-        """
-        config['exchange']['pair_whitelist'] = []
-        config['pairlists'][0] = {
-            "method": "VolumePairList",
-            "number_assets": n_coins,
-            "sort_key": "quoteVolume",
-            "refresh_period": 1800,
-        }
-        if filter_kwargs['AgeFilter']:
-            config['pairlists'].append
-        if filter_kwargs['PriceFilter']:
-            config['pairlists'].append
-        if filter_kwargs['SpreadFilter']:
-            config['pairlists'].append
-        if filter_kwargs['RangeStabilityFilter']:
-            config['pairlists'].append
-        if filter_kwargs['VolatilityFilter']:
-            config['pairlists'].append
+    Returns: None
 
-        # set blacklist
-        if config['stake_currency'] in STABLE_COINS:
-            config['exchange']['pair_blacklist'] = blacklist
-
-    @staticmethod
-    def download_data(
-        config: Config,
-        interval: str,
-        days=None,
-        pairs: list[str] = None,
-        timerange: Optional[str] = None,
-        verbose=False,
-        secrets_config=None,
-    ):
-        """
-        Args:
-            config: A config file object
-            pairs: A list of pairs
-            interval: The ticker interval. Default: 5m
-            days: How many days worth of data to download
-            timerange: Optional timerange parameter
-            verbose: Default: False
-
-        Returns: None
-        """
-        log = logger.debug
-        if verbose:
-            log = logger.info
-
-        assert days or timerange
-        if not pairs:
-            pairs = config.whitelist
-        if timerange:
-            start, finish = timerange.split('-')
-            start_dt = dateutil.parser.parse(start)
-            days_between = (datetime.now() - start_dt).days
-            days = days_between
-        pairs.append('BTC/USDT')
-        logger.info(
-            'Downloading {} days worth of market data for {} coins @ {} ticker-interval',
-            days,
-            len(config.whitelist),
-            interval,
+    """
+    config['exchange']['pair_whitelist'] = []
+    config['pairlists'][0] = {
+        "method": "VolumePairList",
+        "number_assets": n_coins,
+        "sort_key": "quoteVolume",
+        "refresh_period": 1800,
+    }
+    if filter_kwargs['AgeFilter']:
+        config['pairlists'].append({"method": "AgeFilter", "min_days_listed": age_limit})
+    if filter_kwargs['PriceFilter']:
+        config['pairlists'].append({"method": "PriceFilter", "min_price": 0.001})
+    if filter_kwargs['SpreadFilter']:
+        config['pairlists'].append({"method": "SpreadFilter", "max_spread_ratio": 0.005})
+    if filter_kwargs['RangeStabilityFilter']:
+        config['pairlists'].append(
+            {
+                "method": "RangeStabilityFilter",
+                "lookback_days": 3,
+                "min_rate_of_change": 0.1,
+                "refresh_period": 1440,
+            }
         )
-        command = 'download-data --days {} -c {} -p {} -t {} --userdir {} {}'.format(
-            days,
-            config,
-            ' '.join(pairs),
-            interval,
-            USER_DATA_DIR,
-            f'-c {secrets_config}' if secrets_config else '',
-        ).split()
-        sh.freqtrade(
-            *command,
-            _err=lambda o: log(o.strip()),
-            _out=lambda o: log(o.strip()),
+    if filter_kwargs['VolatilityFilter']:
+        config['pairlists'].append(
+            {
+                "method": "VolatilityFilter",
+                "lookback_days": 3,
+                "min_volatility": 0.02,
+                "max_volatility": 0.75,
+                "refresh_period": 86400,
+            }
         )
-        logger.info('Finished downloading data')
 
+    # set blacklist
+    if config['stake_currency'] in STABLE_COINS:
+        config['exchange']['pair_blacklist'] = blacklist
 
 
 class PairListTools:

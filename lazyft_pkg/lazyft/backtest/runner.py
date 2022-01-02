@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import pathlib
 import time
@@ -21,14 +23,22 @@ logger_exec = logger.bind(type='backtest')
 
 class BacktestMultiRunner:
     def __init__(self, commands: list[BacktestCommand]) -> None:
+        """
+        Runs a queue of BacktestRunners. A runner will be created for each command.
+
+        :param commands: list of BacktestCommand objects
+        """
         self.runners: list[BacktestRunner] = []
         for c in commands:
             self.runners.append(BacktestRunner(c))
         self.errors = []
         self.session_id = str(uuid.uuid4())
-        self.current_runner: BacktestRunner = None
+        self.current_runner: Optional[BacktestRunner] = None
 
     def execute(self):
+        """
+        Executes all runners in the queue.
+        """
         self.errors.clear()
         for r in self.runners:
             self.current_runner = r
@@ -45,61 +55,68 @@ class BacktestMultiRunner:
         if any(self.errors):
             logger.info('Completed with {} errors', len(self.errors))
 
-    def get_totals(self):
+    def get_totals(self) -> pd.DataFrame:
+        """
+        Returns a DataFrame with all of the performances.
+        """
         assert any(self.reports), "No reports found."
-        frames = [
-            {'strategy': r.strategy, **r.performance.dict()} for r in self.reports
-        ]
+        frames = [{'strategy': r.strategy, **r.performance.dict()} for r in self.reports]
         return pd.DataFrame(frames)
 
     def save(self):
+        """
+        Saves all reports to the database.
+        """
         for r in [r for r in self.runners if r.report]:
             r.report.session_id = self.session_id
             r.save()
 
     @property
-    def reports(self):
+    def reports(self) -> list[BacktestReport]:
+        """
+        Returns a list of all reports.
+        """
         return [r.report for r in self.runners if r.report]
 
-    def get_best_run(self):
-        return max([r.performance.total_profit_market for r in self.reports])
+    def get_best_run(self) -> BacktestReport:
+        """
+        Returns the best run using the score metric.
+        """
+        return max(self.reports, key=lambda r: r.performance.score)
 
 
 class BacktestRunner(Runner):
     def __init__(
-        self, command: BacktestCommand, min_win_rate=1, verbose: bool = False
+        self, command: BacktestCommand, verbose: bool = False, load_from_hash=True
     ) -> None:
+        """
+        Executes a backtest using the passed commands.
+
+        :param command: A BacktestCommand with the arguments to pass to freqtrade
+        :param verbose: If True, will print extra output of the command
+        :param load_from_hash: If True, will load the report from the database if it exists
+        """
         super().__init__(verbose)
         self.report_id = str(uuid.uuid4())
+        self.load_from_hash = load_from_hash
         self.command = command
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
-        self.min_win_rate = min_win_rate
         self.report: Optional[BacktestReport] = None
         self.exception = None
         self.start_time = None
 
     @logger.catch(reraise=True)
     def execute(self, background=False):
-        self.reset()
-        if self.command.hash in get_backtest_repo().get_hashes():
-            self.report = get_backtest_repo().get_using_hash(self.command.hash)
-            logger.info('Loaded report with same hash - {}', self.command.hash)
+        """
+        Executes the backtest using the passed command.
+
+        :param background: If True, will run in background
+        """
+        if self.hash_exists():
+            self.load_hashed()
             return
-        if self.command.id:
-            ParameterTools.set_params_file(self.command.id)
-        else:
-            ParameterTools.remove_params_file(self.strategy)
-        logger.debug('Running command: "{}"', self.command.command_string)
-        logger_exec.info('Running command: "{}"', self.command.command_string)
-        logger.debug(self.command.params)
-        logger.info(
-            'Backtesting {} with params id "{}" - {}',
-            self.strategy,
-            self.command.id or 'null',
-            self.command.hash,
-        )
-        self.start_time = time.time()
+        self.pre_execute()
         # remove interval from CLI to let strategy handle it
         new_command = copy.copy(self.command)
         new_command.params.interval = ''
@@ -109,7 +126,7 @@ class BacktestRunner(Runner):
                 _out=lambda log: self.sub_process_log(log, False),
                 _err=lambda log: self.sub_process_log(log, False),
                 _cwd=str(paths.BASE_DIR),
-                _bg=True,
+                _bg=background,
                 _done=self.on_finished,
             )
             self.running = True
@@ -123,7 +140,38 @@ class BacktestRunner(Runner):
             # logger.error('Sh returned an error ')
             self.exception = e
 
+    def pre_execute(self):
+        """
+        Pre-execution tasks
+        """
+        self.reset()
+        if self.command.id:
+            ParameterTools.set_params_file(self.command.id)
+        else:
+            ParameterTools.remove_params_file(self.strategy, self.command.config.path)
+        logger.debug('Running command: "{}"', self.command.command_string)
+        logger_exec.info('Running command: "{}"', self.command.command_string)
+        logger.debug(self.command.params)
+        logger.info(
+            'Backtesting {} with params id "{}" - {}',
+            self.strategy,
+            self.command.id or 'null',
+            self.command.hash,
+        )
+        self.start_time = time.time()
+
+    def hash_exists(self):
+        if self.load_from_hash and self.command.hash in get_backtest_repo().get_hashes():
+            return True
+        return False
+
+    # noinspection PyIncorrectDocstring
     def on_finished(self, _, success, _2):
+        """
+        Callback when the process is finished.
+
+        :param success:  True if the process finished successfully
+        """
         logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
         self.running = False
         if not success:
@@ -140,12 +188,15 @@ class BacktestRunner(Runner):
                 raise
 
     def generate_report(self):
+        """
+        Generates the report from the output of the backtest.
+
+        :return: BacktestReport
+        """
         json_file = regex.backtest_json.findall(self.output)[0]
         report = BacktestReport(
             _backtest_data=BacktestData(
-                text=pathlib.Path(
-                    paths.USER_DATA_DIR, 'backtest_results', json_file
-                ).read_text()
+                text=pathlib.Path(paths.USER_DATA_DIR, 'backtest_results', json_file).read_text()
             ),
             hyperopt_id=self.command.id,
             hash=self.command.hash,
@@ -154,9 +205,7 @@ class BacktestRunner(Runner):
             # hyperopt_id=self.command.id,
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
-            ensemble=','.join(
-                ['-'.join(s.as_pair) for s in self.command.params.ensemble]
-            ),
+            ensemble=','.join(['-'.join(s.as_pair) for s in self.command.params.ensemble]),
         )
         return report
 
@@ -165,24 +214,46 @@ class BacktestRunner(Runner):
         return paths.BACKTEST_LOG_PATH.joinpath(self.report_id + '.log')
 
     def sub_process_log(self, text="", out=False, error=False):
+        """
+        Callback for the subprocess to log the output.
+
+        :param text: text to log
+        :param out: True if text is stdout
+        :param error: True if text is stderr
+        :return: None
+        """
         self.write_queue.put(text)
         logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 
     def save(self):
+        """
+        Saves the report to the database.
+        """
+        if self.hash_exists():
+            logger.info('Skipping save... backtest already exists in the database')
+            return self.report
+        if not self.report:
+            logger.info('Skipping save... no report generated')
+            return
         with Session(engine) as session:
             report = self.report
             session.add(report)
+            session.add(report._backtest_data)
             session.commit()
             session.refresh(report)
-            logger.info('Created report: {}'.format(report))
+            session.refresh(report._backtest_data)
+            logger.info('Created report id {}: {}'.format(report.id, report.performance.dict()))
             if self.log_path.exists():
-                self.log_path.rename(
-                    paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log')
-                )
+                self.log_path.rename(paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log'))
+        return report
 
     def dataframe(self):
         if not self.report:
             raise ValueError('No report to export.')
         performance = {'strategy': self.strategy, **self.report.performance.dict()}
         return pd.DataFrame([performance])
+
+    def load_hashed(self):
+        self.report = get_backtest_repo().get_using_hash(self.command.hash)
+        logger.info('Loaded report with same hash - {}', self.command.hash)

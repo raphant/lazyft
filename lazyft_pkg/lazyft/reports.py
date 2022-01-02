@@ -89,15 +89,11 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         return self
 
     def sort_by_ppd(self, reverse=False):
-        self.data = sorted(
-            self.data, key=lambda r: r.performance.ppd, reverse=not reverse
-        )
+        self.data = sorted(self.data, key=lambda r: r.performance.ppd, reverse=not reverse)
         return self
 
     def sort_by_score(self, reverse=False):
-        self.data = sorted(
-            self.data, key=lambda r: r.performance.score, reverse=not reverse
-        )
+        self.data = sorted(self.data, key=lambda r: r.performance.score, reverse=not reverse)
         return self
 
     def filter_by_id(self, *ids: str):
@@ -301,7 +297,7 @@ if __name__ == '__main__':
     # print(get_hyperopt_repo())
 
     t1 = time.time()
-    # print(get_backtest_repo().head(25).get_pair_totals().to_markdown())
-    print(get_hyperopt_repo()[0].hyperopt_list().to_markdown())
+    # print(get_backtest_repo().head(10).df().to_markdown())
+    print(str(get_hyperopt_repo()[0].parameters))
 
     print('Elapsed time:', time.time() - t1, 'seconds')

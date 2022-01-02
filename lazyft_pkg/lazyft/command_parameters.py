@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from typing import Union
 
@@ -40,9 +42,7 @@ def pairs_to_strategy(pairs: list[str]):
 @attr.s
 class GlobalParameters:
     config_path: str = attr.ib(converter=format_config, metadata={'arg': '-c'})
-    secrets_config: str = attr.ib(
-        default=None, converter=format_config, metadata={'arg': '-c'}
-    )
+    secrets_config: str = attr.ib(default=None, converter=format_config, metadata={'arg': '-c'})
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=True)
     ensemble: list[Union[Strategy, str]] = attr.ib(
@@ -64,9 +64,7 @@ class BacktestParameters(GlobalParameters):
     timerange = attr.ib(default='', metadata={'arg': '--timerange'})
     pairs: list[str] = attr.ib(default=None, metadata={'arg': '--pairs'})
     days: int = attr.ib(default=45, metadata={'arg': '--days'})
-    starting_balance: float = attr.ib(
-        default=500, metadata={'arg': '--starting-balance'}
-    )
+    starting_balance: float = attr.ib(default=500, metadata={'arg': '--starting-balance'})
     stake_amount: Union[float, str] = attr.ib(
         default='unlimited', metadata={'arg': '--stake-amount'}
     )
@@ -99,11 +97,10 @@ class HyperoptParameters(BacktestParameters):
     epochs: int = attr.ib(default=500, metadata={'arg': '-e'})
     min_trades: int = attr.ib(default=100, metadata={'arg': '--min-trades'})
     spaces: str = attr.ib(default='default', metadata={'arg': '--spaces'})
-    loss: str = attr.ib(
-        default='WinRatioAndProfitRatioLoss', metadata={'arg': '--hyperopt-loss'}
-    )
+    loss: str = attr.ib(default='WinRatioAndProfitRatioLoss', metadata={'arg': '--hyperopt-loss'})
     seed: int = attr.ib(default=None, metadata={'arg': '--random-state'})
     jobs: int = attr.ib(default=-1, metadata={'arg': '-j'})
+    disable_param_export: bool = attr.ib(default=True, metadata={'arg': '--disable-param-export'})
     print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
 
     def __attrs_post_init__(self):
@@ -115,6 +112,4 @@ class HyperoptParameters(BacktestParameters):
             self.pairs = self.config.whitelist
 
 
-command_map = {
-    a.name: a.metadata.get('arg') for a in attr.fields(HyperoptParameters) if a.metadata
-}
+command_map = {a.name: a.metadata.get('arg') for a in attr.fields(HyperoptParameters) if a.metadata}

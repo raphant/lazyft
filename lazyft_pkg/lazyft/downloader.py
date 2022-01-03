@@ -64,6 +64,13 @@ def save_record(pair: str, record: DownloadRecord, exchange: str, interval: str)
 
 
 def delete_record(pair: str, exchange: str, interval: str):
+    """
+    Removes the pair record from the download history.
+
+    :param pair: pair to remove
+    :param exchange: exchange to remove
+    :param interval: interval to remove
+    """
     history = load_history(exchange, interval)
     history.history.pop(pair, None)
     history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{interval}.json')
@@ -89,6 +96,15 @@ def update_download_history(
     intervals: str,
     exchange: str,
 ):
+    """
+    Updates the download history with the actual start date.
+
+    :param requested_start_date: requested start date
+    :param pairs: list of pairs
+    :param intervals: a list of intervals e.g. ['1m', '5m']
+    :param exchange: exchange
+    :return: None
+    """
     for interval in intervals.split():
         for pair in pairs.copy():
             start_date, end_date = get_pair_time_range(pair, interval, exchange)
@@ -106,6 +122,21 @@ def update_download_history(
             )
             save_record(pair, record, exchange, interval)
     logger.debug(f'Download history updated for {" ".join(pairs)}')
+
+
+def remove_pair_record(
+    pair: str, strategy: str, params: Union[HyperoptParameters, BacktestParameters]
+):
+    """
+    Removes the pair record from the download history.
+
+    :param pair: pair to remove
+    :param strategy: strategy to remove
+    :param params: HyperoptParameters or BacktestParameters
+    """
+    intervals = load_intervals_from_strategy(strategy, params.config)
+    for interval in intervals:
+        delete_record(pair, params.config.exchange, interval)
 
 
 def check_if_download_is_needed(

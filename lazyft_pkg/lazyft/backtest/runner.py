@@ -106,8 +106,8 @@ class BacktestRunner(Runner):
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
 
-        self.report_id = self.command.hash
-        # self.command.params.logfile = self.log_path
+        # self.report_id = self.command.hash
+        self.command.params.logfile = self.log_path
 
         self.report: Optional[BacktestReport] = None
         self.exception: Optional[Exception] = None

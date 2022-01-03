@@ -5,8 +5,9 @@ from loguru import logger
 from sqlmodel import Session, select
 
 import lazyft.command
-from lazyft import hyperopt, backtest, downloader
+from lazyft import downloader
 from lazyft.backtest.runner import BacktestRunner
+from lazyft.command import create_commands
 from lazyft.command_parameters import HyperoptParameters, BacktestParameters
 from lazyft.hyperopt.runner import HyperoptRunner
 from lazyft.models import HyperoptReport, BacktestReport
@@ -122,7 +123,7 @@ def execute_hyperopt_backtest(report: HyperoptReport) -> Optional[BacktestReport
         f' days ({State.failed_backtest[report.pairlist[0]] + 1} attempt(s))'
     )
     params.tag += f'_{report.timeframe}'
-    commands = backtest.create_commands(
+    commands = create_commands(
         params,
         verbose=False,
     )

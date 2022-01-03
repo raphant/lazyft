@@ -28,7 +28,6 @@ class BacktestCommand(Command):
     @property
     def hash(self):
         """To help avoid running the same backtest"""
-        # sort for consistency
         if self._hash:
             return self._hash
         command_string = (

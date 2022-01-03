@@ -1,7 +1,7 @@
 import pathlib
 
 from lazyft.command_parameters import HyperoptParameters
-from lazyft.hyperopt.commands import create_commands
+from lazyft.command import create_commands
 from lazyft.hyperopt.runner import (
     HyperoptRunner,
 )
@@ -49,7 +49,6 @@ def test_hyperopt():
     assert isinstance(report.performance, HyperoptPerformance)
 
     print(runner.save())
-    print(runner.epoch_text)
 
 
 def test_hyperopt_with_id():

@@ -7,7 +7,7 @@ from lazyft.models import Strategy
 param_id = 'test'
 # STRATEGY_WITH_ID = [Strategy(id=1)]
 STRATEGIES = ['TestStrategy-test', 'TestStrategy']
-config_name = 'config_test.json'
+config_name = 'config.json'
 
 days = 5
 

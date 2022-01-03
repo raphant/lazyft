@@ -16,7 +16,7 @@ def readall(*args):
 
 setup(
     name='lazyft',
-    version='0.0.3',
+    version='0.0.4',
     packages=find_packages(),
     # url='https://github.com/raph92/fenparser',
     license="GPLv3",

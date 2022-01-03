@@ -74,7 +74,7 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                 pairs_in_trades = [trade.pair for trade in Trade.get_open_trades()]
 
                 # if pair is not in trades, remove it from pair_custom_whitelist
-                for pair in self.pair_custom_whitelist.keys():
+                for pair in list(self.pair_custom_whitelist.keys()).copy():
                     if pair not in pairs_in_trades:
                         del self.pair_custom_whitelist[pair]
 

@@ -78,12 +78,21 @@ def load_strategy(strategy: str, config: Union[str, Config]) -> IStrategy:
 def load_intervals_from_strategy(
     strategy: str, config: Union[str, Config], pairs: list = None
 ) -> str:
+    """
+    Loads the intervals from a strategy
+
+    :param strategy: strategy name
+    :param config: config file
+    :param pairs: Use this list of pairs to simulate the DataProvider's whitelist
+    :return: a list of intervals e.g. ['1m', '5m']
+
+    """
     strategy = load_strategy(strategy, config)
 
     class Dp:
         @staticmethod
         def current_whitelist():
-            return pairs
+            return pairs or config.whitelist
 
     strategy.dp = Dp
 

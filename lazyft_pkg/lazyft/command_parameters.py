@@ -49,6 +49,7 @@ class GlobalParameters:
         default=[],
         converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s or [])),
     )
+    logfile: str = attr.ib(default=None, metadata={'arg': '--logfile'})
 
     @property
     def config(self) -> Config:

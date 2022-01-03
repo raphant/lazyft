@@ -168,20 +168,22 @@ def check_if_download_is_needed(
     if pair not in download_history:
         logger.debug('Pair not in download history. Downloading.')
         return True
-    logger.info(f'Download history for {pair}: {download_history[pair]}')
+    logger.debug(f'Download history for {pair}: {download_history[pair]}')
     # check if the pair has reached the first candle
     download_record = download_history[pair]
     needs_beginning_candles = not download_record.reached_first_candle
-    # check if the requested end date is greater than the pairs end date
-    needs_end_date_candles = (
-        requested_end_date
-        and (requested_end_date.date() - timedelta(hours=2)) > download_record.end_date.date()
-    )
+    # make sure the difference between the requested end date and the actual end date is less than max_end_gap
+    # if the requested end date is None, then we don't care about the end date
+    max_end_gap = timedelta(hours=12)
+    if requested_end_date is not None:
+        needs_end_candles = download_record.end_date - requested_end_date > max_end_gap
+    else:
+        needs_end_candles = False
     return (
         not pair_file_exists
         or requested_start_date < download_record.actual_start_date
         and needs_beginning_candles
-    ) or needs_end_date_candles
+    ) or needs_end_candles
 
 
 def download_missing_historical_data(
@@ -206,11 +208,11 @@ def download_missing_historical_data(
         for pair in parameters.pairs + ['BTC/USDT']:
             logger.info(f'Checking {pair} @ {interval}')
             if check_if_download_is_needed(config.exchange, pair, interval, start_date, end_date):
-                logger.info(f'Download needed for {pair} @ {interval}')
+                logger.debug(f'Download needed for {pair} @ {interval}')
                 pairs_to_download.add(pair)
                 tf_to_download.add(interval)
     if pairs_to_download:
-        logger.info(f"Downloading missing data for {pairs_to_download}")
+        logger.debug(f"Downloading missing data for {pairs_to_download}")
         # create datetime string in the YYYYMMDD format from the start date
         start_date_str = start_date.strftime("%Y%m%d-")
         queue = Queue()

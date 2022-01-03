@@ -16,7 +16,7 @@ def readall(*args):
 
 setup(
     name='lft_rest',
-    version='0.0.17',
+    version='0.0.18',
     packages=find_packages(),
     license="GPLv3",
     author='Raphael N',

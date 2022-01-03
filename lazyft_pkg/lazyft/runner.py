@@ -80,6 +80,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
                 continue
             with self.log_path.open('a+') as f:
                 f.write(line)
+                self.write_queue.task_done()
 
         logger.info('Writer thread stopped')
 

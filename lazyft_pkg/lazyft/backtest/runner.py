@@ -1,22 +1,26 @@
 from __future__ import annotations
 
-import copy
 import pathlib
 import time
 import uuid
+from collections import Counter
 from typing import Optional
 
 import pandas as pd
-import sh
+from freqtrade.commands import Arguments
+from freqtrade.commands.optimize_commands import setup_optimize_configuration
+from freqtrade.enums import RunMode
+from freqtrade.optimize import optimize_reports
+from freqtrade.optimize.backtesting import Backtesting
 from sqlmodel import Session
 
-from lazyft import logger, paths, regex
+from lazyft import logger, paths
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.database import engine
 from lazyft.models import BacktestReport, BacktestData
 from lazyft.reports import get_backtest_repo
 from lazyft.runner import Runner
-from lazyft.util import ParameterTools
+from lazyft.util import ParameterTools, store_backtest_stats
 
 logger_exec = logger.bind(type='backtest')
 
@@ -97,48 +101,20 @@ class BacktestRunner(Runner):
         :param load_from_hash: If True, will load the report from the database if it exists
         """
         super().__init__(verbose)
-        self.report_id = str(uuid.uuid4())
         self.load_from_hash = load_from_hash
         self.command = command
         self.strategy = command.strategy
         self.verbose = verbose or command.verbose
+
+        self.report_id = self.command.hash
+        # self.command.params.logfile = self.log_path
+
         self.report: Optional[BacktestReport] = None
-        self.exception = None
-        self.start_time = None
+        self.exception: Optional[Exception] = None
+        self.start_time: Optional[float] = None
+        self.result_path: Optional[pathlib.Path] = None
 
-    @logger.catch(reraise=True)
-    def execute(self, background=False):
-        """
-        Executes the backtest using the passed command.
-
-        :param background: If True, will run in background
-        """
-        if self.hash_exists():
-            self.load_hashed()
-            return
-        self.pre_execute()
-        # remove interval from CLI to let strategy handle it
-        new_command = copy.copy(self.command)
-        new_command.params.interval = ''
-        try:
-            self.process: sh.RunningCommand = sh.freqtrade(
-                new_command.command_string.split(' '),
-                _out=lambda log: self.sub_process_log(log, False),
-                _err=lambda log: self.sub_process_log(log, False),
-                _cwd=str(paths.BASE_DIR),
-                _bg=background,
-                _done=self.on_finished,
-            )
-            self.running = True
-            self.write_worker.start()
-            if not background:
-                try:
-                    self.process.wait()
-                except KeyboardInterrupt:
-                    self.process.process.signal_group()
-        except sh.ErrorReturnCode as e:
-            # logger.error('Sh returned an error ')
-            self.exception = e
+        self.counter = Counter()
 
     def pre_execute(self):
         """
@@ -158,7 +134,96 @@ class BacktestRunner(Runner):
             self.command.id or 'null',
             self.command.hash,
         )
+        pargs = Arguments(self.command.command_string.split()).get_parsed_arg()
+        # start_backtesting(pargs)
+        config = setup_optimize_configuration(pargs, RunMode.BACKTEST)
+        # Initialize backtesting object
+        backtesting = Backtesting(config)
+        config['export'] = None
+        optimize_reports.print = self.log
+        # freqtrade.optimize.backtesting.print = self.log
+        return backtesting
+
+    @logger.catch(reraise=True)
+    def execute(self):
+        if self.hash_exists():
+            self.load_hashed()
+            return
+        backtest = self.pre_execute()
         self.start_time = time.time()
+        self.running = True
+        try:
+            backtest.start()
+        # except OperationalException as e:
+        #     if str(e) == 'No data found. Terminating.':
+        #         if self.counter['no_data'] > 1:
+        #             raise e
+        #         self.counter['no_data'] += 1
+        #         downloader.download_missing_historical_data(
+        #             self.strategy, self.command.config, self.command.params
+        #         )
+        #         return self.execute()
+        #     raise e
+        except Exception as e:
+            # logger.exception(f'Backtest failed: {e}')
+            self.exception = e
+            success = False
+        else:
+            self.result_path = store_backtest_stats(
+                backtest.config['exportfilename'], backtest.results
+            )
+            success = True
+        self.write_worker.start()
+        self.on_finished(success)
+
+    # def execute(self, background=False):
+    #     """
+    #     Executes the backtest using the passed command.
+    #
+    #     :param background: If True, will run in background
+    #     """
+    #     if self.hash_exists():
+    #         self.load_hashed()
+    #         return
+    #     self.pre_execute()
+    #     # remove interval from CLI to let strategy handle it
+    #     new_command = copy.copy(self.command)
+    #     new_command.params.interval = ''
+    #     try:
+    #         self.process: sh.RunningCommand = sh.freqtrade(
+    #             new_command.command_string.split(' '),
+    #             _out=lambda log: self.sub_process_log(log, False),
+    #             _err=lambda log: self.sub_process_log(log, False),
+    #             _cwd=str(paths.BASE_DIR),
+    #             _bg=background,
+    #             _done=self.on_finished,
+    #         )
+    #         self.running = True
+    #         self.write_worker.start()
+    #         if not background:
+    #             try:
+    #                 self.process.wait()
+    #             except KeyboardInterrupt:
+    #                 self.process.process.signal_group()
+    #     except sh.ErrorReturnCode as e:
+    #         # logger.error('Sh returned an error ')
+    #         self.exception = e
+
+    def on_finished(self, success):
+        try:
+            self.running = False
+            logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
+            ParameterTools.remove_params_file(self.strategy, self.command.config.path)
+            if success:
+                self.report = self.generate_report()
+                logger.success(f'Backtest {self.strategy} finished successfully')
+            else:
+                logger.error('{} backtest failed with errors', self.strategy)
+                raise self.exception
+        finally:
+            optimize_reports.print = print
+            self.write_queue.join()
+            # freqtrade.optimize.backtesting.print = print
 
     def hash_exists(self):
         if self.load_from_hash and self.command.hash in get_backtest_repo().get_hashes():
@@ -166,26 +231,27 @@ class BacktestRunner(Runner):
         return False
 
     # noinspection PyIncorrectDocstring
-    def on_finished(self, _, success, _2):
-        """
-        Callback when the process is finished.
 
-        :param success:  True if the process finished successfully
-        """
-        logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
-        self.running = False
-        if not success:
-            self.error = True
-            logger.error('{} backtest failed with errors', self.strategy)
-        else:
-            logger.success('{} backtest completed successfully', self.strategy)
-            try:
-                logger.debug('Generating report...')
-                self.report = self.generate_report()
-                logger.debug('Report generated')
-            except Exception as e:
-                logger.exception(e)
-                raise
+    # def on_finished(self, _, success, _2):
+    #     """
+    #     Callback when the process is finished.
+    #
+    #     :param success:  True if the process finished successfully
+    #     """
+    #     logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
+    #     self.running = False
+    #     if not success:
+    #         self.error = True
+    #         logger.error('{} backtest failed with errors', self.strategy)
+    #     else:
+    #         logger.success('{} backtest completed successfully', self.strategy)
+    #         try:
+    #             logger.debug('Generating report...')
+    #             self.report = self.generate_report()
+    #             logger.debug('Report generated')
+    #         except Exception as e:
+    #             logger.exception(e)
+    #             raise
 
     def generate_report(self):
         """
@@ -193,25 +259,26 @@ class BacktestRunner(Runner):
 
         :return: BacktestReport
         """
-        json_file = regex.backtest_json.findall(self.output)[0]
-        report = BacktestReport(
-            _backtest_data=BacktestData(
-                text=pathlib.Path(paths.USER_DATA_DIR, 'backtest_results', json_file).read_text()
-            ),
+        return BacktestReport(
+            _backtest_data=BacktestData(text=self.result_path.read_text()),
             hyperopt_id=self.command.id,
             hash=self.command.hash,
             exchange=self.command.config['exchange']['name'],
-            # report_id=self.report_id,
-            # hyperopt_id=self.command.id,
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
             ensemble=','.join(['-'.join(s.as_pair) for s in self.command.params.ensemble]),
         )
-        return report
+
+    def log(self, *args):
+        """For logging purposes. Fills the write_queue"""
+        text = ''.join(args)
+        print(*args)
+        logger_exec.info(text)
+        self.write_queue.put(text + '\n')
 
     @property
     def log_path(self) -> pathlib.Path:
-        return paths.BACKTEST_LOG_PATH.joinpath(self.report_id + '.log')
+        return paths.BACKTEST_LOG_PATH / (self.report_id + '.log')
 
     def sub_process_log(self, text="", out=False, error=False):
         """
@@ -246,6 +313,7 @@ class BacktestRunner(Runner):
             logger.info('Created report id {}: {}'.format(report.id, report.performance.dict()))
             if self.log_path.exists():
                 self.log_path.rename(paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + '.log'))
+                self.report_id = report.id
         return report
 
     def dataframe(self):

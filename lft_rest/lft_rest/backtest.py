@@ -103,4 +103,6 @@ def execute_backtest(backtest_input: BacktestInput) -> BacktestReport:
             logger.error('\n'.join(b_runner.output_list[-100:]))
         State.failed_backtest[backtest_input.pair] += 1
         raise BacktestError(f'Failed to backtest {backtest_input.pair}') from b_runner.exception
-    return b_runner.save()
+    save = b_runner.save()
+    logger.success(f"Backtest saved: {save.performance.dict()}")
+    return save

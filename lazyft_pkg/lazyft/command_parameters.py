@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import datetime
-from typing import Union
+from pathlib import Path
+from typing import Union, Any
 
 import attr
+from freqtrade.commands import Arguments
+from freqtrade.configuration import Configuration
+from freqtrade.exceptions import OperationalException
 
+import lazyft.paths
+from lazyft import logger, parameter_tools
 from lazyft.config import Config
 from lazyft.ensemble import set_ensemble_strategies
 from lazyft.models import Strategy
-from lazyft.quicktools import QuickTools
+from lazyft.util import get_timerange
 
 
 def format_config(config_name: str):
@@ -41,15 +47,29 @@ def pairs_to_strategy(pairs: list[str]):
 
 @attr.s
 class GlobalParameters:
-    config_path: str = attr.ib(converter=format_config, metadata={'arg': '-c'})
-    secrets_config: str = attr.ib(default=None, converter=format_config, metadata={'arg': '-c'})
+    command = ''
+    config_path: Union[str, Config] = attr.ib(converter=format_config, metadata={'arg': '-c'})
+    secrets_config: Union[str, Config] = attr.ib(
+        default=None, converter=format_config, metadata={'arg': '-c'}
+    )
+    logfile: str = attr.ib(default=None, metadata={'arg': '--logfile'})
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=True)
+    user_data_dir: Path = attr.ib(
+        default=lazyft.paths.USER_DATA_DIR, metadata={'arg': '--user-data-dir'}
+    )
+    extra_args: str = attr.ib(default='')
+    # data_dir: Path = attr.ib(
+    #     default=lazyft.paths.USER_DATA_DIR / 'data', metadata={'arg': '--datadir'}
+    # )
+    strategy_path: Path = attr.ib(
+        default=lazyft.paths.USER_DATA_DIR / 'strategies', metadata={'arg': '--strategy-path'}
+    )
+
     ensemble: list[Union[Strategy, str]] = attr.ib(
         default=[],
         converter=lambda s: set_ensemble_strategies(pairs_to_strategy(s or [])),
     )
-    logfile: str = attr.ib(default=None, metadata={'arg': '--logfile'})
 
     @property
     def config(self) -> Config:
@@ -59,24 +79,49 @@ class GlobalParameters:
     def strategy_id_pairs(self) -> list[tuple[str, ...]]:
         return get_strategy_id_pairs(self.strategies)
 
+    @property
+    def command_string(self) -> str:
+        args = [self.command]
+
+        for key, value in self.__dict__.items():
+            if not value or key not in command_map or key == 'days':
+                continue
+            if value is True:
+                value = ''
+            if key == 'pairs':
+                value = ' '.join(value)
+            arg_line = f"{command_map[key]} {value}".strip()
+            args.append(arg_line)
+        if self.extra_args:
+            args.append(self.extra_args)
+        return ' '.join(args)
+
+    def to_config_dict(self, strategy_name: str) -> dict[str, Any]:
+        args = Arguments(self.command_string.split()).get_parsed_arg()
+        args['strategy'] = strategy_name
+        return Configuration(args).get_config()
+
 
 @attr.s
 class BacktestParameters(GlobalParameters):
+    command = 'backtesting'
     timerange = attr.ib(default='', metadata={'arg': '--timerange'})
-    pairs: list[str] = attr.ib(default=None, metadata={'arg': '--pairs'})
-    days: int = attr.ib(default=45, metadata={'arg': '--days'})
+    pairs: list[str] = attr.ib(factory=list, metadata={'arg': '--pairs'})
+    days: int = attr.ib(default=60, metadata={'arg': '--days'})
     starting_balance: float = attr.ib(default=500, metadata={'arg': '--starting-balance'})
     stake_amount: Union[float, str] = attr.ib(
         default='unlimited', metadata={'arg': '--stake-amount'}
     )
     max_open_trades: int = attr.ib(default=5, metadata={'arg': '--max-open-trades'})
-    interval: str = attr.ib(default='5m', metadata={'arg': '-i'})
+    interval: str = attr.ib(default='', metadata={'arg': '--timeframe'})
+    timeframe_detail: str = attr.ib(default='', metadata={'arg': '--timeframe-detail'})
+    cache: str = attr.ib(default='', metadata={'arg': '--cache'})
     inf_interval: str = attr.ib(default='')
     tag: str = attr.ib(default='')
 
     def __attrs_post_init__(self):
         if not self.timerange:
-            self.timerange = QuickTools.get_timerange(days=self.days)[1]
+            self.timerange = get_timerange(days=self.days)[1]
         if not self.tag:
             open_, close = self.timerange.split('-')
             if not close:
@@ -89,28 +134,115 @@ class BacktestParameters(GlobalParameters):
     def intervals_to_download(self):
         intervals = self.interval
         if self.inf_interval:
-            intervals += ' ' + self.inf_interval
+            intervals += ' ' + self.inf_interval + ' ' + self.timeframe_detail
         return intervals
+
+    def run(self, strategy: Union[str, Strategy], load_from_hash=False, verbose=False):
+        from lazyft.backtest.runner import BacktestRunner
+        from lazyft.backtest import commands
+
+        if isinstance(strategy, str):
+            try:
+                s, id = strategy.split('-', 1)
+            except ValueError:
+                s, id = strategy, ''
+            strategy = Strategy(s, id)
+
+        if not self.interval:
+            strategy.args = self.to_config_dict(strategy.name)
+            try:
+                self.interval = strategy.as_ft_strategy.timeframe
+            except OperationalException as e:
+                # if the msg == "Invalid parameter file provided", delete parameter file and retry
+                if 'Invalid parameter file provided' in str(e):
+                    print(self.config_path)
+                    parameter_tools.remove_params_file(strategy.name, self.config.path)
+                    self.interval = strategy.as_ft_strategy.timeframe
+
+        command = commands.BacktestCommand(
+            strategy.name,
+            params=self,
+            verbose=verbose,
+            id=strategy.id,
+        )
+        runner = BacktestRunner(command, load_from_hash=load_from_hash)
+        try:
+            runner.execute()
+        except Exception as e:
+            logger.exception(e)
+        return runner
+
+    def run_multiple(self, *strategies: Union[str, Strategy], verbose=False):
+        raise NotImplementedError
 
 
 @attr.s
 class HyperoptParameters(BacktestParameters):
-    epochs: int = attr.ib(default=500, metadata={'arg': '-e'})
+
+    command = 'hyperopt'
+    epochs: int = attr.ib(default=500, metadata={'arg': '--epochs'})
     min_trades: int = attr.ib(default=100, metadata={'arg': '--min-trades'})
     spaces: str = attr.ib(default='default', metadata={'arg': '--spaces'})
     loss: str = attr.ib(default='WinRatioAndProfitRatioLoss', metadata={'arg': '--hyperopt-loss'})
     seed: int = attr.ib(default=None, metadata={'arg': '--random-state'})
-    jobs: int = attr.ib(default=-1, metadata={'arg': '-j'})
+    jobs: int = attr.ib(default=-1, metadata={'arg': '--job-workers'})
     disable_param_export: bool = attr.ib(default=True, metadata={'arg': '--disable-param-export'})
     print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
+    ignore_missing_spaces: bool = attr.ib(default=True, metadata={'arg': '--ignore-missing-spaces'})
+    custom_spaces: str = attr.ib(default='')
+    custom_settings: dict = attr.ib(factory=dict)
 
     def __attrs_post_init__(self):
         if not self.timerange:
-            self.timerange = QuickTools.get_timerange(days=self.days)[0]
+            self.timerange = get_timerange(days=self.days)[0]
         if not self.tag:
             self.tag = self.timerange + ',' + self.spaces
         if not self.pairs:
             self.pairs = self.config.whitelist
+
+    def run(
+        self,
+        strategy: Union[Strategy, str],
+        autosave=False,
+        notify=False,
+        verbose=False,
+        background=False,
+        load_hashed_strategy=False,
+    ):
+        from lazyft.hyperopt.runner import HyperoptRunner
+        from lazyft.hyperopt import commands
+
+        if isinstance(strategy, str):
+            try:
+                s, id = strategy.split('-', 1)
+            except ValueError:
+                s, id = strategy, ''
+            strategy = Strategy(s, id)
+        # if not self.interval:
+        #     strategy.args = self.to_config_dict(strategy.name)
+        #     try:
+        #         self.interval = strategy.as_ft_strategy.timeframe
+        #     except OperationalException as e:
+        #         # if the msg == "Invalid parameter file provided", delete parameter file and retry
+        #         if 'Invalid parameter file provided' in str(e):
+        #             parameter_tools.remove_params_file(strategy.name, self.config.path)
+        #             self.interval = strategy.as_ft_strategy.timeframe
+        command = commands.HyperoptCommand(
+            strategy.name,
+            params=self,
+            id=strategy.id,
+            verbose=verbose,
+        )
+        runner = HyperoptRunner(command, autosave=autosave, notify=notify, verbose=verbose)
+
+        try:
+            runner.execute(background=background, load_strategy=load_hashed_strategy)
+        except Exception as e:
+            logger.exception(e)
+        return runner
+
+    def run_multiple(self, *strategies: Union[str, Strategy], verbose=False):
+        pass
 
 
 command_map = {a.name: a.metadata.get('arg') for a in attr.fields(HyperoptParameters) if a.metadata}

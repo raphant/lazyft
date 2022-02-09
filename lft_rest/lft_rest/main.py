@@ -17,10 +17,21 @@ work_queue = Queue()
 
 @app.get("/")
 def root():
-    return {"message": "Pong"}
+
+    return [r.dict() for r in lft_rest.backtest.get_all_backtests()]
 
 
-def _backtest_pair(pair, strategy, days, exchange, timeframe, min_avg_profit, min_trades):
+def _backtest_pair(
+    pair,
+    strategy,
+    days,
+    exchange,
+    timeframe,
+    min_avg_profit,
+    min_trades,
+    timeframe_detail,
+    min_win_ratio,
+):
     bt = lft_rest.backtest.get_backtest(pair, strategy, days)
     if not bt:
         backtest_input = BacktestInput(
@@ -29,6 +40,7 @@ def _backtest_pair(pair, strategy, days, exchange, timeframe, min_avg_profit, mi
             exchange=exchange,
             days=days,
             timeframe=timeframe,
+            timeframe_detail=timeframe_detail,
         )
         if (
             backtest_input not in State.backtest_queue.queue
@@ -38,31 +50,53 @@ def _backtest_pair(pair, strategy, days, exchange, timeframe, min_avg_profit, mi
             return {'status': 'queued'}
         return {'status': 'pending'}
     return {
-        'status': bt.is_valid(min_avg_profit, min_trades),
-        'info': {'trades': bt.trades, 'wins': bt.wins, 'losses': bt.losses, 'ratio': bt.ratio},
+        'status': bt.is_valid(min_avg_profit, min_trades, min_win_ratio),
+        'info': {
+            'trades': bt.trades,
+            'wins': bt.wins,
+            'losses': bt.losses,
+            'ratio': bt.profit_per_trade,
+            'win_ratio': bt.win_ratio,
+            'profit_per_trade': bt.profit_per_trade,
+        },
     }
 
 
 @app.get('/pair/backtest')
-async def backtest_pair(
+async def backtest_pairs(
     pairs: str,
     strategy: str,
     timeframe: str = '5m',
     exchange: str = 'kucoin',
-    min_avg_profit: float = Settings.min_ratio,
+    min_avg_profit: float = Settings.min_avg_profit,
     min_trades: int = 3,
     days: int = 7,
+    timeframe_detail=None,
+    min_win_ratio: float = 0.4,
 ):
+    """
+    Backtest multiple pairs.
+    """
     pairs = [p for p in pairs.split(',') if p]
     results = {}
     for pair in pairs:
         results[pair] = _backtest_pair(
-            pair, strategy, days, exchange, timeframe, min_avg_profit, min_trades
+            pair,
+            strategy,
+            days,
+            exchange,
+            timeframe,
+            min_avg_profit,
+            min_trades,
+            timeframe_detail,
+            min_win_ratio,
         )
     return results
 
 
-def _hyperopt_pair(pair, strategy, days, timeframe, exchange, min_avg_profit, min_trades, epochs):
+def _hyperopt_pair(
+    pair, strategy, days, timeframe, exchange, min_avg_profit, min_trades, epochs, min_win_ratio
+):
     hopt = hyperopt.get_hyperopt(pair, strategy, days)
     if not hopt:
         hyperopt_input = HyperoptInput(
@@ -81,14 +115,15 @@ def _hyperopt_pair(pair, strategy, days, timeframe, exchange, min_avg_profit, mi
             State.hyperopt_queue.put_nowait(hyperopt_input)
             return {'status': 'queued'}
         return {'status': 'pending'}
-    valid = hopt.is_valid(min_avg_profit, min_trades)
+    valid = hopt.is_valid(min_avg_profit, min_trades, min_win_ratio)
     return {
         'status': valid,
         'info': {
             'trades': hopt.trades,
             'wins': hopt.wins,
             'losses': hopt.losses,
-            'ratio': hopt.ratio,
+            'win_ratio': hopt.win_ratio,
+            'profit_per_trade': hopt.profit_per_trade,
             'params': hopt.params if valid else {},
         },
     }
@@ -100,8 +135,9 @@ def hyperopt_pair(
     strategy: str,
     timeframe: str = '5m',
     exchange: str = 'kucoin',
-    min_avg_profit: float = Settings.min_ratio,
+    min_avg_profit: float = Settings.min_avg_profit,
     min_trades: int = 3,
+    min_win_ratio: float = 0.4,
     days: int = 7,
     epochs: int = 50,
 ):
@@ -109,7 +145,15 @@ def hyperopt_pair(
     results = {}
     for pair in pairs:
         results[pair] = _hyperopt_pair(
-            pair, strategy, days, timeframe, exchange, min_avg_profit, min_trades, epochs
+            pair,
+            strategy,
+            days,
+            timeframe,
+            exchange,
+            min_avg_profit,
+            min_trades,
+            epochs,
+            min_win_ratio,
         )
     return results
 
@@ -134,3 +178,4 @@ for i in range(Settings.n_backtest_workers):
 Thread(target=worker.hyperopt_worker, daemon=True).start()
 
 lft_rest.backtest.clean_backtests()
+lft_rest.hyperopt.clean_hyperopts()

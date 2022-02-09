@@ -101,10 +101,12 @@ class Gumbo3(IMBaseAdvancedOptimizerStrategy):
 class Gumbo3Rest(BaseRestStrategy, Gumbo3):
     rest_strategy_name = 'Gumbo3'
     backtest_days = 10
-    hyperopt_days = 5
+    hyperopt_days = 7
+    min_hyperopt_trades = 3
+    min_backtest_trades = 3
     hyperopt_epochs = 65
     min_avg_profit = 0.01
-    request_hyperopt = True
+    request_hyperopt = False
 
     # def __init__(self, config: dict) -> None:
     #     Gumbo3.__init__(self, config)

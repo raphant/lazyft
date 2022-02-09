@@ -3,14 +3,11 @@ from typing import Optional
 import rapidjson
 from loguru import logger
 from sqlmodel import Session, select
+from tenacity import retry, stop_after_attempt, wait_fixed
 
-import lazyft.command
 from lazyft import downloader
-from lazyft.backtest.runner import BacktestRunner
-from lazyft.command import create_commands
 from lazyft.command_parameters import HyperoptParameters, BacktestParameters
-from lazyft.hyperopt.runner import HyperoptRunner
-from lazyft.models import HyperoptReport, BacktestReport
+from lazyft.models import HyperoptReport, BacktestReport, Strategy
 from lft_rest import State, Settings
 from lft_rest.errors import HyperoptError, MaxAttemptError, BacktestError
 from lft_rest.models import engine, HyperoptResult, HyperoptInput
@@ -20,26 +17,26 @@ from lft_rest.util import get_config
 def save_hyperopt_result(
     bt_report: BacktestReport, hopt_input: HyperoptInput, hyperopt_report: HyperoptReport = None
 ) -> None:
-    logger.info(
-        f"Saving Hyperopt results for {hopt_input.pair} {hopt_input.strategy} {hopt_input.days}"
-    )
     if not bt_report or not hyperopt_report:
         HyperoptResult(
             pair=hopt_input.pair,
             strategy=hopt_input.strategy,
             days=hopt_input.days,
-            ratio=0.0,
+            profit_per_trade=0.0,
             wins=0,
             losses=0,
             trades=0,
             params_json='{}',
         ).save()
         return
+    logger.info(
+        f"Saving Hyperopt results for {hopt_input.pair} {hopt_input.strategy} {hopt_input.days}"
+    )
     HyperoptResult(
         pair=hopt_input.pair,
         strategy=hopt_input.strategy,
         days=hopt_input.days,
-        ratio=bt_report.performance.profit_ratio,
+        profit_per_trade=bt_report.performance.profit_ratio,
         wins=bt_report.performance.wins,
         losses=bt_report.performance.losses,
         trades=bt_report.performance.trades,
@@ -68,7 +65,7 @@ def execute_hyperopt(hyperopt_inputs: HyperoptInput) -> Optional[HyperoptReport]
         starting_balance=100,
         max_open_trades=1,
         min_trades=hyperopt_inputs.min_trades,
-        loss='ROIAndProfitHyperOptLoss',
+        loss='CalmarHyperOptLoss',
         jobs=-2,
         download_data=True,
         tag=f'{hyperopt_inputs.pair}',
@@ -78,13 +75,9 @@ def execute_hyperopt(hyperopt_inputs: HyperoptInput) -> Optional[HyperoptReport]
         f' days ({State.failed_backtest[hyperopt_inputs.pair] + 1} attempt(s))'
     )
     params.tag += f'_{hyperopt_inputs.timeframe}'
-    commands = lazyft.command.create_commands(
-        params,
-        verbose=False,
-    )
-    runner = HyperoptRunner(commands[0], notify=False)
-    runner.execute(background=True)
-    runner.join()
+    runner = params.run()
+
+    # runner.join()
     if runner.exception:
         if str(runner.exception) == "No data found. Terminating.":
             downloader.remove_pair_record(hyperopt_inputs.pair, runner.strategy, params)
@@ -101,6 +94,7 @@ def execute_hyperopt(hyperopt_inputs: HyperoptInput) -> Optional[HyperoptReport]
         return None
 
 
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(10))
 def execute_hyperopt_backtest(report: HyperoptReport) -> Optional[BacktestReport]:
     if not report:
         return None
@@ -123,13 +117,10 @@ def execute_hyperopt_backtest(report: HyperoptReport) -> Optional[BacktestReport
         f' days ({State.failed_backtest[report.pairlist[0]] + 1} attempt(s))'
     )
     params.tag += f'_{report.timeframe}'
-    commands = create_commands(
-        params,
-        verbose=False,
-    )
-    runner = BacktestRunner(commands[0])
-    runner.execute()
+    runner = params.run(Strategy(id=report.id), load_from_hash=False)
     if runner.exception:
+        if isinstance(runner.exception, RuntimeError):
+            raise runner.exception
         # State.failed_backtest[report.pairlist[0]] += 1
         raise BacktestError(f'Failed to backtest {report.pairlist[0]}') from runner.exception
     try:
@@ -166,10 +157,9 @@ def clean_hyperopts():
     Remove any Hyperopt that has an invalid date
     """
     with Session(engine) as session:
-        statement = select(HyperoptResult)
-        results = session.exec(statement)
+        results = session.exec(select(HyperoptResult))
         for r in results.fetchall():
             if not r.valid_date:
-                logger.info(f"Removing Hyperopt {r.pair} {r.strategy} {r.days}")
+                logger.info(f"Removing Hyperopt {r.pair} {r.strategy} {r.days} {r.date}")
                 session.delete(r)
         session.commit()

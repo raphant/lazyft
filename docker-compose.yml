@@ -1,15 +1,51 @@
 version: "3.2"
 services:
-  redis:
-    image: redis
+#  redis:
+#    image: redis
+#    restart: unless-stopped
+#    container_name: 'redis'
+#    ports:
+#      - "6379:6379"
+#    networks:
+#      - net
+#    volumes:
+#      - hd:/data
+  jupyter:
+#    image: sage/ftworkdir
+    build:
+      context: .
+      dockerfile: Dockerfile.custom
+    entrypoint: /usr/bin/env
+    working_dir: /ftworkdir
+    env_file:
+      - .env
+    environment:
+      - LFT_REST_IP=rest
+    command: jupyter notebook --ip 0.0.0.0 --autoreload --NotebookApp.token="${JUPYTER_TOKEN}"
     restart: unless-stopped
-    container_name: 'redis'
-    ports:
-      - "6379:6379"
-    networks:
-      - net
     volumes:
-      - hd:/data
+      - .:/ftworkdir
+    ports:
+      - "8888:8888"
+    extra_hosts:
+      - "pi4.local:192.168.1.29"
+  rest:
+#    image: sage/ftworkdir
+    build:
+      context: .
+      dockerfile: Dockerfile.custom
+    entrypoint: /usr/bin/env
+    env_file:
+      - .env
+    working_dir: /ftworkdir
+    command: uvicorn lft_rest.main:app --reload --host 0.0.0.0
+#    command: "which uvicorn"
+    restart: unless-stopped
+    volumes:
+      - .:/ftworkdir
+    ports:
+      - "8000:8000"
+
 networks:
     net:
         driver: bridge
@@ -20,3 +56,4 @@ volumes:
             type: 'none'
             o: 'bind'
             device: './redis_data'
+

@@ -13,7 +13,7 @@ import pandas_ta
 
 class TestStrategy(IStrategy):
     # Stoploss:
-    stoploss = -0.01
+    stoploss = -0.05
 
     # ROI table:
     minimal_roi = {"0": 0.01}
@@ -26,7 +26,7 @@ class TestStrategy(IStrategy):
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[(dataframe['close'] > 0), ['buy', 'buy_tag']] = (1, 'test')
+        dataframe.loc[(dataframe['volume'] > 0), ['buy', 'buy_tag']] = (1, 'test')
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

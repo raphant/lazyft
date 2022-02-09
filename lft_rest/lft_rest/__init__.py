@@ -16,8 +16,8 @@ class State:
 
 
 class Settings:
-    n_backtest_workers = 3
+    n_backtest_workers = 1
     max_hyperopt_attempts = 3
     max_backtest_attempts = 3
-    min_ratio = 0.01
+    min_avg_profit = 0.01
     max_days_since_created = 3

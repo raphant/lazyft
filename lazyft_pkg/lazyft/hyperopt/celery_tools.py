@@ -5,6 +5,7 @@ import rapidjson
 from celery.contrib.abortable import AbortableAsyncResult
 from celery.result import AsyncResult
 
+import lazyft.command
 from lazyft import paths, hyperopt, logger
 from lazyft.background.celery import app
 from lazyft.command_parameters import HyperoptParameters
@@ -31,7 +32,7 @@ class CeleryRunner:
         task_info = rapidjson.loads(paths.CELERY_TASKS_FILE.read_text())[task_id]
         parameter_dict = task_info['parameters']
         params = HyperoptParameters(**parameter_dict)
-        commands = hyperopt.create_commands(params)
+        commands = lazyft.command.create_commands(params)
         return HyperoptRunner(commands[0], task_id=task_id, loaded_from_celery=True)
 
     @staticmethod

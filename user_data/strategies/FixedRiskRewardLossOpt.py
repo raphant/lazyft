@@ -50,9 +50,7 @@ class FixedRiskRewardLossOpt(IStrategy):
     #    }
     custom_info = {}
 
-    ATR_multiplier = IntParameter(
-        1, 6, default=2, space='sell', optimize=True, load=True
-    )
+    ATR_multiplier = IntParameter(1, 6, default=2, space='sell', optimize=True, load=True)
     risk_reward_ratio = DecimalParameter(
         1.0, 6.0, default=3.5, decimals=1, space='sell', optimize=True, load=True
     )
@@ -62,6 +60,8 @@ class FixedRiskRewardLossOpt(IStrategy):
 
     use_custom_stoploss = True
     stoploss = -0.9
+    minimal_roi = {"0": 1000}
+    timeframe = '1h'
 
     def custom_stoploss(
         self,
@@ -115,21 +115,15 @@ class FixedRiskRewardLossOpt(IStrategy):
             # break_even tries to set sl at open_rate+fees (0 loss)
             # break_even_profit_distance = risk_distance*self.custom_info['set_to_break_even_at_profit']
             # replace with hyperoptable parameter
-            break_even_profit_distance = (
-                risk_distance * self.set_to_break_even_at_profit.value
-            )
+            break_even_profit_distance = risk_distance * self.set_to_break_even_at_profit.value
 
             # break_even gets triggerd at this profit
-            break_even_profit_pct = (
-                break_even_profit_distance + current_rate
-            ) / current_rate - 1
+            break_even_profit_pct = (break_even_profit_distance + current_rate) / current_rate - 1
 
             result = initial_sl
             if current_profit >= break_even_profit_pct:
                 break_even_sl = (
-                    trade.open_rate
-                    * (1 + trade.fee_open + trade.fee_close)
-                    / current_rate
+                    trade.open_rate * (1 + trade.fee_open + trade.fee_close) / current_rate
                 ) - 1
                 result = break_even_sl
 
@@ -146,9 +140,7 @@ class FixedRiskRewardLossOpt(IStrategy):
         # multipliers as populate_indicators() is only called once.
         # dataframe['stoploss_rate'] = dataframe['close']-(dataframe['atr']*2)
         for i in self.ATR_multiplier.range:
-            dataframe[f'stoploss_rate_{i}'] = dataframe['close'] - (
-                dataframe['atr'] * i
-            )
+            dataframe[f'stoploss_rate_{i}'] = dataframe['close'] - (dataframe['atr'] * i)
 
         # self.custom_info[metadata['pair']] = dataframe[['date', 'stoploss_rate']].copy().set_index('date')
         # this creates a copy of the dataframe with only the 'date' and 'stoploss_rate' columns, but with

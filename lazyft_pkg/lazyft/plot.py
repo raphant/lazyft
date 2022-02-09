@@ -6,7 +6,7 @@ import plotly.express as px
 from lazyft.reports import get_hyperopt_repo, get_backtest_repo
 
 
-def get_equity_series(strategy_stats: dict) -> list:
+def calculate_equity(strategy_stats: dict) -> list:
     """
     Get the equity curve for a strategy.
 
@@ -52,7 +52,7 @@ def get_dataframe_with_equity_series(report_ids: Sequence[int], type_: str) -> p
     # add all equity series to dataframe
     for report_id in report_ids:
         strategy_stats = repo.get(report_id).backtest_data
-        df.loc[:, f'equity_daily_{report_id}'] = get_equity_series(strategy_stats)
+        df.loc[:, f'equity_daily_{report_id}'] = calculate_equity(strategy_stats)
     return df
 
 
@@ -63,6 +63,9 @@ def plot_equity_curves(*report_ids: int, type='hyperopt') -> None:
     :param type: 'backtest' or 'hyperopt'.
     :return: None
     """
+    if len(report_ids) == 1:
+        get_backtest_repo().get(report_ids[0]).plot()
+        return
     df = get_dataframe_with_equity_series(report_ids, type)
     # get all column names with "equity_daily" in it
     cols = [col for col in df.columns if "equity_daily" in col]

@@ -16,6 +16,20 @@
           </advancedOptions>
         </fileTransfer>
       </webServer>
+      <webServer id="a6ad7d32-6b9d-424f-9e42-afd3e329538a" name="pi4-bot4">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot4/" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="fe042a92-994d-4c1f-ae26-be21bb5b2486" name="pi4-bot2">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot2" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
     </option>
   </component>
 </project>

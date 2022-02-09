@@ -23,12 +23,5 @@
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/database.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="lazyft.db" uuid="ee76a67b-0d24-4110-aefa-1fa228c0a106">
-      <driver-ref>sqlite.xerial</driver-ref>
-      <synchronize>true</synchronize>
-      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/tmp/lazyft.db</jdbc-url>
-      <working-dir>$ProjectFileDir$</working-dir>
-    </data-source>
   </component>
 </project>

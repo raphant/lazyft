@@ -58,6 +58,7 @@ from functools import reduce
 ##   ETH: 0x83D3cFb8001BDC5d2211cBeBB8cB3461E5f7Ec91                                                     ##
 ##                                                                                                       ##
 ###########################################################################################################
+from lft_rest.rest_strategy import BaseRestStrategy
 
 
 class BigZ07(IStrategy):
@@ -234,7 +235,7 @@ class BigZ07(IStrategy):
         rate: float,
         time_in_force: str,
         sell_reason: str,
-        **kwargs
+        **kwargs,
     ) -> bool:
         return True
 
@@ -244,9 +245,7 @@ class BigZ07(IStrategy):
 
         if sell_reason == 'roi':
             # Looks like we can get a little have more
-            if (last_candle['cmf'] < -0.1) & (
-                last_candle['close'] > last_candle['ema_200_1h']
-            ):
+            if (last_candle['cmf'] < -0.1) & (last_candle['close'] > last_candle['ema_200_1h']):
                 return False
 
         return True
@@ -258,7 +257,7 @@ class BigZ07(IStrategy):
         current_time: 'datetime',
         current_rate: float,
         current_profit: float,
-        **kwargs
+        **kwargs,
     ):
         return False
 
@@ -281,7 +280,7 @@ class BigZ07(IStrategy):
         current_time: datetime,
         current_rate: float,
         current_profit: float,
-        **kwargs
+        **kwargs,
     ) -> float:
         # Manage losing trades and open room for better ones.
 
@@ -323,23 +322,17 @@ class BigZ07(IStrategy):
         informative_pairs = [(pair, '1h') for pair in pairs]
         return informative_pairs
 
-    def informative_1h_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def informative_1h_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
-        informative_1h = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_1h
-        )
+        informative_1h = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.inf_1h)
         # EMA
         informative_1h['ema_50'] = TA.EMA(informative_1h, period=50)
         informative_1h['ema_200'] = TA.EMA(informative_1h, period=200)
         # RSI
         informative_1h['rsi'] = TA.RSI(informative_1h, period=14)
 
-        bollinger = qtpylib.bollinger_bands(
-            qtpylib.typical_price(dataframe), window=20, stds=2
-        )
+        bollinger = qtpylib.bollinger_bands(qtpylib.typical_price(dataframe), window=20, stds=2)
         informative_1h['bb_lowerband'] = bollinger['lower']
         informative_1h['bb_middleband'] = bollinger['mid']
         informative_1h['bb_upperband'] = bollinger['upper']
@@ -347,9 +340,7 @@ class BigZ07(IStrategy):
         return informative_1h
 
     def normal_tf_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        bollinger = qtpylib.bollinger_bands(
-            qtpylib.typical_price(dataframe), window=20, stds=2
-        )
+        bollinger = qtpylib.bollinger_bands(qtpylib.typical_price(dataframe), window=20, stds=2)
         dataframe['bb_lowerband'] = bollinger['lower']
         dataframe['bb_middleband'] = bollinger['mid']
         dataframe['bb_upperband'] = bollinger['upper']
@@ -401,8 +392,7 @@ class BigZ07(IStrategy):
                 & (dataframe['rsi'] < 22)
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -424,8 +414,7 @@ class BigZ07(IStrategy):
                 & (dataframe['open'] > dataframe['close'])
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -437,8 +426,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     (dataframe['open'] - dataframe['close'])
-                    < dataframe['bb_upperband'].shift(2)
-                    - dataframe['bb_lowerband'].shift(2)
+                    < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)
                 )
                 & (dataframe['volume'] > 0)
             )
@@ -488,8 +476,7 @@ class BigZ07(IStrategy):
                 & (dataframe['rsi_1h'] < 71)
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -506,15 +493,13 @@ class BigZ07(IStrategy):
                 & (dataframe['close'] > dataframe['ema_200_1h'])
                 & (
                     dataframe['close']
-                    < dataframe['bb_lowerband']
-                    * self.buy_bb20_close_bblowerband_safe_1.value
+                    < dataframe['bb_lowerband'] * self.buy_bb20_close_bblowerband_safe_1.value
                 )
                 & (dataframe['rsi_1h'] < 69)
                 & (dataframe['open'] > dataframe['close'])
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -526,8 +511,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     (dataframe['open'] - dataframe['close'])
-                    < dataframe['bb_upperband'].shift(2)
-                    - dataframe['bb_lowerband'].shift(2)
+                    < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)
                 )
                 & (dataframe['volume'] > 0)
             )
@@ -539,13 +523,11 @@ class BigZ07(IStrategy):
                 & (dataframe['close'] > dataframe['ema_200'])
                 & (
                     dataframe['close']
-                    < dataframe['bb_lowerband']
-                    * self.buy_bb20_close_bblowerband_safe_2.value
+                    < dataframe['bb_lowerband'] * self.buy_bb20_close_bblowerband_safe_2.value
                 )
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -557,8 +539,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     dataframe['open'] - dataframe['close']
-                    < dataframe['bb_upperband'].shift(2)
-                    - dataframe['bb_lowerband'].shift(2)
+                    < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)
                 )
                 & (dataframe['volume'] > 0)
             )
@@ -572,8 +553,7 @@ class BigZ07(IStrategy):
                 & (dataframe['rsi'] < self.buy_rsi_3.value)
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -594,8 +574,7 @@ class BigZ07(IStrategy):
                 & (dataframe['close'] < dataframe['bb_lowerband'])
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -630,8 +609,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -657,8 +635,7 @@ class BigZ07(IStrategy):
                 & (dataframe['close'] < (dataframe['bb_lowerband']))
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -691,8 +668,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -726,8 +702,7 @@ class BigZ07(IStrategy):
                 )
                 & (
                     dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(48)
-                    * self.buy_volume_pump_1.value
+                    > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value
                 )
                 & (
                     dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value
@@ -772,8 +747,18 @@ class BigZ07(IStrategy):
 # Chaikin Money Flow Volume
 def MFV(dataframe):
     df = dataframe.copy()
-    N = ((df['close'] - df['low']) - (df['high'] - df['close'])) / (
-        df['high'] - df['low']
-    )
+    N = ((df['close'] - df['low']) - (df['high'] - df['close'])) / (df['high'] - df['low'])
     M = N * df['volume']
     return M
+
+
+class BigZ07Rest(BaseRestStrategy, BigZ07):
+    backtest_days = 180
+    hyperopt_days = 180
+    hyperopt_epochs = 40
+    min_avg_profit = 0.01
+    min_backtest_trades = 10
+    min_hyperopt_trades = 2
+    min_win_ratio = 0.40
+    request_hyperopt = False
+    # timeframe_detail = '5m'

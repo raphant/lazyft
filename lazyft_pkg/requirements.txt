@@ -14,3 +14,4 @@ pushbullet.py
 diskcache
 finta
 sqlmodel
+plotly

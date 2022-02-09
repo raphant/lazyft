@@ -16,7 +16,7 @@ class Hodl(IStrategy):
     stoploss = -99
 
     # ROI table:
-    minimal_roi = {"0": 100}
+    minimal_roi = {"0": 1000}
 
     # endregion
 

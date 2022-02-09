@@ -216,5 +216,13 @@ class Elliotv8(IStrategy):
         return dataframe
 
 
-class Elliotv8Rest(Elliotv8, BaseRestStrategy):
-    rest_strategy_name = 'Elliotv8'
+class Elliotv8Rest(BaseRestStrategy, Elliotv8):
+    backtest_days = 180
+    hyperopt_days = 180
+    hyperopt_epochs = 40
+    min_avg_profit = 0.01
+    min_backtest_trades = 5
+    min_hyperopt_trades = 2
+    min_win_ratio = 0.40
+    request_hyperopt = False
+    # timeframe_detail = '5m'

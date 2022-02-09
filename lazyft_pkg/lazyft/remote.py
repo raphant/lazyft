@@ -9,13 +9,11 @@ import rapidjson
 import sh
 from freqtrade.data.btanalysis import load_trades_from_db
 
-from lazyft import logger, paths
+from lazyft import logger, paths, parameter_tools
 from lazyft.config import Config
 from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy
 from lazyft.strategy import create_strategy_params_filepath, get_file_name
-from lazyft.util import ParameterTools
 
-tmp_dir = tempfile.mkdtemp()
 
 RUN_MODES = ["dry", "live"]
 remotes_file = paths.BASE_DIR.joinpath("remotes.json")
@@ -62,7 +60,7 @@ class RemoteBot:
     def env(self) -> Environment:
         if self._env:
             return self._env
-        env_file = self.tools.fetch_file(self.bot_id, ".env")
+        env_file = self.fetch_file(".env")
         env_file_text = env_file.read_text()
         # noinspection PyTypeChecker
         env = self._env = Environment(
@@ -87,47 +85,29 @@ class RemoteBot:
         self.tools.restart_bot(self.bot_id)
 
     def set_run_mode(self, mode: str):
-        logger.info("Setting run mode to %s" % mode)
         mode = mode.lower()
         assert mode in RUN_MODES, "%s not in %r" % (mode, RUN_MODES)
-        # update config
-        self.update_config({"dry_run": mode == "dry"})
-        # update env
-        env = self.env.data
-        env["RUN_MODE"] = mode
-        self.sync_remote_env()
-        self.save_env(env)
+        dry_run = mode == "dry"
+        logger.info("Setting run mode to %s" % mode)
+
+        self.env.data["FREQTRADE__DRY_RUN"] = dry_run
+        self.env.save()
+        self.send_file(self.env.file, ".env")
 
     def set_strategy(self, strategy: str, id: str = ""):
+        logger.info(f'Setting strategy for bot {self.bot_id} to "{strategy}" with id "{id}"')
+        self.tools.update_remote_strategy(self.bot_id, strategy, id)
         self.env.data["STRATEGY"] = strategy
         self.env.data["ID"] = id
-        self.sync_remote_env()
-        self.tools.update_remote_strategy(self.bot_id, strategy, id)
-        self.save_env()
-
-    def save_env(self, new_env: dict = None):
-        if not new_env:
-            assert self._env, "No new_env passed and no loaded env"
-            new_env = self.env.data
-        new_text = "\n".join([f"{k}={v}" for k, v in new_env.items()]) + "\n"
-        self.env.file.write_text(new_text)
-        self.tools.send_file(self.bot_id, self.env.file, ".env")
-
-    def sync_remote_env(self):
-        """No save."""
-        mode = self.env.data.get("RUN_MODE", "dry")
-        strategy = self.env.data["STRATEGY"]
-        id = self.env.data["ID"]
-        db_file = f"tradesv3.{strategy}-{mode}-{id}".rstrip("-") + ".sqlite"
-
-        self.env.data["DB_FILE"] = db_file
+        self.env.save()
+        self.send_file(self.env.file, ".env")
 
     def get_trades(self):
         """Get trades using the currently configured DB_FILE in the env"""
         # get name of db file
         file_name = self.env.data["DB_FILE"]
         # get db file from remote
-        db_path = self.tools.fetch_file(self.bot_id, "user_data/" + file_name)
+        db_path = self.fetch_file("user_data/" + file_name)
         if not db_path:
             return
         # create df from db
@@ -148,7 +128,7 @@ class RemoteBot:
 
     def save_config(self):
         self.config.save()
-        self.tools.send_file(self.bot_id, str(self.config), "user_data")
+        self.send_file(str(self.config), "user_data")
 
     def update_whitelist(self, whitelist: Iterable[str], append: bool = False):
         """
@@ -156,7 +136,7 @@ class RemoteBot:
         back to the bot.
         """
         self.config.update_whitelist_and_save(whitelist, append=append)
-        self.tools.send_file(self.bot_id, str(self.config), "user_data")
+        self.send_file(str(self.config), "user_data")
 
     def update_blacklist(self, blacklist: Iterable[str], append: bool = True):
         """
@@ -165,16 +145,20 @@ class RemoteBot:
         """
         self.config.update_blacklist(blacklist, append=append)
         self.config.save()
-        self.tools.send_file(self.bot_id, str(self.config), "user_data")
+        self.send_file(str(self.config), "user_data")
 
     def update_ensemble(self, strategies: Iterable[Strategy]):
+        tmp_dir = tempfile.mkdtemp()
         path = Path(tmp_dir, 'ensemble.json')
         path.write_text(rapidjson.dumps([s.name for s in strategies]))
         logger.info('New ensemble is %s', strategies)
-        self.tools.send_file(self.bot_id, path, 'user_data/strategies/ensemble.json')
+        self.send_file(path, 'user_data/strategies/ensemble.json')
 
     def send_file(self, local_path: Union[str, Path], remote_path: Union[str, Path]):
         return self.tools.send_file(self.bot_id, local_path, remote_path)
+
+    def fetch_file(self, remote_path: Union[str, Path], local_path: Union[str, Path] = None):
+        return self.tools.fetch_file(self.bot_id, remote_path, local_path)
 
 
 @attr.s
@@ -196,8 +180,9 @@ class RemoteTools:
         logger.debug('[Strategy Params] "{}" -> "{}.json"', strategy, id)
         # load path of params
         # create the remote path to save as
+        tmp_dir = tempfile.mkdtemp()
         local_params = Path(tmp_dir, 'params.json')
-        local_params.write_text(rapidjson.dumps(ParameterTools.get_parameters(id)))
+        local_params.write_text(rapidjson.dumps(parameter_tools.get_parameters(id)))
         remote_path = f"user_data/strategies/" f"{create_strategy_params_filepath(strategy).name}"
         # send the local params to the remote path
         self.send_file(bot_id, local_params, remote_path)
@@ -311,7 +296,7 @@ class RemoteTools:
     def restart_bot(self, bot_id: int):
         logger.debug("[restart bot] {}", bot_id)
         project_dir = self.path + self.FORMATTABLE_BOT_STRING.format(bot_id)
-        command = f"cd {project_dir} && docker-compose --no-ansi up  -d"
+        command = f"cd {project_dir} && docker-compose --ansi never up  -d"
         logger.debug("Running ssh {}", command)
         sh.ssh(
             [f"-p {self.preset.port}", self.address, " ".join(command.split())],
@@ -327,12 +312,13 @@ class RemoteTools:
 
 if __name__ == "__main__":
     bot1 = RemoteBot(1, "vps")
+    bot2 = RemoteBot(2, "pi")
     bot3 = RemoteBot(3, "pi")
-    bot4 = RemoteBot(4, "vps")
+    bot4 = RemoteBot(4, "pi")
     bot5 = RemoteBot(5, "pi")
 
-    bot = bot3
-    bot.set_strategy("NotAnotherSMAOffsetStrategyHOv3")
-    bot.set_run_mode("live")
+    bot = bot2
+    bot.set_strategy("BatsContest")
+    bot.set_run_mode("dry")
     print(bot.env)
     bot.restart()

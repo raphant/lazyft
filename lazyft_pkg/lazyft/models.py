@@ -5,6 +5,7 @@ from abc import abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from operator import itemgetter
 from pathlib import Path
 from typing import Optional, Union
 
@@ -14,11 +15,15 @@ from diskcache import Index
 from freqtrade.misc import deep_merge_dicts
 from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
+from freqtrade.optimize.optimize_reports import show_backtest_result
+from freqtrade.resolvers import StrategyResolver
 from pandas import json_normalize
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Session, Field, Relationship
+from rich.console import Console
+from rich.syntax import Syntax
+from sqlmodel import SQLModel, Session, Field, Relationship, select
 
-from lazyft import logger, paths, util
+from lazyft import logger, paths, util, strategy
 from lazyft.database import engine
 from lazyft.loss_functions import (
     win_ratio_and_profit_ratio_loss,
@@ -40,6 +45,7 @@ class PerformanceBase(BaseModel):
     wins: int
     losses: int
     draws: int
+    drawdown: float
 
     @property
     @abstractmethod
@@ -77,7 +83,7 @@ class PerformanceBase(BaseModel):
 
     @property
     def win_loss_ratio(self):
-        return self.wins / (self.losses or 1)
+        return (self.wins + self.draws) / (self.wins + self.draws + self.losses)
 
 
 class HyperoptPerformance(PerformanceBase):
@@ -122,6 +128,18 @@ class BacktestPerformance(PerformanceBase):
     @property
     def profit(self):
         return self.profit_total_abs
+
+    @property
+    def win_ratio(self):
+        """
+        Returns the win ratio of the backtest. Takes draws into account.
+        :return: win ratio
+        """
+        return self.wins / (self.losses + self.wins + self.draws)
+
+    @property
+    def profit_percent(self):
+        return self.profit_total_pct / 100
 
 
 class ReportBase(SQLModel):
@@ -177,6 +195,7 @@ class ReportBase(SQLModel):
             session.add(self)
             session.commit()
             session.refresh(self)
+        return self
 
 
 class BacktestData(SQLModel, table=True):
@@ -187,11 +206,15 @@ class BacktestData(SQLModel, table=True):
     def parsed(self) -> dict:
         return rapidjson.loads(self.text)['strategy']
 
+    def __str__(self) -> str:
+        return f'Backtest for ID: {self.id} - {self.parsed["strategy"]}'
+
 
 class HyperoptReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     epoch: int
     hyperopt_file_str: str = Field(default='')
+    strategy_hash: str = Field(default='')
 
     # region properties
     @property
@@ -255,6 +278,7 @@ class HyperoptReport(ReportBase, table=True):
             seed=-1,
             trades=self.backtest_data['total_trades'],
             loss=self.loss,
+            drawdown=self.drawdown,
         )
 
     @property
@@ -314,13 +338,31 @@ class HyperoptReport(ReportBase, table=True):
         file_name = get_file_name(self.strategy)
         return paths.STRATEGY_DIR.joinpath(file_name.replace(".py", "") + ".json")
 
+    @property
+    def drawdown(self):
+        return self.backtest_data['max_drawdown_account']
+
+    @property
+    def report_text(self):
+        from lazyft.reports import backtest_results_as_text
+
+        return backtest_results_as_text(
+            self.strategy, self.backtest_data, self.backtest_data['stake_currency'], hyperopt=True
+        )
+
     # endregion
 
-    def export_parameters(self):
-        self.parameters_path.write_text(rapidjson.dumps(self.parameters))
-        logger.info('Exported parameters for {} to {}', self.id, self.parameters_path)
+    def export_parameters(self, path: Path = None) -> None:
+        """
+        Export the parameters of the hyperopt run to a json file.
+        :param path: Optional path to export the parameters to.
+        :return:
+        """
+        path = path or self.parameters_path
+        path.write_text(rapidjson.dumps(self.parameters))
+        logger.info('Exported parameters for report {} to {}', self.id, path)
 
-    def delete(self, _):
+    def delete(self, *args):
         # self.hyperopt_file.unlink(missing_ok=True)
         self.log_file.unlink(missing_ok=True)
 
@@ -328,8 +370,8 @@ class HyperoptReport(ReportBase, table=True):
         trials = json_normalize(self.all_epochs, max_level=1)
         trials = HyperoptTools.prepare_trials_columns(
             trials,
-            'results_metrics.total_trades' not in trials,
-            'results_metrics.max_drawdown_abs' in trials.columns,
+            'results_metrics.max_drawdown_abs' in trials.columns
+            or 'results_metrics.max_drawdown_account' in trials.columns,
         )
         trials.drop(
             columns=['is_initial_point', 'is_best', 'Best'],
@@ -344,6 +386,8 @@ class HyperoptReport(ReportBase, table=True):
         )
         # insert avg_duration_seconds in the seventh position
         trials.insert(6, 'Avg duration hours', avg_duration_hours)
+        # strip each column name
+        trials.columns = [c.strip() for c in trials.columns]
         return trials
 
     def show_hyperopt(self, epoch: int = None):
@@ -370,7 +414,12 @@ class HyperoptReport(ReportBase, table=True):
             hyperopt_file_str=str(self.hyperopt_file),
             exchange=self.exchange,
             tag=self.tag,
+            strategy_hash=self.strategy_hash,
         )
+
+    def get_best_epoch(self):
+        sorted_epochs = sorted(self.all_epochs, key=itemgetter('loss'))
+        return self.all_epochs.index(sorted_epochs[0])
 
     @classmethod
     def from_last_result(cls, epoch=0, exchange='kucoin'):
@@ -380,6 +429,13 @@ class HyperoptReport(ReportBase, table=True):
         return HyperoptReport(
             epoch=epoch, hyperopt_file_str=str(get_last_hyperopt_file_path()), exchange=exchange
         )
+
+    @classmethod
+    def from_hyperopt_result(cls, result_path: Path, exchange: str):
+        """
+        Return a HyperoptReport object from a hyperopt result file.
+        """
+        return HyperoptReport(epoch=0, hyperopt_file_str=str(result_path), exchange=exchange)
 
 
 class BacktestReport(ReportBase, table=True):
@@ -399,6 +455,9 @@ class BacktestReport(ReportBase, table=True):
     data_id: Optional[int] = Field(default=None, foreign_key="backtestdata.id")
     _backtest_data: BacktestData = Relationship()
 
+    strategy_hash: str = Field(default='')
+
+    # region Properties
     @property
     def strategy(self):
         return list(self.load_data['strategy'].keys())[0]
@@ -423,11 +482,32 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def starting_balance(self):
-        return self.backtest_data['starting_balance']
+        return float(self.backtest_data['starting_balance'])
 
     @property
     def stake_amount(self):
         return self.backtest_data['stake_amount']
+
+    @property
+    def timeframe(self):
+        return self.backtest_data['timeframe']
+
+    @property
+    def drawdown(self):
+        return self.backtest_data.get('max_drawdown_account', 0)
+
+    @property
+    def timerange(self) -> str:
+        """
+        Return the timerange of the backtest in the format of YYYYMMDD-YYYYMMDD.
+        :return:
+        """
+        # format of start_date and end_date is YYYY-MM-DD HH:MM:SS
+        # remove the time from the date and strip the '-'
+        start_date: str = self.backtest_data['backtest_start'].split(' ')[0].replace('-', '')
+        end_date: str = self.backtest_data['backtest_end'].split(' ')[0].replace('-', '')
+
+        return f'{start_date}-{end_date}'
 
     @property
     def performance(self) -> BacktestPerformance:
@@ -435,6 +515,8 @@ class BacktestReport(ReportBase, table=True):
         totals.pop('key')
         totals['start_date'] = self.backtest_data['backtest_start']
         totals['end_date'] = self.backtest_data['backtest_end']
+        totals['profit_total_pct'] = totals['profit_total_pct'] / 100
+        totals['drawdown'] = self.drawdown
         return BacktestPerformance(**totals)
 
     @property
@@ -557,6 +639,33 @@ class BacktestReport(ReportBase, table=True):
     def sell_reason_summary(self):
         return pd.DataFrame(self.backtest_data['sell_reason_summary'])
 
+    @property
+    def hyperopt_report(self):
+        """
+        Return the hyperopt report used for this backtest using self.hyperopt_id.
+        Returns none if no hyperopt_id is set.
+        """
+        from lazyft.reports import get_hyperopt_repo
+
+        return get_hyperopt_repo().get(self.hyperopt_id) if self.hyperopt_id else None
+
+    @property
+    def hyperopt_parameters(self):
+        """
+        Return the hyperopt parameters used for this backtest
+        """
+        return self.hyperopt_report.parameters if self.hyperopt_report else None
+
+    @property
+    def report_text(self):
+        from lazyft.reports import backtest_results_as_text
+
+        return backtest_results_as_text(
+            self.strategy, self.backtest_data, self.backtest_data['stake_currency']
+        )
+
+    # endregion
+
     def trades_to_csv(self, name=''):
         path = paths.BASE_DIR.joinpath('exports/')
         path.mkdir(exist_ok=True)
@@ -582,6 +691,129 @@ class BacktestReport(ReportBase, table=True):
         session.delete(data)
         self.log_file.unlink()
 
+    def plot(self):
+        """
+        Plot the backtest results
+
+        :return:
+        """
+        from lazyft.plot import get_dates_from_strategy, calculate_equity
+        import plotly.express as px
+
+        strategy_stats = self.backtest_data
+        df = pd.DataFrame({"date": get_dates_from_strategy(strategy_stats)})
+        df.loc[:, f'equity_daily'] = calculate_equity(strategy_stats)
+        cols = [col for col in df.columns if "equity_daily" in col]
+        fig = px.line(
+            df,
+            x="date",
+            y=cols,
+            title=f"Equity Curve {self.strategy}-{self.hyperopt_id or 'NO_ID'} | "
+            f"Interval={self.timeframe} Timerange={self.timerange}, "
+            f"Total profit=${self.performance.profit_total_abs:.2f}, "
+            # f"Final profit=${(self.performance.profit_total_abs + self.starting_balance):.2f}, "
+            f"Total pct={self.performance.profit_total_pct * 100:.2f}%, "
+            f"Mean pct={self.performance.profit_mean_pct:.2f}%, "
+            f"Trades={self.performance.trades}, "
+            f"Wins={self.performance.wins}, "
+            f"Losses={self.performance.losses}, "
+            f"Draws={self.performance.draws}, "
+            f"Win ratio={self.performance.win_ratio * 100:.2f}%",
+        )
+        fig.show(showgrid=True)
+
+    def plot_monthly(self):
+        import plotly.express as px
+
+        trades_df = self.trades
+        trades_df = trades_df.resample('M', on='close_date').sum()
+        trades_df['profit_abs'] = trades_df['profit_abs'].round(2)
+        fig = px.line(
+            trades_df,
+            # x="index",
+            y="profit_abs",
+            text="profit_abs",
+            title=f"Monthly Profit {self.strategy} | Interval={self.timeframe} Timerange={self.timerange}, "
+            f"Total profit=${self.performance.profit_total_abs:.2f}, "
+            f"Final profit=${self.performance.profit_total_abs + self.starting_balance:.2f}, "
+            f"Total pct={self.performance.profit_total_pct:.2f}%, "
+            f"Mean pct={self.performance.profit_mean_pct:.2f}%, "
+            f"Trades={self.performance.trades}, "
+            f"Wins={self.performance.wins}, "
+            f"Losses={self.performance.losses}, "
+            f"Draws={self.performance.draws}, "
+            f"Win ratio={self.performance.win_ratio * 100:.2f}%",
+        )
+        fig.show(showgrid=True)
+
+    def plot_weekly(self):
+        import plotly.express as px
+
+        trades_df = self.trades
+        trades_df = trades_df.resample('W', on='close_date').sum()
+        trades_df['profit_abs'] = trades_df['profit_abs'].round(2)
+        fig = px.line(
+            trades_df,
+            # x="index",
+            y="profit_abs",
+            text="profit_abs",
+            title=f"Weekly Profit {self.strategy} | Interval={self.timeframe} Timerange={self.timerange}, "
+            f"Total profit=${self.performance.profit_total_abs:.2f}, "
+            f"Total pct={self.performance.profit_total_pct:.2f}%, "
+            f"Mean pct={self.performance.profit_mean_pct:.2f}%, "
+            f"Trades={self.performance.trades}, "
+            f"Wins={self.performance.wins}, "
+            f"Losses={self.performance.losses}, "
+            f"Draws={self.performance.draws}, "
+            f"Win ratio={self.performance.win_ratio * 100:.2f}%",
+        )
+        fig.show(showgrid=True)
+
+
+class StrategyBackup(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=False)
+    text: str = Field(index=False)
+    hash: str = Field(index=True)
+    date: datetime = Field(default_factory=datetime.now)
+
+    def save(self):
+        with Session(engine) as session:
+            session.add(self)
+            session.commit()
+            session.refresh(self)
+        return self
+
+    def export_to(self, path: Union[Path, str]) -> Path:
+        """
+        Export the strategy to a file or directory.
+
+        :param path: A file or a directory
+        :return: The path to the exported file
+        """
+        if isinstance(path, str):
+            path = Path(path)
+        if path.is_dir():
+            path = path / strategy.get_file_name(self.name)
+        path.write_text(self.text)
+        return path
+
+    def print(self):
+        console = Console()
+        console.print(Syntax(self.text, lexer_name='python'))
+
+    @classmethod
+    def load_hash(cls, hash):
+        with Session(engine) as session:
+            statement = select(cls).where(cls.hash == hash)
+            return session.exec(statement).first()
+
+    @classmethod
+    def first(cls):
+        with Session(engine) as session:
+            statement = select(cls).order_by(cls.date)
+            return session.exec(statement).first()
+
 
 class BacktestRepo(BaseModel):
     reports: list[BacktestReport] = []
@@ -589,6 +821,10 @@ class BacktestRepo(BaseModel):
 
 class HyperoptRepo(BaseModel):
     reports: list[HyperoptReport] = []
+
+
+class StrategyBackupRepo(BaseModel):
+    reports: list[StrategyBackup] = []
 
 
 class RemotePreset(BaseModel):
@@ -608,6 +844,20 @@ class Environment:
     data: dict
     file: Path
 
+    def save(self, new_data: dict = None):
+        data = new_data or self.data
+        self.update_db_file_name()
+        new_text = "\n".join([f"{k}={v}" for k, v in data.items()]) + "\n"
+        self.file.write_text(new_text)
+
+    def update_db_file_name(self):
+        mode = self.data.get("FREQTRADE__DRY_RUN", True)
+        dry_run = "dry_run" if mode else "live"
+        strategy = self.data["STRATEGY"]
+        id = self.data["ID"]
+        db_file = f"tradesv3.{strategy}-{dry_run}-{id}".rstrip("-") + ".sqlite"
+        self.data["DB_FILE"] = db_file
+
 
 @dataclass
 class RemoteBotInfo:
@@ -623,6 +873,7 @@ class RemoteBotInfo:
 class Strategy:
     name: str = None
     id: int = None
+    args: dict = None
 
     def __post_init__(self):
         if not self.name:
@@ -631,11 +882,20 @@ class Strategy:
             self.name = get_name_from_id(self.id)
 
     @property
+    def as_ft_strategy(self):
+        assert self.args, 'Need strategy args'
+        return StrategyResolver.load_strategy(self.args)
+
+    @property
     def as_pair(self):
         return self.name, str(self.id)
 
+    @property
+    def timeframe(self):
+        return self.as_ft_strategy.timeframe
+
     def __str__(self) -> str:
-        return '-'.join(self.as_pair)
+        return '-'.join(self.as_pair).rstrip('-')
 
 
 SQLModel.metadata.create_all(engine)

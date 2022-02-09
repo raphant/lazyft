@@ -1,0 +1,12 @@
+FROM freqtradeorg/freqtrade:develop as ftworkdir
+
+COPY --chown=ftuser:ftuser . /ftworkdir
+WORKDIR /ftworkdir
+USER root
+RUN apt install rsync -y
+#RUN bash build.sh
+#RUN chown -R ftuser:ftuser /usr/local/lib/python3.9/site-packages/
+USER ftuser
+RUN pip install --user --no-cache-dir --no-build-isolation -e lazyft_pkg -e indicatormix -e coin_based_strategy -e lft_rest jupyter
+#RUN cd buildfiles && pip install -r requirements.txt
+WORKDIR /ftworkdir

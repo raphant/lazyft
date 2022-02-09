@@ -1,14 +1,24 @@
 import datetime
-import time
 from abc import ABCMeta, abstractmethod
 from collections import UserList
-from typing import Optional, Union, Callable
+from functools import reduce
+from itertools import combinations
+from pprint import pprint
+from typing import Union, Callable, Any
 
 import pandas as pd
 from dateutil.parser import parse
+from freqtrade.optimize.optimize_reports import (
+    text_table_bt_results,
+    text_table_tags,
+    text_table_sell_reason,
+    generate_periodic_breakdown_stats,
+    text_table_periodic_breakdown,
+    text_table_add_metrics,
+)
 from sqlmodel import Session
 from sqlmodel.sql.expression import select
-
+import re
 from lazyft import logger
 from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
@@ -17,6 +27,8 @@ from lazyft.models import (
     HyperoptReport,
     ReportBase,
 )
+from lazyft.notify import notify_telegram
+from lazyft.util import dict_to_telegram_string
 
 cols_to_print = [
     'strategy',
@@ -47,7 +59,7 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         pass
 
     def get(self, id: int) -> AbstractReport:
-        """Get the reports by id"""
+        """Gets a report by id"""
         try:
             return [r for r in self if str(r.id) == str(id)][0]
         except IndexError:
@@ -119,6 +131,12 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
     def filter_by_exchange(self, exchange: str):
         self.data = [r for r in self if r.exchange == exchange]
         return self
+
+    def first(self):
+        return self.data[0]
+
+    def last(self):
+        return self.data[-1]
 
     def dataframe(self) -> pd.DataFrame:
         frames = []
@@ -290,14 +308,132 @@ class BacktestExplorer:
             return results.one()
 
 
+def backtest_results_as_text(
+    strategy: str,
+    results: dict[str, Any],
+    stake_currency: str,
+    backtest_breakdown=None,
+    hyperopt=False,
+) -> str:
+    """
+    Generate a text report from a backtest results dict.
+    """
+    text = []
+    if backtest_breakdown is None:
+        backtest_breakdown = []
+    # Print results
+    text.append(f"Result for strategy {strategy} | Hyperopt: {hyperopt}")
+    table = text_table_bt_results(results['results_per_pair'], stake_currency=stake_currency)
+    if isinstance(table, str):
+        text.append(' BACKTESTING REPORT '.center(len(table.splitlines()[0]), '='))
+    text.append(table)
+
+    if results.get('results_per_buy_tag') is not None:
+        table = text_table_tags(
+            "buy_tag", results['results_per_buy_tag'], stake_currency=stake_currency
+        )
+
+        if isinstance(table, str) and len(table) > 0:
+            text.append(' BUY TAG STATS '.center(len(table.splitlines()[0]), '='))
+        text.append(table)
+
+    table = text_table_sell_reason(
+        sell_reason_stats=results['sell_reason_summary'], stake_currency=stake_currency
+    )
+    if isinstance(table, str) and len(table) > 0:
+        text.append(' SELL REASON STATS '.center(len(table.splitlines()[0]), '='))
+    text.append(table)
+
+    table = text_table_bt_results(results['left_open_trades'], stake_currency=stake_currency)
+    if isinstance(table, str) and len(table) > 0:
+        text.append(' LEFT OPEN TRADES REPORT '.center(len(table.splitlines()[0]), '='))
+    text.append(table)
+
+    for period in backtest_breakdown:
+        days_breakdown_stats = generate_periodic_breakdown_stats(
+            trade_list=results['trades'], period=period
+        )
+        table = text_table_periodic_breakdown(
+            days_breakdown_stats=days_breakdown_stats, stake_currency=stake_currency, period=period
+        )
+        if isinstance(table, str) and len(table) > 0:
+            text.append(f' {period.upper()} BREAKDOWN '.center(len(table.splitlines()[0]), '='))
+        text.append(table)
+
+    table = text_table_add_metrics(results)
+    if isinstance(table, str) and len(table) > 0:
+        text.append(' SUMMARY METRICS '.center(len(table.splitlines()[0]), '='))
+    text.append(table)
+
+    if isinstance(table, str) and len(table) > 0:
+        text.append('=' * len(table.splitlines()[0]))
+
+    text.append('')
+    return '\n'.join(text)
+
+
 if __name__ == '__main__':
     # print(get_backtest_repo().get_pair_totals('mean').head(15))
     # print(get_hyperopt_repo())
     # print(get_backtest_repo())
     # print(get_hyperopt_repo())
 
-    t1 = time.time()
-    # print(get_backtest_repo().head(10).df().to_markdown())
-    print(str(get_hyperopt_repo()[0].parameters))
+    # t1 = time.time()
+    # print(get_backtest_repo().head(20).df().to_markdown())
+    # first_report = get_backtest_repo().head(1)[0]
+    # print(first_report.backtest_data.keys())
+    # # print(str(get_hyperopt_repo()))
+    #
+    # print('Elapsed time:', time.time() - t1, 'seconds')
+    # StrategyBackup.first().print()
+    # report = get_hyperopt_repo().last()
+    # print(report.get_best_epoch(), report.epoch)
+    # print(get_hyperopt_repo().get(35).parameters['params']['buy'])
+    print(get_hyperopt_repo().get(38).hyperopt_list_to_df().to_markdown())
+    # print(get_hyperopt_repo().get(38).performance.profit_total_pct * 100)
+    # print(get_backtest_repo().head(20).df().to_markdown())
+    # print(get_backtest_repo().get(275).report_text)
+    # notify_telegram('Test', dict_to_telegram_string(get_hyperopt_repo().get(38).performance.dict()))
+    report = get_hyperopt_repo().get(38)
 
-    print('Elapsed time:', time.time() - t1, 'seconds')
+    def find_epochs_that_meet_requirement(report: HyperoptReport):
+        minimum_profit_pct = 0.03
+        maximum_drawdown = 0.4
+        minimum_win_rate = 0.5
+        df = report.hyperopt_list_to_df()
+        print(df.keys())
+        profit_key = 'Profit'
+        drawdown_key = 'max_drawdown_account'
+        wins_draw_loss_key = 'Win Draw Loss'
+
+        def split_wins_draws_losses(row):
+            wdl_val = row[wins_draw_loss_key]  # Example: 79    0   75
+            pattern = re.compile(r'(\d+)\s+(\d+)\s+(\d+)')
+            wins, draws, losses = pattern.match(wdl_val).groups()
+            return wins, draws, losses
+
+        def calculate_win_ratio(wins, draws, losses):
+            return (int(wins) + int(draws)) / (int(wins) + int(draws) + int(losses))
+
+        df['win_ratio'] = df.apply(
+            lambda row: calculate_win_ratio(*split_wins_draws_losses(row)), axis=1
+        )
+        print(df['win_ratio'])
+        # filter out epochs that don't meet requirements
+        meets_req = df.query(
+            f'{profit_key} > {minimum_profit_pct} and {drawdown_key} < {maximum_drawdown} and win_ratio > {minimum_win_rate}'
+        )
+        meets_req = meets_req.sort_values(profit_key, ascending=False)
+        print(meets_req[profit_key])
+        print(meets_req.head(10))
+        reports = []
+        for idx, row in meets_req.iterrows():
+            new_report = report.new_report_from_epoch(idx)
+            reports.append(new_report)
+            assert new_report.performance.profit_total_pct == row[profit_key]
+        return reports
+
+    # find_epochs_that_meet_requirement(report)
+    print(get_backtest_repo().first().performance.profit_total_pct)
+    print(get_hyperopt_repo().first().performance.profit_total_pct)
+    notify_telegram('Test', dict_to_telegram_string(report.performance.dict()))

@@ -1,6 +1,8 @@
 import datetime
+from rapidjson import JSONDecodeError
 
 from lazyft.config import Config
+from lft_rest import logger
 
 
 def get_timerange(days):
@@ -16,7 +18,11 @@ def get_timerange(days):
 
 
 def get_config(exchange: str):
-    if exchange == 'kucoin':
-        return Config('kucoin_refresh_nov4.json')
-    elif exchange == 'binance':
-        return Config('binance_refresh_december.json')
+    logger.info(f"Getting config for {exchange}")
+    try:
+        if exchange == 'kucoin':
+            return Config('kucoin_refresh_nov4.json')
+        elif exchange == 'binance':
+            return Config('binance_refresh_december.json')
+    except JSONDecodeError as e:
+        raise Exception(f"Error loading config for {exchange}: {e}")

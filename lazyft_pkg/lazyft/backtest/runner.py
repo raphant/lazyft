@@ -3,24 +3,23 @@ from __future__ import annotations
 import pathlib
 import time
 import uuid
-from collections import Counter
 from typing import Optional
 
 import pandas as pd
 from freqtrade.commands import Arguments
 from freqtrade.commands.optimize_commands import setup_optimize_configuration
 from freqtrade.enums import RunMode
-from freqtrade.optimize import optimize_reports
-from freqtrade.optimize.backtesting import Backtesting
+from freqtrade.exceptions import OperationalException
+from freqtrade.optimize import optimize_reports, backtesting
 from sqlmodel import Session
 
-from lazyft import logger, paths
+from lazyft import logger, paths, downloader, strategy, parameter_tools
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.database import engine
 from lazyft.models import BacktestReport, BacktestData
-from lazyft.reports import get_backtest_repo
+from lazyft.reports import get_backtest_repo, get_hyperopt_repo
 from lazyft.runner import Runner
-from lazyft.util import ParameterTools, store_backtest_stats
+from lazyft.util import store_backtest_stats
 
 logger_exec = logger.bind(type='backtest')
 
@@ -100,70 +99,77 @@ class BacktestRunner(Runner):
         :param verbose: If True, will print extra output of the command
         :param load_from_hash: If True, will load the report from the database if it exists
         """
-        super().__init__(verbose)
+        super().__init__(command, verbose)
         self.load_from_hash = load_from_hash
-        self.command = command
-        self.strategy = command.strategy
         self.verbose = verbose or command.verbose
 
         # self.report_id = self.command.hash
-        self.command.params.logfile = self.log_path
+        # self.command.params.logfile = self.log_path
 
         self.report: Optional[BacktestReport] = None
         self.exception: Optional[Exception] = None
         self.start_time: Optional[float] = None
         self.result_path: Optional[pathlib.Path] = None
 
-        self.counter = Counter()
-
     def pre_execute(self):
         """
         Pre-execution tasks
         """
         self.reset()
+        if self.params.download_data:
+            downloader.download_missing_historical_data(self.strategy, self.config, self.params)
         if self.command.id:
-            ParameterTools.set_params_file(self.command.id)
+            parameter_tools.set_params_file(self.command.id)
         else:
-            ParameterTools.remove_params_file(self.strategy, self.command.config.path)
-        logger.debug('Running command: "{}"', self.command.command_string)
-        logger_exec.info('Running command: "{}"', self.command.command_string)
-        logger.debug(self.command.params)
+            parameter_tools.remove_params_file(self.strategy, self.config.path)
+        logger.info('Running command: "freqtrade {}"', self.command.command_string)
+        logger_exec.info('Running command: "freqtrade {}"', self.command.command_string)
+        logger.debug(self.params)
         logger.info(
             'Backtesting {} with params id "{}" - {}',
             self.strategy,
             self.command.id or 'null',
             self.command.hash,
         )
-        pargs = Arguments(self.command.command_string.split()).get_parsed_arg()
         # start_backtesting(pargs)
-        config = setup_optimize_configuration(pargs, RunMode.BACKTEST)
         # Initialize backtesting object
-        backtesting = Backtesting(config)
-        config['export'] = None
-        optimize_reports.print = self.log
+
         # freqtrade.optimize.backtesting.print = self.log
-        return backtesting
+
+        # save copy of strategy
+        if not self.hyperopt_id:
+            self.strategy_hash = strategy.save_strategy_text_to_database(self.strategy)
+        else:
+            # check to see if the report with hyperopt id has a strategy hash
+            report = get_hyperopt_repo().get(self.hyperopt_id)
+            self.export_backup_strategy(report)
+
+        # backtesting.logger = test_logger
+        optimize_reports.print = self.log
+
+        pargs = Arguments(self.command.command_string.split()).get_parsed_arg()
+        config = setup_optimize_configuration(pargs, RunMode.BACKTEST)
+        bt = backtesting.Backtesting(config)
+        config['export'] = None
+
+        return bt
 
     @logger.catch(reraise=True)
     def execute(self):
         if self.hash_exists():
             self.load_hashed()
             return
+        success = False
         backtest = self.pre_execute()
         self.start_time = time.time()
         self.running = True
         try:
             backtest.start()
-        # except OperationalException as e:
-        #     if str(e) == 'No data found. Terminating.':
-        #         if self.counter['no_data'] > 1:
-        #             raise e
-        #         self.counter['no_data'] += 1
-        #         downloader.download_missing_historical_data(
-        #             self.strategy, self.command.config, self.command.params
-        #         )
-        #         return self.execute()
-        #     raise e
+        except OperationalException as e:
+            if str(e) == 'No data found. Terminating.':
+                raise OperationalException(
+                    f'{e}:\nStrategy path: {self.params.strategy_path}\nData path: {self.params.data_dir}'
+                ) from e
         except Exception as e:
             # logger.exception(f'Backtest failed: {e}')
             self.exception = e
@@ -213,7 +219,7 @@ class BacktestRunner(Runner):
         try:
             self.running = False
             logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
-            ParameterTools.remove_params_file(self.strategy, self.command.config.path)
+            parameter_tools.remove_params_file(self.strategy, self.command.config.path)
             if success:
                 self.report = self.generate_report()
                 logger.success(f'Backtest {self.strategy} finished successfully')
@@ -221,9 +227,8 @@ class BacktestRunner(Runner):
                 logger.error('{} backtest failed with errors', self.strategy)
                 raise self.exception
         finally:
-            optimize_reports.print = print
+            strategy.delete_temporary_strategy_backup_dir(self.tmp_strategy_path)
             self.write_queue.join()
-            # freqtrade.optimize.backtesting.print = print
 
     def hash_exists(self):
         if self.load_from_hash and self.command.hash in get_backtest_repo().get_hashes():
@@ -266,6 +271,7 @@ class BacktestRunner(Runner):
             exchange=self.command.config['exchange']['name'],
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
+            strategy_hash=self.strategy_hash,
             ensemble=','.join(['-'.join(s.as_pair) for s in self.command.params.ensemble]),
         )
 
@@ -278,7 +284,7 @@ class BacktestRunner(Runner):
 
     @property
     def log_path(self) -> pathlib.Path:
-        return paths.BACKTEST_LOG_PATH / (self.report_id + '.log')
+        return (paths.BACKTEST_LOG_PATH / str(self.report_id)).with_suffix('.log')
 
     def sub_process_log(self, text="", out=False, error=False):
         """
@@ -293,16 +299,19 @@ class BacktestRunner(Runner):
         logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 
-    def save(self):
+    # noinspection PyProtectedMember
+    def save(self, tag: str = None):
         """
         Saves the report to the database.
         """
         if self.hash_exists():
             logger.info('Skipping save... backtest already exists in the database')
+            print(self.report.report_text)
             return self.report
         if not self.report:
             logger.info('Skipping save... no report generated')
             return
+        self.report.tag = tag
         with Session(engine) as session:
             report = self.report
             session.add(report)

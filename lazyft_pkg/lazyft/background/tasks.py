@@ -4,6 +4,7 @@ import rapidjson
 from celery.contrib.abortable import AbortableTask
 from loguru import logger
 
+import lazyft.command
 from .celery import app
 from .. import hyperopt, paths
 from ..hyperopt import HyperoptRunner
@@ -20,7 +21,7 @@ def do_hyperopt(self, task_info: dict):
         data = rapidjson.loads(paths.CELERY_TASKS_FILE.read_text())
     data[task_id] = {'parameters': parameters_dict, 'running': True}
     paths.CELERY_TASKS_FILE.write_text(rapidjson.dumps(data))
-    commands = hyperopt.create_commands(HyperoptParameters(**parameters_dict))
+    commands = lazyft.command.create_commands(HyperoptParameters(**parameters_dict))
     runner = HyperoptRunner(commands[0], task_id=task_id, celery=True, autosave=True)
     runner.execute(background=False)
     return runner.report.report_id

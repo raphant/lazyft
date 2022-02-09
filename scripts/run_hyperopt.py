@@ -1,29 +1,40 @@
-from lazyft.command import create_commands
+from bullet import YesNo
+
 from lazyft.command_parameters import HyperoptParameters
-from lazyft.hyperopt import HyperoptRunner
+from lazyft import logger
 
-param_id = 'test'
-# STRATEGY_WITH_ID = [Strategy(id=1)]
-STRATEGIES = ['TestStrategy']
-config_name = 'config.json'
-
-days = 10
+days = 365
 
 if __name__ == '__main__':
     hp = HyperoptParameters(
-        strategies=STRATEGIES,
-        config_path=config_name,
-        epochs=30,
-        spaces='roi stoploss',
+        config_path='config.1.18.22.json',
+        epochs=15,
+        spaces='buy sell',
         min_trades=1,
+        loss='WinRatioAndProfitRatioLoss',
+        # loss='ROIAndProfitHyperOptLoss',
+        # loss='CalmarHyperOptLoss',
+        # loss='SortinoHyperOptLoss',
+        # timerange='20210110-20220110',
         days=days,
-        download_data=False,
+        download_data=True,
+        max_open_trades=3,
+        starting_balance=1000,
+        stake_amount='333.33',
+        custom_spaces='all',
+        custom_settings={
+            'use_custom_stoploss': False,
+        },
+        jobs=-2,
     )
-    commands = create_commands(hp, verbose=True)
-    runner = HyperoptRunner(commands[0])
-    runner.execute(background=True)
+    runner = hp.run('BatsContest-40', load_hashed_strategy=False)
     if runner.error:
         raise runner.exception
-    assert bool(runner.report)
-    print(runner.report)
-    # runner.save()
+    # assert bool(runner.report)
+    logger.info('Report: {}', runner.report)
+    if runner.report:
+        print(runner.report.report_text)
+    client = YesNo('Do you want to save the report? ', default='n')
+    result = client.launch()
+    if bool(runner.report) and result:
+        runner.save()

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import hashlib
 from datetime import timedelta, datetime
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Any
 
 from freqtrade.commands import Arguments
 from freqtrade.configuration import setup_utils_configuration
@@ -9,7 +11,6 @@ from freqtrade.constants import LAST_BT_RESULT_FN
 from freqtrade.data.btanalysis import get_latest_hyperopt_file
 from freqtrade.enums import RunMode
 from freqtrade.misc import file_dump_json
-from loguru import logger
 from pandas import DataFrame
 
 
@@ -37,39 +38,6 @@ def human_format(num):
     return '{}{}'.format(
         '{:f}'.format(num).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude]
     )
-
-
-class ParameterTools:
-    @classmethod
-    def set_params_file(cls, hyperopt_id: int):
-        """Load strategy parameters from a saved report."""
-
-        from lazyft.reports import get_hyperopt_repo
-
-        report = get_hyperopt_repo().get(hyperopt_id)
-        report.export_parameters()
-
-    @classmethod
-    def get_parameters(cls, id: str) -> dict:
-        from lazyft.reports import get_hyperopt_repo
-
-        return get_hyperopt_repo().get(id).parameters
-
-    @classmethod
-    def remove_params_file(cls, strategy, config: Union[str, Path] = None) -> None:
-        """
-        Remove the params file for the given strategy.
-        """
-        from lazyft.strategy import get_strategy_param_path
-        from lazyft.config import Config
-
-        if not config:
-            config = Config('config.json')
-        if isinstance(config, str):
-            config = Path(config)
-        filepath = get_strategy_param_path(strategy, str(config))
-        logger.info('Removing strategy params: {}', filepath)
-        filepath.unlink(missing_ok=True)
 
 
 def hhmmss_to_seconds(timestamp: str):
@@ -163,3 +131,38 @@ def get_best_hyperopt() -> int:
     if n > 0:
         n -= 1
     return epochs_all.index(epochs_best[n])
+
+
+def get_timerange(days: int) -> Tuple[str, str]:
+    """
+    Get the timerange for the given number of days
+
+    :param days: The number of days to get the timerange for
+    :return: The timerange as a tuple
+    """
+    today = datetime.now()
+    start_day = datetime.now() - timedelta(days=days)
+    hyperopt_days = round(days - days / 3)
+    backtest_days = round(days / 3) - 1
+    hyperopt_start, hyperopt_end = start_day, start_day + timedelta(days=hyperopt_days)
+    backtest_start, backtest_end = (today - timedelta(days=backtest_days), today)
+
+    hyperopt_range = f'{hyperopt_start.strftime("%Y%m%d")}-{hyperopt_end.strftime("%Y%m%d")}'
+    backtest_range = f'{backtest_start.strftime("%Y%m%d")}-{backtest_end.strftime("%Y%m%d")}'
+    return hyperopt_range, backtest_range
+
+
+def dict_to_telegram_string(d: dict[str, Any]) -> str:
+    """
+    Converts a dictionary to a readable string
+    :param d: The dictionary to convert
+    :return: The string representation of the dictionary
+    """
+    for k, v in d.items():
+        if isinstance(v, datetime):
+            d[k] = v.strftime('%Y-%m-%d %H:%M:%S')
+        elif isinstance(v, float):
+            d[k] = f'{v:.3f}'
+    if 'seed' in d:
+        del d['seed']
+    return '\n'.join([f'*{k.capitalize()}:* `{v}`' for k, v in d.items()])

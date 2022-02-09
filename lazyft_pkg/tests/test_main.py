@@ -14,7 +14,7 @@ backtest_config = Config(backtest_config_name)
 
 def test_refresh_pairlist():
     whitelist = refresh_config.whitelist
-    QuickTools.refresh_pairlist(refresh_config, 10, backtest_config_name)
+    refresh_pairlist(refresh_config, 10, backtest_config_name)
     assert any(whitelist)
 
 

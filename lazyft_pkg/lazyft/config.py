@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import os
 import pathlib
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Union, Iterable
 
 import rapidjson
+from freqtrade.configuration import Configuration
 
-from lazyft.paths import CONFIG_DIR
 from lazyft import logger
-
-tmp_dir = tempfile.mkdtemp()
+from lazyft.paths import CONFIG_DIR
 
 
 class Config:
@@ -42,25 +40,21 @@ class Config:
 
     def save(self, save_as: Union[os.PathLike, str] = None) -> Path:
         """
-        Save the config file as a new or current file name.
-        Args:
-            save_as: An optional file name to save the config file as.
+        Saves the config to a file. The config will be saved to the `./config` directory.
 
-        Returns: Path to the new config file.
-
+        :param save_as: An optional path to save the config file to. Only include the file name,
+            not the directory.
+        :return: The path to the saved config file.
         """
-        if not save_as:
-            self._config_path.write_text(self.to_json)
-            path = self._config_path
+        if save_as is None:
+            save_as = self._config_path
         else:
-            if isinstance(save_as, str):
-                path = self._config_path.parent.joinpath(save_as)
-                path.write_text(self.to_json)
-            else:
-                path = Path(save_as)
-                path.write_text(self.to_json)
-        self._config_path = path
-        return path
+            # create a path object from the string, and grab the file name
+            save_as = CONFIG_DIR.joinpath(Path(save_as).name)
+        if save_as.exists():
+            logger.info(f'Overwriting {save_as}')
+        save_as.write_text(self.to_json)
+        return save_as
 
     def tmp(self):
         temp_path = tempfile.mkdtemp()
@@ -127,12 +121,16 @@ class Config:
     def copy(self) -> 'Config':
         """Returns a temporary copy of the config"""
         from_path = self._config_path
+        tmp_dir = tempfile.mkdtemp()
         to_path = pathlib.Path(tmp_dir, self._config_path.name)
-        shutil.copy(from_path, to_path)
+        to_path.write_text(from_path.read_text())
         return Config(to_path)
 
     def update(self, update: dict):
         self._data.update(update)
+
+    def to_configuration(self):
+        return Configuration.from_files([str(self._config_path)])
 
     def __getitem__(self, key: str):
         if key == 'starting_balance':

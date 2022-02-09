@@ -16,7 +16,7 @@
       <option name="outputFromStdout" value="false" />
       <option name="program" value="$PROJECT_DIR$/build.sh" />
       <option name="runOnExternalChanges" value="true" />
-      <option name="scopeName" value="ft" />
+      <option name="scopeName" value="Setup.py" />
       <option name="trackOnlyRoot" value="false" />
       <option name="workingDir" value="$PROJECT_DIR$" />
       <envs />

@@ -440,5 +440,6 @@ class NASOSv5Rest(BaseRestStrategy, NASOSv5):
     hyperopt_days = 5
     hyperopt_epochs = 65
     min_avg_profit = 0.01
-    request_hyperopt = False
-    min_trades = 1
+    request_hyperopt = True
+    min_trades = 3
+    min_hyperopt_trades = 5

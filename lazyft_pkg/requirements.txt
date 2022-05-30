@@ -16,3 +16,4 @@ finta
 sqlmodel
 plotly
 alive-progress
+appdirs

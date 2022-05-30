@@ -10,18 +10,19 @@ import dateutil.parser
 import pytz
 import sh
 from freqtrade.data.history import load_pair_history
+from pydantic import BaseModel
+
 from lazyft import logger, paths
 from lazyft.command_parameters import BacktestParameters, HyperoptParameters
 from lazyft.config import Config
 from lazyft.paths import USER_DATA_DIR
 from lazyft.strategy import load_informative_intervals_and_pairs_from_strategy
-from pydantic import BaseModel
 
 if not paths.PAIR_DATA_DIR.exists():
     paths.PAIR_DATA_DIR.mkdir(parents=True)
 utc = pytz.UTC
 
-exec_log = logger.bind(type='general')
+exec_log = logger.bind(type="general")
 
 
 class DownloadRecord(BaseModel):
@@ -55,14 +56,14 @@ def load_history(exchange: str, interval: str) -> History:
     """
     Load the download history from the file.
     """
-    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{interval}.json')
+    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f"{interval}.json")
     if not history_file.exists():
         history_file.parent.mkdir(parents=True, exist_ok=True)
-        history_file.write_text('{}')
+        history_file.write_text("{}")
     try:
         return History.parse_file(history_file)
     except Exception as e:
-        raise Exception(f'Failed to load history file {history_file}: {e}')
+        raise Exception(f"Failed to load history file {history_file}: {e}")
 
 
 def save_record(pair: str, record: DownloadRecord, exchange: str, interval: str):
@@ -80,7 +81,7 @@ def save_record(pair: str, record: DownloadRecord, exchange: str, interval: str)
     """
     history = load_history(exchange, interval)
     history.history[pair] = record
-    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{interval}.json')
+    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f"{interval}.json")
     history_file.write_text(history.json())
 
 
@@ -94,7 +95,7 @@ def delete_record(pair: str, exchange: str, interval: str):
     """
     history = load_history(exchange, interval)
     history.history.pop(pair, None)
-    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{interval}.json')
+    history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f"{interval}.json")
     history_file.write_text(history.json())
 
 
@@ -110,17 +111,17 @@ def get_pair_time_range(pair: str, interval: str, exchange: str):
     :type exchange: str
     :return: A tuple of two datetime objects.
     """
-    logger.debug(f'Getting time range for {pair} on {exchange}')
+    logger.debug(f"Getting time range for {pair} on {exchange}")
     df = load_pair_history(
         pair,
         interval,
-        paths.USER_DATA_DIR.joinpath('data', exchange),
+        paths.USER_DATA_DIR.joinpath("data", exchange),
     )
     if df.empty:
-        logger.debug(f'No data found for {pair} on {exchange}')
+        logger.debug(f"No data found for {pair} on {exchange}")
         return None, None
-    start_date: datetime = df.iloc[0]['date'].to_pydatetime().replace(tzinfo=utc)
-    end_date: datetime = df.iloc[-1]['date'].to_pydatetime().replace(tzinfo=utc)
+    start_date: datetime = df.iloc[0]["date"].to_pydatetime().replace(tzinfo=utc)
+    end_date: datetime = df.iloc[-1]["date"].to_pydatetime().replace(tzinfo=utc)
     return start_date, end_date
 
 
@@ -145,7 +146,9 @@ def update_download_history(
             if not start_date:
                 delete_record(pair, exchange, interval)
                 logger.debug(
-                    'Failed to load dates for pair {} @ interval {}'.format(pair, interval)
+                    "Failed to load dates for pair {} @ interval {}".format(
+                        pair, interval
+                    )
                 )
                 pairs.remove(pair)
                 continue
@@ -195,16 +198,18 @@ def check_if_download_is_needed(
     # first check if pair file exists for the requested interval
     # example of pairfile: BTC_USDT-1m.json.
     # The forward slash is needs to be replaced with an underscore
-    pair_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{pair.replace("/", "_")}-{interval}.json')
+    pair_file = paths.PAIR_DATA_DIR.joinpath(
+        exchange, f'{pair.replace("/", "_")}-{interval}.json'
+    )
     need_pair_file = not pair_file.exists()
     # replace all dates with UTC
-    logger.debug(f'Checking if download is needed for {pair} @ {interval}')
+    logger.debug(f"Checking if download is needed for {pair} @ {interval}")
     # Check if the pair is already downloaded
     download_history = load_history(exchange, interval).history
     if pair not in download_history:
-        logger.debug('Pair not in download history. Downloading.')
+        logger.debug("Pair not in download history. Downloading.")
         return True
-    logger.debug(f'Download history for {pair}: {download_history[pair].json()}')
+    logger.debug(f"Download history for {pair}: {download_history[pair].json()}")
     download_record = download_history[pair]
 
     # check if the pair has reached the first candle
@@ -212,7 +217,7 @@ def check_if_download_is_needed(
         requested_start_date < download_record.actual_start_date
         and not download_record.reached_first_candle
     )
-    logger.debug(f'{pair} needs beginning candles: {needs_beginning_candles}')
+    logger.debug(f"{pair} needs beginning candles: {needs_beginning_candles}")
     # make sure the difference between the requested end date and the actual end date is less than max_end_gap
     # if the requested end date is None, then we don't care about the end date
 
@@ -224,7 +229,7 @@ def check_if_download_is_needed(
         )
     else:
         needs_end_candles = False
-    logger.debug(f'{pair} needs end candles: {needs_end_candles}')
+    logger.debug(f"{pair} needs end candles: {needs_end_candles}")
 
     return need_pair_file or needs_beginning_candles or needs_end_candles
 
@@ -245,7 +250,9 @@ def download_data_for_strategy(
     :type parameters: Union[BacktestParameters, HyperoptParameters]
     """
     intervals, pairs = load_informative_intervals_and_pairs_from_strategy(
-        parameters.to_config_dict(strategy), parameters.pairs, parameters.timeframe_detail
+        parameters.to_config_dict(strategy),
+        parameters.pairs,
+        parameters.timeframe_detail,
     )
     download_missing_historical_data(
         config, intervals, pairs + parameters.pairs, parameters.timerange
@@ -257,9 +264,13 @@ def download_data_with_parameters(
     parameters: Union[BacktestParameters, HyperoptParameters],
 ):
     intervals, pairs = load_informative_intervals_and_pairs_from_strategy(
-        parameters.to_config_dict(strategy), parameters.pairs, parameters.timeframe_detail
+        parameters.to_config_dict(strategy),
+        parameters.pairs,
+        parameters.timeframe_detail,
     )
-    download_missing_historical_data(parameters.config, intervals, pairs, parameters.timerange)
+    download_missing_historical_data(
+        parameters.config, intervals, pairs, parameters.timerange
+    )
 
 
 def download_data_with_config(
@@ -268,10 +279,12 @@ def download_data_with_config(
 ):
     loaded_intervals, loaded_pairs = load_informative_intervals_and_pairs_from_strategy(
         lft_config,
-        lft_config['pairs'],
-        lft_config.get('timeframe_detail'),
+        lft_config["pairs"],
+        lft_config.get("timeframe_detail"),
     )
-    download_missing_historical_data(lft_config, loaded_intervals, loaded_pairs, timerange)
+    download_missing_historical_data(
+        lft_config, loaded_intervals, loaded_pairs, timerange
+    )
 
 
 def download_missing_historical_data(
@@ -289,7 +302,7 @@ def download_missing_historical_data(
     :param config: Config object
     :param timerange: timerange to download
     """
-    start_date, end_date = timerange.split('-')
+    start_date, end_date = timerange.split("-")
     start_date = dateutil.parser.parse(start_date).replace(tzinfo=utc)
     if end_date:
         end_date = dateutil.parser.parse(end_date).replace(tzinfo=utc)
@@ -300,15 +313,17 @@ def download_missing_historical_data(
     pair_list = pairs
 
     logger.info(
-        f'Checking if download is needed for '
+        f"Checking if download is needed for "
         f'{", ".join(pair_list)} @ '
         f'{", ".join(intervals)} interval(s)'
     )
     for interval in intervals:
         for pair in pair_list:
-            logger.debug(f'Checking {pair} @ {interval}')
-            if check_if_download_is_needed(config.exchange, pair, interval, start_date, end_date):
-                logger.debug(f'Download needed for {pair} @ {interval}')
+            logger.debug(f"Checking {pair} @ {interval}")
+            if check_if_download_is_needed(
+                config.exchange, pair, interval, start_date, end_date
+            ):
+                logger.debug(f"Download needed for {pair} @ {interval}")
                 pairs_to_download.add(pair)
                 tf_to_download.add(interval)
     if pairs_to_download:
@@ -319,24 +334,30 @@ def download_missing_historical_data(
 
         thread = Thread(
             target=download_watcher,
-            args=(queue, start_date, len(pairs_to_download), tf_to_download, config.exchange),
+            args=(
+                queue,
+                start_date,
+                len(pairs_to_download),
+                tf_to_download,
+                config.exchange,
+            ),
             daemon=True,
         )
         thread.start()
         download(
             config,
-            ' '.join(tf_to_download),
+            " ".join(tf_to_download),
             pairs=list(pairs_to_download),
             timerange=start_date_str,
             queue=queue,
         )
         thread.join()
         logger.info(
-            'Finished downloading data for {} pairs @ {}',
+            "Finished downloading data for {} pairs @ {}",
             len(pairs_to_download),
-            ' '.join(tf_to_download),
+            " ".join(tf_to_download),
         )
-    logger.info('Data is up to date')
+    logger.info("Data is up to date")
 
 
 def download(
@@ -364,23 +385,23 @@ def download(
     if not pairs:
         pairs = config.whitelist
     if timerange:
-        start, _ = timerange.split('-')
+        start, _ = timerange.split("-")
         start_dt = dateutil.parser.parse(start)
         days_between = (datetime.now() - start_dt).days
         days = days_between
     logger.info(
-        'Downloading {} days worth of market data for {} @ {} ticker-interval(s)...',
+        "Downloading {} days worth of market data for {} @ {} ticker-interval(s)...",
         days,
-        ' '.join(pairs),
+        " ".join(pairs),
         interval,
     )
-    command = 'download-data --days {} -c {} -p {} -t {} --userdir {} {}'.format(
+    command = "download-data --days {} -c {} -p {} -t {} --userdir {} {}".format(
         days,
         config,
-        ' '.join(pairs),
+        " ".join(pairs),
         interval,
         USER_DATA_DIR,
-        f'-c {secrets_config}' if secrets_config else '',
+        f"-c {secrets_config}" if secrets_config else "",
     ).split()
     sh.freqtrade(
         *command,
@@ -402,12 +423,16 @@ def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str
     :param timerange: The time range to download data for
     :type timerange: str
     """
-    config = Config(exchange + '.json')
+    config = Config(exchange + ".json")
     download_missing_historical_data(config, intervals, [pair], timerange)
 
 
 def download_watcher(
-    queue: Queue, start_date: datetime, n_pairs: int, timeframes: set[str], exchange: str
+    queue: Queue,
+    start_date: datetime,
+    n_pairs: int,
+    timeframes: set[str],
+    exchange: str,
 ):
     """
     It iterates over the number of pairs,
@@ -421,28 +446,32 @@ def download_watcher(
     """
     pair_idx = 0
     timeframe_idx = 0
-    with alive_progress.alive_bar(n_pairs, title='Downloading pair data', force_tty=True) as bar:
+    with alive_progress.alive_bar(
+        n_pairs, title="Downloading pair data", force_tty=True
+    ) as bar:
         while pair_idx < n_pairs:
             try:
                 output: str = queue.get(timeout=300)
             except Empty:
-                logger.error(f'Downloader is not responding. Aborting.')
+                logger.error(f"Downloader is not responding. Aborting.")
                 break
 
             exec_log.info(output.strip())
-            if 'Closing async ccxt session' in output:
+            if "Closing async ccxt session" in output:
                 break
-            if 'Downloaded data' not in output:
+            if "Downloaded data" not in output:
                 continue
             timeframe_idx += 1
             # Downloaded data for AVAX/USDT with length 1877
-            pair = output.split('Downloaded data for ')[1].split(' with length ')[0]
+            pair = output.split("Downloaded data for ")[1].split(" with length ")[0]
             if timeframe_idx == len(timeframes):
-                update_download_history(start_date, [pair], ' '.join(timeframes), exchange)
+                update_download_history(
+                    start_date, [pair], " ".join(timeframes), exchange
+                )
                 logger.info(
-                    'Downloaded history for {} @ {} ({}/{})',
+                    "Downloaded history for {} @ {} ({}/{})",
                     pair,
-                    ', '.join(timeframes),
+                    ", ".join(timeframes),
                     pair_idx + 1,
                     n_pairs,
                 )

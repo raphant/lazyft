@@ -1,6 +1,0 @@
--e ./lazyft_pkg
--e ./indicatormix
-# -e ./coin_based_strategy
--e ./lft_rest
-jupyterlab
-more-itertools

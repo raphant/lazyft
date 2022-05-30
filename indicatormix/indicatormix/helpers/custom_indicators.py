@@ -1,13 +1,16 @@
 """
 Solipsis Custom Indicators and Maths
 """
+import logging
 import math
 import random
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import talib.abstract as ta
 import pandas_ta as pta
+from numpy import int64, float64
 from technical import qtpylib
 
 from pandas import DataFrame, Series
@@ -16,11 +19,11 @@ from pandas import DataFrame, Series
 Misc. Helper Functions
 """
 
+logger = logging.getLogger(__name__)
+
 
 def same_length(bigger, shorter):
-    return np.concatenate(
-        (np.full((bigger.shape[0] - shorter.shape[0]), np.nan), shorter)
-    )
+    return np.concatenate((np.full((bigger.shape[0] - shorter.shape[0]), np.nan), shorter))
 
 
 """
@@ -74,6 +77,7 @@ def zema(dataframe, period, field='close'):
 
 def RMI(dataframe, *, length=20, mom=5):
     """
+    Relative Momentum Index
     Source: https://github.com/freqtrade/technical/blob/master/technical/indicators/indicators.py#L912
     """
     df = dataframe.copy()
@@ -86,9 +90,7 @@ def RMI(dataframe, *, length=20, mom=5):
     df["emaInc"] = ta.EMA(df, price='maxup', timeperiod=length)
     df["emaDec"] = ta.EMA(df, price='maxdown', timeperiod=length)
 
-    df['RMI'] = np.where(
-        df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"])
-    )
+    df['RMI'] = np.where(df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"]))
 
     return df["RMI"]
 
@@ -126,9 +128,7 @@ def pcc(dataframe: DataFrame, period: int = 20, mult: int = 2):
 
     df['previous_close'] = df['close'].shift()
 
-    df['close_change'] = (
-        (df['close'] - df['previous_close']) / df['previous_close'] * 100
-    )
+    df['close_change'] = (df['close'] - df['previous_close']) / df['previous_close'] * 100
     df['high_change'] = (df['high'] - df['close']) / df['close'] * 100
     df['low_change'] = (df['low'] - df['close']) / df['close'] * 100
 
@@ -190,7 +190,7 @@ def SSLChannels_ATR(dataframe, length=7):
     return df['sslDown'], df['sslUp']
 
 
-def WaveTrend(dataframe, chlen=10, avg=21, smalen=4):
+def wavetrend(dataframe, chlen=10, avg=21, smalen=4):
     """
     WaveTrend Ocillator by LazyBear
     https://www.tradingview.com/script/2KE8wTuF-Indicator-WaveTrend-Oscillator-WT/
@@ -203,11 +203,10 @@ def WaveTrend(dataframe, chlen=10, avg=21, smalen=4):
     df['ci'] = (df['hlc3'] - df['esa']) / (0.015 * df['d'])
     df['tci'] = ta.EMA(df['ci'], timeperiod=avg)
 
-    df['wt1'] = df['tci']
-    df['wt2'] = ta.SMA(df['wt1'], timeperiod=smalen)
-    df['wt1-wt2'] = df['wt1'] - df['wt2']
+    df['wt'] = df['tci']
+    df['signal'] = ta.SMA(df['wt'], timeperiod=smalen)
 
-    return df['wt1'], df['wt2']
+    return df[['wt', 'signal']]
 
 
 def T3(dataframe, length=5):
@@ -243,24 +242,6 @@ def SROC(dataframe, roclen=21, emalen=13, smooth=21):
     return sroc
 
 
-def rvi(dataframe: DataFrame, periods: int = 14, ema_length=14) -> DataFrame:
-    """
-    Relative Volatility Index (RVI)
-    """
-    # calculate std
-    df = dataframe.copy()
-    df['std'] = qtpylib.rolling_std(df['close'], periods, min_periods=periods)
-    df['close_delta'] = dataframe['close'] - dataframe['close'].shift(1)
-    df['upper'] = 0.0
-    df.loc[df.close_delta > 0, 'upper'] = df['std']
-    df['lower'] = 0.0
-    df.loc[df.close_delta < 0, 'lower'] = df['std']
-    df['upper_ema'] = pta.ema(df['upper'].fillna(0.0), window=ema_length)
-    df['lower_ema'] = pta.ema(df['lower'].fillna(0.0), window=ema_length)
-    df['rvi'] = df['upper_ema'] / (df['upper_ema'] + df['lower_ema']) * 100
-    return df['rvi']
-
-
 def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
@@ -272,9 +253,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
 def bollinger_bands(dataframe: DataFrame, timeperiod=20, stds=2):
     # Bollinger bands
     df = dataframe.copy()
-    bollinger = qtpylib.bollinger_bands(
-        qtpylib.typical_price(df), window=timeperiod, stds=stds
-    )
+    bollinger = qtpylib.bollinger_bands(qtpylib.typical_price(df), window=timeperiod, stds=stds)
     df['bb_lowerband'] = bollinger['lower']
     df['bb_middleband'] = bollinger['mid']
     df['bb_upperband'] = bollinger['upper']
@@ -291,9 +270,27 @@ def atr_ma(dataframe: DataFrame):
 
 
 def stoch_sma(dataframe: DataFrame, window=80, sma_window=10):
+    """
+    Calculates the Simple Moving Average of the Stochastic Oscillator
+
+    :param dataframe: pandas.DataFrame
+    :param window: How many periods to look back for calculating the Stochastic Oscillator
+    :param sma_window: How many periods to look back for calculating the SMA
+    :return: A DataFrame with the Stochastic Oscillator and the SMA of the Stochastic Oscillator
+    """
+    stoch = stoch_osc(dataframe, window=window)
+    return pd.DataFrame(
+        {
+            'stoch': stoch,
+            'stoch_sma': ta.SMA(stoch, sma_window),
+        }
+    )
+
+
+def stoch_osc(dataframe: DataFrame, window=80, k=14, d=3):
     """"""
-    stoch = qtpylib.stoch(dataframe, window)
-    return qtpylib.sma((stoch['slow_k'] + stoch['slow_d']) / 2, sma_window)
+    stoch = qtpylib.stoch(df=dataframe, window=window, k=k, d=d)
+    return stoch
 
 
 def heiken_ashi(dataframe, smooth_inputs=False, smooth_outputs=False, length=10):
@@ -325,14 +322,10 @@ def heiken_ashi(dataframe, smooth_inputs=False, smooth_outputs=False, length=10)
         low_sha = ta.EMA(low_ha, timeframe=length)
         close_sha = ta.EMA(close_ha, timeframe=length)
         # return as ohlc dataframe
-        return DataFrame(
-            {'open': open_sha, 'high': high_sha, 'low': low_sha, 'close': close_sha}
-        )
+        return DataFrame({'open': open_sha, 'high': high_sha, 'low': low_sha, 'close': close_sha})
     else:
         # return as ohlc dataframe
-        return DataFrame(
-            {'open': open_ha, 'high': high_ha, 'low': low_ha, 'close': close_ha}
-        )
+        return DataFrame({'open': open_ha, 'high': high_ha, 'low': low_ha, 'close': close_ha})
 
 
 # def super_trend(df, multiplier, timeperiod=10):
@@ -463,24 +456,16 @@ def chop_zone(dataframe, length=30):
     # emaAngle > -1 * 3.57 and emaAngle <= -1 * 2.14 ? colorOrange :
     # emaAngle > -1 * 2.14 and emaAngle <= -1 * .71 ? colorLightOrange : colorYellow
     df.loc[(df['emaAngle'] >= 5), 'color'] = color_dict['turquoise']
-    df.loc[(df['emaAngle'] < 5) & (df['emaAngle'] >= 3.57), 'color'] = color_dict[
-        'dark_green'
+    df.loc[(df['emaAngle'] < 5) & (df['emaAngle'] >= 3.57), 'color'] = color_dict['dark_green']
+    df.loc[(df['emaAngle'] < 3.57) & (df['emaAngle'] >= 2.14), 'color'] = color_dict['pale_green']
+    df.loc[(df['emaAngle'] < 2.14) & (df['emaAngle'] >= 0.71), 'color'] = color_dict['lime']
+    df.loc[(df['emaAngle'] > -1 * 5) & (df['emaAngle'] <= -1 * 3.57), 'color'] = color_dict['red']
+    df.loc[(df['emaAngle'] > -1 * 3.57) & (df['emaAngle'] <= -1 * 2.14), 'color'] = color_dict[
+        'orange'
     ]
-    df.loc[(df['emaAngle'] < 3.57) & (df['emaAngle'] >= 2.14), 'color'] = color_dict[
-        'pale_green'
+    df.loc[(df['emaAngle'] > -1 * 2.14) & (df['emaAngle'] <= -1 * 0.71), 'color'] = color_dict[
+        'light_orange'
     ]
-    df.loc[(df['emaAngle'] < 2.14) & (df['emaAngle'] >= 0.71), 'color'] = color_dict[
-        'lime'
-    ]
-    df.loc[
-        (df['emaAngle'] > -1 * 5) & (df['emaAngle'] <= -1 * 3.57), 'color'
-    ] = color_dict['red']
-    df.loc[
-        (df['emaAngle'] > -1 * 3.57) & (df['emaAngle'] <= -1 * 2.14), 'color'
-    ] = color_dict['orange']
-    df.loc[
-        (df['emaAngle'] > -1 * 2.14) & (df['emaAngle'] <= -1 * 0.71), 'color'
-    ] = color_dict['light_orange']
     df.loc[df['emaAngle'] < -1 * 0.71, 'color'] = color_dict['yellow']
     df.loc[df['emaAngle'] <= -1 * 5, 'color'] = color_dict['dark_red']
     return df['color']
@@ -488,28 +473,61 @@ def chop_zone(dataframe, length=30):
 
 def supertrend_crossed(dataframe: DataFrame, multiplier=3, period=5):
     supertrend_ = supertrend(dataframe, multiplier, period)
-    dataframe['crossed_up'] = np.where(
-        supertrend_ == 1,
-        supertrend_.shift(1) == -1,
-        False,
-    )
-    # If the current Supertrend value is -1 and the previous Supertrend  == 1,
-    # then Supertrend has crossed down.
-    dataframe['crossed_down'] = np.where(
-        supertrend_ == -1,
-        supertrend_.shift(1) == 1,
-        False,
-    )
-    return dataframe[['crossed_up', 'crossed_down']]
+    dataframe.loc[((supertrend_ == 1) & (supertrend_.shift(1) == -1)), 'crossed'] = 1
+    dataframe.loc[((supertrend_ == -1) & (supertrend_.shift(1) == 1)), 'crossed'] = -1
+    return dataframe['crossed']
 
 
 def supertrend(dataframe: DataFrame, multiplier=3, period=5):
-    dataframe = dataframe.copy()
-    dataframe['supertrend'] = pta.supertrend(
+    supertrend = pta.supertrend(
         dataframe['high'],
         dataframe['low'],
         dataframe['close'],
         length=period,
         multiplier=multiplier,
     ).iloc[:, 1]
-    return dataframe['supertrend']
+    return supertrend
+
+
+def crossed_below(a: Union[Series, np.ndarray], b: Union[Series, np.ndarray, float, int]):
+    return crossed(a, b, direction='below')
+
+
+def crossed_above(a: Union[Series, np.ndarray], b: Union[Series, np.ndarray, float, int]):
+
+    return crossed(a, b, direction='above')
+
+
+def crossed(
+    a: Union[Series, np.ndarray],
+    b: Union[Series, np.ndarray, float64, int64],
+    direction: str,
+):
+    convert_map = {
+        int64: int,
+        float64: float,
+    }
+    if not isinstance(a, Series):
+        # convert ndarray to series
+        a = pd.Series(a)
+
+    if isinstance(b, tuple(convert_map.keys())):
+        b = convert_map[type(b)](b)
+    func = qtpylib.crossed_above if direction == 'above' else qtpylib.crossed_below
+    try:
+        return func(a, b)
+    except AttributeError as e:
+        raise AttributeError(
+            f'{e}. Please check the input parameters. '
+            f'a: {type(a)}, b: {b}, direction: {direction}'
+        )
+
+
+def macd_strategy(close: Series, fast: int, slow: int, smooth: int):
+    macd = ta.EMA(close, fast) - ta.EMA(close, slow)
+    a_macd = ta.EMA(macd, smooth)
+    delta = macd - a_macd
+    buy = qtpylib.crossed_above(delta, 0).astype(int)
+    sell = qtpylib.crossed_below(delta, 0).astype(int)
+    df = pd.DataFrame({'buy': buy, 'sell': sell, 'delta': delta})
+    return pd.DataFrame({'buy': buy, 'sell': sell})

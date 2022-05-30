@@ -179,7 +179,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -240,3 +239,7 @@ buildfiles/
 lazyft_pkg/tradesv3.Gumbo3.sqlite
 data/
 *venv*
+Dockerfile
+Dockerfile.custom
+docker-compose.yml
+#docker_scripts/

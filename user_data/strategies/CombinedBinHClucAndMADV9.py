@@ -1,18 +1,18 @@
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame
-from datetime import datetime, timedelta
 from freqtrade.strategy import (
-    merge_informative_pair,
     CategoricalParameter,
     DecimalParameter,
+    merge_informative_pair,
 )
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -65,16 +65,16 @@ sys.path.append(str(Path(__file__).parent))
 # SSL Channels
 def SSLChannels(dataframe, length=7):
     df = dataframe.copy()
-    df['ATR'] = ta.ATR(df, timeperiod=14)
-    df['smaHigh'] = df['high'].rolling(length).mean() + df['ATR']
-    df['smaLow'] = df['low'].rolling(length).mean() - df['ATR']
-    df['hlv'] = np.where(
-        df['close'] > df['smaHigh'], 1, np.where(df['close'] < df['smaLow'], -1, np.NAN)
+    df["ATR"] = ta.ATR(df, timeperiod=14)
+    df["smaHigh"] = df["high"].rolling(length).mean() + df["ATR"]
+    df["smaLow"] = df["low"].rolling(length).mean() - df["ATR"]
+    df["hlv"] = np.where(
+        df["close"] > df["smaHigh"], 1, np.where(df["close"] < df["smaLow"], -1, np.NAN)
     )
-    df['hlv'] = df['hlv'].ffill()
-    df['sslDown'] = np.where(df['hlv'] < 0, df['smaHigh'], df['smaLow'])
-    df['sslUp'] = np.where(df['hlv'] < 0, df['smaLow'], df['smaHigh'])
-    return df['sslDown'], df['sslUp']
+    df["hlv"] = df["hlv"].ffill()
+    df["sslDown"] = np.where(df["hlv"] < 0, df["smaHigh"], df["smaLow"])
+    df["sslUp"] = np.where(df["hlv"] < 0, df["smaLow"], df["smaHigh"])
+    return df["sslDown"], df["sslUp"]
 
 
 class CombinedBinHClucAndMADV9(IStrategy):
@@ -88,11 +88,11 @@ class CombinedBinHClucAndMADV9(IStrategy):
 
     stoploss = -0.99  # effectively disabled.
 
-    timeframe = '5m'
-    inf_1h = '1h'
+    timeframe = "5m"
+    inf_1h = "1h"
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = (
         0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
@@ -116,10 +116,10 @@ class CombinedBinHClucAndMADV9(IStrategy):
 
     # Optional order type mapping.
     order_types = {
-        'buy': 'market',
-        'sell': 'market',
-        'stoploss': 'market',
-        'stoploss_on_exchange': False,
+        "buy": "market",
+        "sell": "market",
+        "stoploss": "market",
+        "stoploss_on_exchange": False,
     }
 
     buy_params = {
@@ -143,87 +143,87 @@ class CombinedBinHClucAndMADV9(IStrategy):
     # Buy
 
     buy_condition_0_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_1_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_2_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_3_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_4_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_5_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_6_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_7_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_8_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_9_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
     buy_condition_10_enable = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=True, load=True
+        [True, False], default=True, space="buy", optimize=True, load=True
     )
 
     buy_bb20_close_bblowerband_safe_1 = DecimalParameter(
-        0.7, 1.1, default=0.99, space='buy', optimize=True, load=True
+        0.7, 1.1, default=0.99, space="buy", optimize=True, load=True
     )
     buy_bb20_close_bblowerband_safe_2 = DecimalParameter(
-        0.7, 1.1, default=0.982, space='buy', optimize=True, load=True
+        0.7, 1.1, default=0.982, space="buy", optimize=True, load=True
     )
 
     buy_volume_pump_1 = DecimalParameter(
-        0.1, 0.9, default=0.4, space='buy', decimals=1, optimize=True, load=True
+        0.1, 0.9, default=0.4, space="buy", decimals=1, optimize=True, load=True
     )
     buy_volume_drop_1 = DecimalParameter(
-        1, 10, default=4, space='buy', decimals=1, optimize=True, load=True
+        1, 10, default=4, space="buy", decimals=1, optimize=True, load=True
     )
 
     buy_rsi_1h_1 = DecimalParameter(
-        10.0, 40.0, default=16.5, space='buy', decimals=1, optimize=True, load=True
+        10.0, 40.0, default=16.5, space="buy", decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_2 = DecimalParameter(
-        10.0, 40.0, default=15.0, space='buy', decimals=1, optimize=True, load=True
+        10.0, 40.0, default=15.0, space="buy", decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_3 = DecimalParameter(
-        10.0, 40.0, default=20.0, space='buy', decimals=1, optimize=True, load=True
+        10.0, 40.0, default=20.0, space="buy", decimals=1, optimize=True, load=True
     )
     buy_rsi_1h_4 = DecimalParameter(
-        10.0, 40.0, default=35.0, space='buy', decimals=1, optimize=True, load=True
+        10.0, 40.0, default=35.0, space="buy", decimals=1, optimize=True, load=True
     )
 
     buy_rsi_1 = DecimalParameter(
-        10.0, 40.0, default=28.0, space='buy', decimals=1, optimize=True, load=True
+        10.0, 40.0, default=28.0, space="buy", decimals=1, optimize=True, load=True
     )
     buy_rsi_2 = DecimalParameter(
-        7.0, 40.0, default=10.0, space='buy', decimals=1, optimize=True, load=True
+        7.0, 40.0, default=10.0, space="buy", decimals=1, optimize=True, load=True
     )
     buy_rsi_3 = DecimalParameter(
-        7.0, 40.0, default=14.2, space='buy', decimals=1, optimize=True, load=True
+        7.0, 40.0, default=14.2, space="buy", decimals=1, optimize=True, load=True
     )
 
     buy_macd_1 = DecimalParameter(
-        0.01, 0.09, default=0.02, space='buy', decimals=2, optimize=True, load=True
+        0.01, 0.09, default=0.02, space="buy", decimals=2, optimize=True, load=True
     )
     buy_macd_2 = DecimalParameter(
-        0.01, 0.09, default=0.03, space='buy', decimals=2, optimize=True, load=True
+        0.01, 0.09, default=0.03, space="buy", decimals=2, optimize=True, load=True
     )
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -249,7 +249,7 @@ class CombinedBinHClucAndMADV9(IStrategy):
                     candle = dataframe.iloc[-number_of_candle_shift].squeeze()
 
                     # Are we still sinking?
-                    if current_rate * 1.015 < candle['open']:
+                    if current_rate * 1.015 < candle["open"]:
                         return 0.01
 
                 except IndexError as error:
@@ -261,7 +261,7 @@ class CombinedBinHClucAndMADV9(IStrategy):
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()
-        informative_pairs = [(pair, '1h') for pair in pairs]
+        informative_pairs = [(pair, "1h") for pair in pairs]
         return informative_pairs
 
     def informative_1h_indicators(
@@ -270,18 +270,18 @@ class CombinedBinHClucAndMADV9(IStrategy):
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
         informative_1h = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_1h
+            pair=metadata["pair"], timeframe=self.inf_1h
         )
         # EMA
-        informative_1h['ema_50'] = ta.EMA(informative_1h, timeperiod=50)
-        informative_1h['ema_200'] = ta.EMA(informative_1h, timeperiod=200)
+        informative_1h["ema_50"] = ta.EMA(informative_1h, timeperiod=50)
+        informative_1h["ema_200"] = ta.EMA(informative_1h, timeperiod=200)
         # RSI
-        informative_1h['rsi'] = ta.RSI(informative_1h, timeperiod=14)
+        informative_1h["rsi"] = ta.RSI(informative_1h, timeperiod=14)
 
         # SSL Channels
         ssl_down_1h, ssl_up_1h = SSLChannels(informative_1h, 20)
-        informative_1h['ssl_down'] = ssl_down_1h
-        informative_1h['ssl_up'] = ssl_up_1h
+        informative_1h["ssl_down"] = ssl_down_1h
+        informative_1h["ssl_up"] = ssl_up_1h
 
         return informative_1h
 
@@ -290,22 +290,22 @@ class CombinedBinHClucAndMADV9(IStrategy):
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
-        dataframe['volume_mean_slow'] = dataframe['volume'].rolling(window=30).mean()
+        dataframe["bb_lowerband"] = bollinger["lower"]
+        dataframe["bb_middleband"] = bollinger["mid"]
+        dataframe["bb_upperband"] = bollinger["upper"]
+        dataframe["volume_mean_slow"] = dataframe["volume"].rolling(window=30).mean()
 
         # EMA
-        dataframe['ema_200'] = ta.EMA(dataframe, timeperiod=200)
+        dataframe["ema_200"] = ta.EMA(dataframe, timeperiod=200)
 
-        dataframe['ema_26'] = ta.EMA(dataframe, timeperiod=26)
-        dataframe['ema_12'] = ta.EMA(dataframe, timeperiod=12)
+        dataframe["ema_26"] = ta.EMA(dataframe, timeperiod=26)
+        dataframe["ema_12"] = ta.EMA(dataframe, timeperiod=12)
 
         # SMA
-        dataframe['sma_5'] = ta.EMA(dataframe, timeperiod=5)
+        dataframe["sma_5"] = ta.EMA(dataframe, timeperiod=5)
 
         # RSI
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
         return dataframe
 
@@ -326,179 +326,179 @@ class CombinedBinHClucAndMADV9(IStrategy):
         dataframe.loc[
             (
                 self.buy_condition_1_enable.value
-                & (dataframe['close'] > dataframe['ema_200'])
-                & (dataframe['close'] > dataframe['ema_200_1h'])
+                & (dataframe["close"] > dataframe["ema_200"])
+                & (dataframe["close"] > dataframe["ema_200_1h"])
                 & (
-                    dataframe['close']
-                    < dataframe['bb_lowerband']
+                    dataframe["close"]
+                    < dataframe["bb_lowerband"]
                     * self.buy_bb20_close_bblowerband_safe_1.value
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['open'] - dataframe['close']
-                    < dataframe['bb_upperband'].shift(2)
-                    - dataframe['bb_lowerband'].shift(2)
+                    dataframe["open"] - dataframe["close"]
+                    < dataframe["bb_upperband"].shift(2)
+                    - dataframe["bb_lowerband"].shift(2)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_2_enable.value
-                & (dataframe['close'] > dataframe['ema_200'])
+                & (dataframe["close"] > dataframe["ema_200"])
                 & (
-                    dataframe['close']
-                    < dataframe['bb_lowerband']
+                    dataframe["close"]
+                    < dataframe["bb_lowerband"]
                     * self.buy_bb20_close_bblowerband_safe_2.value
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['open'] - dataframe['close']
-                    < dataframe['bb_upperband'].shift(2)
-                    - dataframe['bb_lowerband'].shift(2)
+                    dataframe["open"] - dataframe["close"]
+                    < dataframe["bb_upperband"].shift(2)
+                    - dataframe["bb_lowerband"].shift(2)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_3_enable.value
-                & (dataframe['close'] > dataframe['ema_200_1h'])
-                & (dataframe['close'] < dataframe['bb_lowerband'])
-                & (dataframe['rsi'] < self.buy_rsi_3.value)
+                & (dataframe["close"] > dataframe["ema_200_1h"])
+                & (dataframe["close"] < dataframe["bb_lowerband"])
+                & (dataframe["rsi"] < self.buy_rsi_3.value)
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_4_enable.value
-                & (dataframe['rsi_1h'] < self.buy_rsi_1h_1.value)
-                & (dataframe['close'] < dataframe['bb_lowerband'])
+                & (dataframe["rsi_1h"] < self.buy_rsi_1h_1.value)
+                & (dataframe["close"] < dataframe["bb_lowerband"])
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_5_enable.value
-                & (dataframe['close'] > dataframe['ema_200'])
-                & (dataframe['close'] > dataframe['ema_200_1h'])
-                & (dataframe['ema_26'] > dataframe['ema_12'])
+                & (dataframe["close"] > dataframe["ema_200"])
+                & (dataframe["close"] > dataframe["ema_200_1h"])
+                & (dataframe["ema_26"] > dataframe["ema_12"])
                 & (
-                    (dataframe['ema_26'] - dataframe['ema_12'])
-                    > (dataframe['open'] * self.buy_macd_1.value)
+                    (dataframe["ema_26"] - dataframe["ema_12"])
+                    > (dataframe["open"] * self.buy_macd_1.value)
                 )
                 & (
-                    (dataframe['ema_26'].shift() - dataframe['ema_12'].shift())
-                    > (dataframe['open'] / 100)
+                    (dataframe["ema_26"].shift() - dataframe["ema_12"].shift())
+                    > (dataframe["open"] / 100)
                 )
-                & (dataframe['close'] < (dataframe['bb_lowerband']))
+                & (dataframe["close"] < (dataframe["bb_lowerband"]))
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
-                & (dataframe['volume'] > 0)  # Make sure Volume is not 0
+                & (dataframe["volume"] > 0)  # Make sure Volume is not 0
             )
             | (
                 self.buy_condition_6_enable.value
-                & (dataframe['ema_26'] > dataframe['ema_12'])
+                & (dataframe["ema_26"] > dataframe["ema_12"])
                 & (
-                    (dataframe['ema_26'] - dataframe['ema_12'])
-                    > (dataframe['open'] * self.buy_macd_2.value)
+                    (dataframe["ema_26"] - dataframe["ema_12"])
+                    > (dataframe["open"] * self.buy_macd_2.value)
                 )
                 & (
-                    (dataframe['ema_26'].shift() - dataframe['ema_12'].shift())
-                    > (dataframe['open'] / 100)
+                    (dataframe["ema_26"].shift() - dataframe["ema_12"].shift())
+                    > (dataframe["open"] / 100)
                 )
-                & (dataframe['close'] < (dataframe['bb_lowerband']))
+                & (dataframe["close"] < (dataframe["bb_lowerband"]))
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_7_enable.value
-                & (dataframe['rsi_1h'] < self.buy_rsi_1h_2.value)
-                & (dataframe['ema_26'] > dataframe['ema_12'])
+                & (dataframe["rsi_1h"] < self.buy_rsi_1h_2.value)
+                & (dataframe["ema_26"] > dataframe["ema_12"])
                 & (
-                    (dataframe['ema_26'] - dataframe['ema_12'])
-                    > (dataframe['open'] * self.buy_macd_1.value)
+                    (dataframe["ema_26"] - dataframe["ema_12"])
+                    > (dataframe["open"] * self.buy_macd_1.value)
                 )
                 & (
-                    (dataframe['ema_26'].shift() - dataframe['ema_12'].shift())
-                    > (dataframe['open'] / 100)
+                    (dataframe["ema_26"].shift() - dataframe["ema_12"].shift())
+                    > (dataframe["open"] / 100)
                 )
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_8_enable.value
-                & (dataframe['rsi_1h'] < self.buy_rsi_1h_3.value)
-                & (dataframe['rsi'] < self.buy_rsi_1.value)
+                & (dataframe["rsi_1h"] < self.buy_rsi_1h_3.value)
+                & (dataframe["rsi"] < self.buy_rsi_1.value)
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_9_enable.value
-                & (dataframe['rsi_1h'] < self.buy_rsi_1h_4.value)
-                & (dataframe['rsi'] < self.buy_rsi_2.value)
+                & (dataframe["rsi_1h"] < self.buy_rsi_1h_4.value)
+                & (dataframe["rsi"] < self.buy_rsi_2.value)
                 & (
-                    dataframe['volume']
-                    < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)
+                    dataframe["volume"]
+                    < (dataframe["volume"].shift() * self.buy_volume_drop_1.value)
                 )
                 & (
-                    dataframe['volume_mean_slow']
-                    > dataframe['volume_mean_slow'].shift(30)
+                    dataframe["volume_mean_slow"]
+                    > dataframe["volume_mean_slow"].shift(30)
                     * self.buy_volume_pump_1.value
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
             | (
                 self.buy_condition_10_enable.value
-                & (dataframe['close'] < dataframe['sma_5'])
-                & (dataframe['ssl_up_1h'] > dataframe['ssl_down_1h'])
-                & (dataframe['ema_50_1h'] > dataframe['ema_200_1h'])
-                & (dataframe['rsi'] < dataframe['rsi_1h'] - 43.276)
-                & (dataframe['volume'] > 0)
+                & (dataframe["close"] < dataframe["sma_5"])
+                & (dataframe["ssl_up_1h"] > dataframe["ssl_down_1h"])
+                & (dataframe["ema_50_1h"] > dataframe["ema_200_1h"])
+                & (dataframe["rsi"] < dataframe["rsi_1h"] - 43.276)
+                & (dataframe["volume"] > 0)
             ),
-            'buy',
+            "buy",
         ] = 1
 
         return dataframe
@@ -506,11 +506,11 @@ class CombinedBinHClucAndMADV9(IStrategy):
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['close'] > dataframe['bb_middleband'] * 1.01)
+                (dataframe["close"] > dataframe["bb_middleband"] * 1.01)
                 & (  # Don't be gready, sell fast
-                    dataframe['volume'] > 0
+                    dataframe["volume"] > 0
                 )  # Make sure Volume is not 0
             ),
-            'sell',
+            "sell",
         ] = 1
         return dataframe

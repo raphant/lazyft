@@ -15,13 +15,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.custom
+      args:
+        ssh_pub_key: ${SSH_PUB_KEY}
+        ssh_prv_key: ${SSH_PRV_KEY}
     entrypoint: /usr/bin/env
     working_dir: /ftworkdir
     env_file:
       - .env
     environment:
-      - LFT_REST_IP=rest
-    command: jupyter notebook --ip 0.0.0.0 --autoreload --NotebookApp.token="${JUPYTER_TOKEN}"
+      LFT_REST_IP: "rest"
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "${JUPYTER_TOKEN}"
+#    command: jupyter notebook --ip 0.0.0.0 --autoreload --NotebookApp.token="${JUPYTER_TOKEN}"
+    command: jupyter lab --ip 0.0.0.0 --autoreload
     restart: unless-stopped
     volumes:
       - .:/ftworkdir
@@ -45,6 +51,8 @@ services:
       - .:/ftworkdir
     ports:
       - "8000:8000"
+    depends_on:
+      - jupyter
 
 networks:
     net:

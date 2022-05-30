@@ -3,13 +3,14 @@ import sys
 from datetime import datetime, timedelta
 from functools import reduce
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IntParameter, DecimalParameter, merge_informative_pair
-from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import IStrategy, merge_informative_pair
+from freqtrade.strategy.parameters import DecimalParameter, IntParameter
+from lazyft.space_handler import SpaceHandler
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
@@ -28,30 +29,39 @@ class BbandRsi(IStrategy):
     https://github.com/sthewissen/Mynt/blob/master/src/Mynt.Core/Strategies/BbandRsi.cs
     """
 
-    buy_rsi = IntParameter(5, 50, default=30, load=True)
-    sell_rsi = IntParameter(50, 100, default=70, load=True)
+    sh = SpaceHandler(__file__, disable=__name__ != __qualname__)
+
+    buy_rsi = IntParameter(5, 50, default=30, load=True, optimize=sh.get_space("rsi"))
+    sell_rsi = IntParameter(
+        50, 100, default=70, load=True, optimize=sh.get_space("rsi")
+    )
+
+    buy_bb_sd = IntParameter(1, 4, default=2, load=True, optimize=sh.get_space("bb_sd"))
+    sell_bb_sd = IntParameter(
+        1, 4, default=2, load=True, optimize=sh.get_space("bb_sd")
+    )
 
     # region Params
-    stoploss = -0.25
+    stoploss = -0.10
     # endregion
 
     # Optimal timeframe for the strategy
-    inf_timeframe = '1h'
-    timeframe = '5m'
+    # inf_timeframe = "1h"
+    timeframe = "1h"
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
-    minimal_roi = {"0": 0.01}
+    minimal_roi = {"40": 0.0, "30": 0.01, "20": 0.02, "0": 0.04}
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -110,15 +120,24 @@ class BbandRsi(IStrategy):
         # replace dataframe ohlc data with each series in ohlc
         dataframe = dataframe.assign(**ohlc)
 
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
         # Bollinger bands
-        bollinger = qtpylib.bollinger_bands(
-            qtpylib.typical_price(dataframe), window=20, stds=2
-        )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        # bollinger = qtpylib.bollinger_bands(
+        #     qtpylib.typical_price(dataframe), window=20, stds=2
+        # )
+        # dataframe["bb_lowerband"] = bollinger["lower"]
+        # dataframe["bb_middleband"] = bollinger["mid"]
+        # dataframe["bb_upperband"] = bollinger["upper"]
+
+        # bolling bands standard deviations
+        for i in self.buy_bb_sd.range:
+            bollinger = qtpylib.bollinger_bands(
+                qtpylib.typical_price(dataframe), window=20, stds=i
+            )
+            dataframe[f"bb_lowerband_sd{i}"] = bollinger["lower"]
+            dataframe[f"bb_middleband_sd{i}"] = bollinger["mid"]
+            dataframe[f"bb_upperband_sd{i}"] = bollinger["upper"]
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -126,16 +145,19 @@ class BbandRsi(IStrategy):
 
         conditions.append(
             (
-                (dataframe['rsi'] < self.buy_rsi.value)
-                & (dataframe['close'] < dataframe['bb_lowerband'])
+                (dataframe["rsi"] > self.buy_rsi.value)
+                & (
+                    dataframe["close"]
+                    < dataframe[f"bb_upperband_sd{self.buy_bb_sd.value}"]
+                )
             )
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[(dataframe['rsi'] > self.sell_rsi.value), 'sell'] = 1
+        dataframe.loc[(dataframe["rsi"] > self.sell_rsi.value), "sell"] = 1
         return dataframe

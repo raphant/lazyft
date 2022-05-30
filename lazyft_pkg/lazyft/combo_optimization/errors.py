@@ -1,0 +1,2 @@
+class HyperoptError(Exception):
+    pass

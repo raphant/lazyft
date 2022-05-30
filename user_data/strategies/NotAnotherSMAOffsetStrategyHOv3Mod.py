@@ -8,15 +8,11 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 # --------------------------------
 import talib.abstract as ta
+from finta import TA
 from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    merge_informative_pair,
-    DecimalParameter,
-    IntParameter,
-)
+from freqtrade.strategy import DecimalParameter, IntParameter, merge_informative_pair
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
-from finta import TA
 
 # @Rallipanos
 
@@ -116,7 +112,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
     # Stoploss:
     stoploss = -0.3
     # ma offset
-    btc_ma_diff = IntParameter(-500, 100, default=0, space='buy', optimize=True)
+    btc_ma_diff = IntParameter(-500, 100, default=0, space="buy", optimize=True)
     # SMAOffset
     base_nb_candles_buy = IntParameter(
         5,
@@ -185,7 +181,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
     trailing_only_offset_is_reached = False
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = False
@@ -242,7 +238,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
         # SMA
         informative["btc_sma_fast"] = ta.SMA(informative, timeperiod=9)
         # informative["btc_sma_slow"] = ta.SMA(informative, timeperiod=26)
-        informative['btc_diff'] = (
+        informative["btc_diff"] = (
             informative["btc_sma_fast"] - informative["btc_ema_med_slow"]
         )
         del informative["btc_sma_fast"]
@@ -328,7 +324,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
 
         dataframe.loc[
             (
-                (dataframe['btc_diff_30m'] >= self.btc_ma_diff.value)
+                (dataframe["btc_diff_30m"] >= self.btc_ma_diff.value)
                 & (dataframe["rsi_fast"] < 35)
                 & (
                     dataframe["close"]
@@ -353,7 +349,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
 
         dataframe.loc[
             (
-                (dataframe['btc_diff_30m'] >= self.btc_ma_diff.value)
+                (dataframe["btc_diff_30m"] >= self.btc_ma_diff.value)
                 & (dataframe["rsi_fast"] < 35)
                 & (
                     dataframe["close"]
@@ -379,7 +375,7 @@ class NotAnotherSMAOffsetStrategyHOv3Mod(IStrategy):
 
         dataframe.loc[
             (
-                (dataframe['btc_diff_30m'] >= self.btc_ma_diff.value)
+                (dataframe["btc_diff_30m"] >= self.btc_ma_diff.value)
                 & (dataframe["rsi_fast"] < 35)
                 & (
                     dataframe["close"]

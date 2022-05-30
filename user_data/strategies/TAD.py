@@ -238,7 +238,7 @@
 #
 #     tickerData = pd.DataFrame()
 #     # Sell signal
-#     use_sell_signal = False
+#     exit_sell_signal = False
 #     sell_profit_offset = 0.001 # it doesn't meant anything, just to guarantee there is a minimal profit.
 #     ignore_roi_if_buy_signal = False
 #     # Custom stoploss
@@ -246,7 +246,7 @@
 #     # Run "populate_indicators()" only for new candle.
 #     process_only_new_candles = False
 #     # Number of candles the strategy requires before producing valid signals
-#     use_sell_signal = False
+#     exit_sell_signal = False
 #     sell_profit_only = False
 #
 #     # Optional order type mapping.

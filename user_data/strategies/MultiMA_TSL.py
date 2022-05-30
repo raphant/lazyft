@@ -3,21 +3,19 @@ from functools import reduce
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
-
 import talib.abstract as ta_old
 from finta import TA as ta
 from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    DecimalParameter,
-    IntParameter,
-    BooleanParameter,
-)
+from freqtrade.strategy import BooleanParameter, DecimalParameter, IntParameter
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame, Series
 from pandas_ta import vwma
-from technical.indicators import zema, VIDYA
+from technical.indicators import VIDYA, zema
 
+# I hope you do enough testing before proceeding, either backtesting and/or dry run.
+# Any profits and losses are all your responsibility
+from lft_rest.rest_strategy import BaseRestStrategy
 
 ###########################################################################################################
 ##    MultiMA_TSL, modded by stash86, based on SMAOffsetProtectOptV1 (modded by Perkmeister)             ##
@@ -34,10 +32,6 @@ from technical.indicators import zema, VIDYA
 ##                                                                                                       ##
 ##                                                                                                       ##
 ###########################################################################################################
-
-# I hope you do enough testing before proceeding, either backtesting and/or dry run.
-# Any profits and losses are all your responsibility
-from lft_rest.rest_strategy import BaseRestStrategy
 
 
 class MultiMA_TSL(IStrategy):
@@ -85,10 +79,10 @@ class MultiMA_TSL(IStrategy):
     optimize_sell_ema = True
     # region Sell EMA
     base_nb_candles_ema_sell = IntParameter(
-        5, 80, default=20, space='sell', optimize=optimize_sell_ema
+        5, 80, default=20, space="sell", optimize=optimize_sell_ema
     )
     high_offset_sell_ema = DecimalParameter(
-        0.99, 1.1, default=1.012, space='sell', optimize=optimize_sell_ema
+        0.99, 1.1, default=1.012, space="sell", optimize=optimize_sell_ema
     )
     # base_nb_candles_ema_sell2 = IntParameter(
     #     5, 80, default=20, space='sell', optimize=optimize_sell_ema
@@ -99,98 +93,104 @@ class MultiMA_TSL(IStrategy):
     # region Multi Offset
     # Multi Offset
     base_nb_candles_buy_ema = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_ema
+        5, 80, default=20, space="buy", optimize=optimize_buy_ema
     )
     low_offset_ema = DecimalParameter(
-        0.9, 1.1, default=0.958, space='buy', optimize=optimize_buy_ema
+        0.9, 1.1, default=0.958, space="buy", optimize=optimize_buy_ema
     )
     base_nb_candles_buy_ema2 = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_ema
+        5, 80, default=20, space="buy", optimize=optimize_buy_ema
     )
     low_offset_ema2 = DecimalParameter(
-        0.9, 1.1, default=0.958, space='buy', optimize=optimize_buy_ema
+        0.9, 1.1, default=0.958, space="buy", optimize=optimize_buy_ema
     )
     # endregion
 
     optimize_buy_trima = True
     # region Buy Trima
     base_nb_candles_buy_trima = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_trima
+        5, 80, default=20, space="buy", optimize=optimize_buy_trima
     )
     low_offset_trima = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_trima
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_trima
     )
     base_nb_candles_buy_trima2 = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_trima
+        5, 80, default=20, space="buy", optimize=optimize_buy_trima
     )
     low_offset_trima2 = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_trima
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_trima
     )
     # endregion
 
     optimize_buy_zema = True
     # region Buy Zema
     base_nb_candles_buy_zema = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_zema
+        5, 80, default=20, space="buy", optimize=optimize_buy_zema
     )
     low_offset_zema = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_zema
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_zema
     )
     base_nb_candles_buy_zema2 = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_zema
+        5, 80, default=20, space="buy", optimize=optimize_buy_zema
     )
     low_offset_zema2 = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_zema
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_zema
     )
     # endregion
 
     optimize_buy_hma = True
     # region Buy HMA
     base_nb_candles_buy_hma = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_hma
+        5, 80, default=20, space="buy", optimize=optimize_buy_hma
     )
     low_offset_hma = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_hma
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_hma
     )
     base_nb_candles_buy_hma2 = IntParameter(
-        5, 80, default=20, space='buy', optimize=optimize_buy_hma
+        5, 80, default=20, space="buy", optimize=optimize_buy_hma
     )
     low_offset_hma2 = DecimalParameter(
-        0.9, 0.99, default=0.958, space='buy', optimize=optimize_buy_hma
+        0.9, 0.99, default=0.958, space="buy", optimize=optimize_buy_hma
     )
 
     buy_condition_enable_optimize = False
     buy_condition_trima_enable = BooleanParameter(
-        default=True, space='buy', optimize=buy_condition_enable_optimize
+        default=True, space="buy", optimize=buy_condition_enable_optimize
     )
     buy_condition_zema_enable = BooleanParameter(
-        default=True, space='buy', optimize=buy_condition_enable_optimize
+        default=True, space="buy", optimize=buy_condition_enable_optimize
     )
     buy_condition_hma_enable = BooleanParameter(
-        default=True, space='buy', optimize=buy_condition_enable_optimize
+        default=True, space="buy", optimize=buy_condition_enable_optimize
     )
     # endregion
 
     ewo_check_optimize = True
     # region Protection
     # Protection
-    ewo_low = DecimalParameter(-20.0, -8.0, default=-20.0, space='buy', optimize=ewo_check_optimize)
-    ewo_high = DecimalParameter(2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize)
-    ewo_low2 = DecimalParameter(
-        -20.0, -8.0, default=-20.0, space='buy', optimize=ewo_check_optimize
+    ewo_low = DecimalParameter(
+        -20.0, -8.0, default=-20.0, space="buy", optimize=ewo_check_optimize
     )
-    ewo_high2 = DecimalParameter(2.0, 12.0, default=6.0, space='buy', optimize=ewo_check_optimize)
+    ewo_high = DecimalParameter(
+        2.0, 12.0, default=6.0, space="buy", optimize=ewo_check_optimize
+    )
+    ewo_low2 = DecimalParameter(
+        -20.0, -8.0, default=-20.0, space="buy", optimize=ewo_check_optimize
+    )
+    ewo_high2 = DecimalParameter(
+        2.0, 12.0, default=6.0, space="buy", optimize=ewo_check_optimize
+    )
     # endregion
 
     rsi_buy_optimize = True
     # region Rsi Buy
-    rsi_buy = IntParameter(30, 70, default=50, space='buy', optimize=rsi_buy_optimize)
-    rsi_buy2 = IntParameter(30, 70, default=50, space='buy', optimize=rsi_buy_optimize)
-    buy_rsi_fast = IntParameter(0, 50, default=35, space='buy', optimize=False)
+    rsi_buy = IntParameter(30, 70, default=50, space="buy", optimize=rsi_buy_optimize)
+    rsi_buy2 = IntParameter(30, 70, default=50, space="buy", optimize=rsi_buy_optimize)
+    buy_rsi_fast = IntParameter(0, 50, default=35, space="buy", optimize=False)
     # endregion
 
-    fast_ewo = IntParameter(10, 50, default=50, space='buy', optimize=False)
-    slow_ewo = IntParameter(100, 200, default=200, space='buy', optimize=False)
+    fast_ewo = IntParameter(10, 50, default=50, space="buy", optimize=False)
+    slow_ewo = IntParameter(100, 200, default=200, space="buy", optimize=False)
 
     use_custom_stoploss = True
 
@@ -204,7 +204,9 @@ class MultiMA_TSL(IStrategy):
         "stoploss_stop_duration": 20,  # value loaded from strategy
     }
 
-    cooldown_lookback = IntParameter(2, 48, default=2, space="protection", optimize=False)
+    cooldown_lookback = IntParameter(
+        2, 48, default=2, space="protection", optimize=False
+    )
 
     low_profit_optimize = True
     # region low_profit
@@ -247,7 +249,7 @@ class MultiMA_TSL(IStrategy):
         return prot
 
     # Optimal timeframe for the strategy.
-    timeframe = '5m'
+    timeframe = "5m"
 
     # storage dict for custom info
     custom_info = {}
@@ -256,7 +258,7 @@ class MultiMA_TSL(IStrategy):
     process_only_new_candles = True
 
     # These values can be overridden in the "ask_strategy" section in the config.
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = False
 
@@ -266,8 +268,8 @@ class MultiMA_TSL(IStrategy):
     def custom_sell(
         self,
         pair: str,
-        trade: 'Trade',
-        current_time: 'datetime',
+        trade: "Trade",
+        current_time: "datetime",
         current_rate: float,
         current_profit: float,
         **kwargs,
@@ -278,7 +280,7 @@ class MultiMA_TSL(IStrategy):
             return False
         last_candle = dataframe.iloc[-1]
 
-        if self.custom_info[pair][self.DATESTAMP] != last_candle['date']:
+        if self.custom_info[pair][self.DATESTAMP] != last_candle["date"]:
             # new candle, update EMA and check sell
 
             # smoothing coefficients
@@ -287,33 +289,35 @@ class MultiMA_TSL(IStrategy):
             alpha = 2 / (1 + emaLength)
 
             # update sell_ema
-            sell_ema = (alpha * last_candle['close']) + ((1 - alpha) * sell_ema)
+            sell_ema = (alpha * last_candle["close"]) + ((1 - alpha) * sell_ema)
             self.custom_info[pair][self.SELLMA] = sell_ema
-            self.custom_info[pair][self.DATESTAMP] = last_candle['date']
+            self.custom_info[pair][self.DATESTAMP] = last_candle["date"]
 
-            if (last_candle['close'] > (sell_ema * self.high_offset_sell_ema.value)) & (
-                last_candle['buy_copy'] == 0
+            if (last_candle["close"] > (sell_ema * self.high_offset_sell_ema.value)) & (
+                last_candle["buy_copy"] == 0
             ):
-                if not self.config['runmode'].value in ('backtest', 'hyperopt'):
+                if not self.config["runmode"].value in ("backtest", "hyperopt"):
                     self.custom_info[pair][self.SELL_TRIGGER] = 1
                     return False
 
-                buy_tag = 'empty'
+                buy_tag = "empty"
 
-                if hasattr(trade, 'buy_tag') and trade.buy_tag is not None:
+                if hasattr(trade, "buy_tag") and trade.buy_tag is not None:
                     buy_tag = trade.buy_tag
                 else:
-                    trade_open_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
-                    buy_signal = dataframe.loc[dataframe['date'] < trade_open_date]
+                    trade_open_date = timeframe_to_prev_date(
+                        self.timeframe, trade.open_date_utc
+                    )
+                    buy_signal = dataframe.loc[dataframe["date"] < trade_open_date]
                     if not buy_signal.empty:
                         buy_signal_candle = buy_signal.iloc[-1]
                         buy_tag = (
-                            buy_signal_candle['buy_tag']
-                            if buy_signal_candle['buy_tag'] != ''
-                            else 'empty'
+                            buy_signal_candle["buy_tag"]
+                            if buy_signal_candle["buy_tag"] != ""
+                            else "empty"
                         )
 
-                return f'{buy_tag}'
+                return f"{buy_tag}"
 
         return False
 
@@ -321,7 +325,7 @@ class MultiMA_TSL(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -330,7 +334,7 @@ class MultiMA_TSL(IStrategy):
         sl_new = 1
 
         if self.custom_info[pair][self.SELL_TRIGGER] == 1:
-            if not self.config['runmode'].value in ('backtest', 'hyperopt'):
+            if not self.config["runmode"].value in ("backtest", "hyperopt"):
                 sl_new = 0.001
 
         if current_profit > 0.2:
@@ -357,11 +361,11 @@ class MultiMA_TSL(IStrategy):
         if len(dataframe) < 1:
             return False
         last_candle = dataframe.iloc[-1].squeeze()
-        if rate > last_candle['close']:
+        if rate > last_candle["close"]:
             return False
 
-        self.custom_info[pair][self.DATESTAMP] = last_candle['date']
-        self.custom_info[pair][self.SELLMA] = last_candle['ema_sell']
+        self.custom_info[pair][self.DATESTAMP] = last_candle["date"]
+        self.custom_info[pair][self.SELLMA] = last_candle["ema_sell"]
 
         return True
 
@@ -384,162 +388,172 @@ class MultiMA_TSL(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # EWO
-        dataframe['ewo'] = EWO(dataframe, self.fast_ewo.value, self.slow_ewo.value)
+        dataframe["ewo"] = EWO(dataframe, self.fast_ewo.value, self.slow_ewo.value)
 
         # RSI
-        dataframe['rsi'] = ta.RSI(dataframe, period=14)
-        dataframe['rsi_fast'] = ta.RSI(dataframe, period=4)
-        dataframe['rsi_84'] = ta.RSI(dataframe, period=84)
-        dataframe['rsi_112'] = ta.RSI(dataframe, period=112)
+        dataframe["rsi"] = ta.RSI(dataframe, period=14)
+        dataframe["rsi_fast"] = ta.RSI(dataframe, period=4)
+        dataframe["rsi_84"] = ta.RSI(dataframe, period=84)
+        dataframe["rsi_112"] = ta.RSI(dataframe, period=112)
 
         # Heiken Ashi
         heikinashi = qtpylib.heikinashi(dataframe)
         heikinashi["volume"] = dataframe["volume"]
 
         # Profit Maximizer - PMAX
-        dataframe['pm'], dataframe['pmx'] = pmax(
+        dataframe["pm"], dataframe["pmx"] = pmax(
             heikinashi, MAtype=1, length=9, multiplier=27, period=10, src=3
         )
-        dataframe['source'] = (
-            dataframe['high'] + dataframe['low'] + dataframe['open'] + dataframe['close']
+        dataframe["source"] = (
+            dataframe["high"]
+            + dataframe["low"]
+            + dataframe["open"]
+            + dataframe["close"]
         ) / 4
-        dataframe['pmax_thresh'] = ta_old.EMA(dataframe['source'], timeperiod=9)
+        dataframe["pmax_thresh"] = ta_old.EMA(dataframe["source"], timeperiod=9)
 
         dataframe = HA(dataframe, 4)
 
         # Check if the entry already exists
         if not metadata["pair"] in self.custom_info:
             # Create empty entry for this pair {datestamp, sellma, sell_trigger}
-            self.custom_info[metadata["pair"]] = ['', 0.0, 0]
+            self.custom_info[metadata["pair"]] = ["", 0.0, 0]
 
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
-        dataframe['ema_offset_buy'] = (
-            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema.value)) * self.low_offset_ema.value
+        dataframe["ema_offset_buy"] = (
+            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema.value))
+            * self.low_offset_ema.value
         )
-        dataframe['ema_offset_buy2'] = (
-            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema2.value)) * self.low_offset_ema2.value
+        dataframe["ema_offset_buy2"] = (
+            ta.EMA(dataframe, int(self.base_nb_candles_buy_ema2.value))
+            * self.low_offset_ema2.value
         )
-        dataframe['ema_sell'] = ta.EMA(dataframe, int(self.base_nb_candles_ema_sell.value))
+        dataframe["ema_sell"] = ta.EMA(
+            dataframe, int(self.base_nb_candles_ema_sell.value)
+        )
 
-        dataframe.loc[:, 'buy_tag'] = ''
-        dataframe.loc[:, 'buy_copy'] = 0
-        dataframe.loc[:, 'buy'] = 0
+        dataframe.loc[:, "buy_tag"] = ""
+        dataframe.loc[:, "buy_copy"] = 0
+        dataframe.loc[:, "buy"] = 0
 
         if self.buy_condition_trima_enable.value:
-            dataframe['trima_offset_buy'] = (
+            dataframe["trima_offset_buy"] = (
                 ta.TRIMA(dataframe, int(self.base_nb_candles_buy_trima.value))
                 * self.low_offset_trima.value
             )
-            dataframe['trima_offset_buy2'] = (
+            dataframe["trima_offset_buy2"] = (
                 ta.TRIMA(dataframe, int(self.base_nb_candles_buy_trima2.value))
                 * self.low_offset_trima2.value
             )
 
             buy_offset_trima = (
-                (dataframe['close'] < dataframe['trima_offset_buy'])
-                & (dataframe['pm'] <= dataframe['pmax_thresh'])
+                (dataframe["close"] < dataframe["trima_offset_buy"])
+                & (dataframe["pm"] <= dataframe["pmax_thresh"])
             ) | (
-                (dataframe['close'] < dataframe['trima_offset_buy2'])
-                & (dataframe['pm'] > dataframe['pmax_thresh'])
+                (dataframe["close"] < dataframe["trima_offset_buy2"])
+                & (dataframe["pm"] > dataframe["pmax_thresh"])
             )
-            dataframe.loc[buy_offset_trima, 'buy_tag'] += 'trima '
+            dataframe.loc[buy_offset_trima, "buy_tag"] += "trima "
             conditions.append(buy_offset_trima)
 
         if self.buy_condition_zema_enable.value:
-            dataframe['zema_offset_buy'] = (
+            dataframe["zema_offset_buy"] = (
                 zema(dataframe, int(self.base_nb_candles_buy_zema.value))
                 * self.low_offset_zema.value
             )
-            dataframe['zema_offset_buy2'] = (
+            dataframe["zema_offset_buy2"] = (
                 zema(dataframe, int(self.base_nb_candles_buy_zema2.value))
                 * self.low_offset_zema2.value
             )
             buy_offset_zema = (
-                (dataframe['close'] < dataframe['zema_offset_buy'])
-                & (dataframe['pm'] <= dataframe['pmax_thresh'])
+                (dataframe["close"] < dataframe["zema_offset_buy"])
+                & (dataframe["pm"] <= dataframe["pmax_thresh"])
             ) | (
-                (dataframe['close'] < dataframe['zema_offset_buy2'])
-                & (dataframe['pm'] > dataframe['pmax_thresh'])
+                (dataframe["close"] < dataframe["zema_offset_buy2"])
+                & (dataframe["pm"] > dataframe["pmax_thresh"])
             )
-            dataframe.loc[buy_offset_zema, 'buy_tag'] += 'zema '
+            dataframe.loc[buy_offset_zema, "buy_tag"] += "zema "
             conditions.append(buy_offset_zema)
 
         if self.buy_condition_hma_enable.value:
-            dataframe['hma_offset_buy'] = (
+            dataframe["hma_offset_buy"] = (
                 qtpylib.hull_moving_average(
-                    dataframe['close'], window=int(self.base_nb_candles_buy_hma.value)
+                    dataframe["close"], window=int(self.base_nb_candles_buy_hma.value)
                 )
                 * self.low_offset_hma.value
             )
-            dataframe['hma_offset_buy2'] = (
+            dataframe["hma_offset_buy2"] = (
                 qtpylib.hull_moving_average(
-                    dataframe['close'], window=int(self.base_nb_candles_buy_hma2.value)
+                    dataframe["close"], window=int(self.base_nb_candles_buy_hma2.value)
                 )
                 * self.low_offset_hma2.value
             )
             buy_offset_hma = (
                 (
-                    (dataframe['close'] < dataframe['hma_offset_buy'])
-                    & (dataframe['pm'] <= dataframe['pmax_thresh'])
-                    & (dataframe['rsi'] < 35)
+                    (dataframe["close"] < dataframe["hma_offset_buy"])
+                    & (dataframe["pm"] <= dataframe["pmax_thresh"])
+                    & (dataframe["rsi"] < 35)
                 )
                 | (
-                    (dataframe['close'] < dataframe['hma_offset_buy2'])
-                    & (dataframe['pm'] > dataframe['pmax_thresh'])
-                    & (dataframe['rsi'] < 30)
+                    (dataframe["close"] < dataframe["hma_offset_buy2"])
+                    & (dataframe["pm"] > dataframe["pmax_thresh"])
+                    & (dataframe["rsi"] < 30)
                 )
-            ) & (dataframe['rsi_fast'] < 30)
-            dataframe.loc[buy_offset_hma, 'buy_tag'] += 'hma '
+            ) & (dataframe["rsi_fast"] < 30)
+            dataframe.loc[buy_offset_hma, "buy_tag"] += "hma "
             conditions.append(buy_offset_hma)
 
         add_check = (
-            (dataframe['close'] < dataframe['Smooth_HA_L'])
-            & (dataframe['close'] < (dataframe['ema_sell'] * self.high_offset_sell_ema.value))
-            & (dataframe['close'].rolling(288).max() >= (dataframe['close'] * 1.10))
-            & (dataframe['Smooth_HA_O'].shift(1) < dataframe['Smooth_HA_H'].shift(1))
-            & (dataframe['rsi_fast'] < self.buy_rsi_fast.value)
-            & (dataframe['rsi_84'] < 60)
-            & (dataframe['rsi_112'] < 60)
+            (dataframe["close"] < dataframe["Smooth_HA_L"])
+            & (
+                dataframe["close"]
+                < (dataframe["ema_sell"] * self.high_offset_sell_ema.value)
+            )
+            & (dataframe["close"].rolling(288).max() >= (dataframe["close"] * 1.10))
+            & (dataframe["Smooth_HA_O"].shift(1) < dataframe["Smooth_HA_H"].shift(1))
+            & (dataframe["rsi_fast"] < self.buy_rsi_fast.value)
+            & (dataframe["rsi_84"] < 60)
+            & (dataframe["rsi_112"] < 60)
             & (
                 (
-                    (dataframe['close'] < dataframe['ema_offset_buy'])
-                    & (dataframe['pm'] <= dataframe['pmax_thresh'])
+                    (dataframe["close"] < dataframe["ema_offset_buy"])
+                    & (dataframe["pm"] <= dataframe["pmax_thresh"])
                     & (
-                        (dataframe['ewo'] < self.ewo_low.value)
+                        (dataframe["ewo"] < self.ewo_low.value)
                         | (
-                            (dataframe['ewo'] > self.ewo_high.value)
-                            & (dataframe['rsi'] < self.rsi_buy.value)
+                            (dataframe["ewo"] > self.ewo_high.value)
+                            & (dataframe["rsi"] < self.rsi_buy.value)
                         )
                     )
                 )
                 | (
-                    (dataframe['close'] < dataframe['ema_offset_buy2'])
-                    & (dataframe['pm'] > dataframe['pmax_thresh'])
+                    (dataframe["close"] < dataframe["ema_offset_buy2"])
+                    & (dataframe["pm"] > dataframe["pmax_thresh"])
                     & (
-                        (dataframe['ewo'] < self.ewo_low2.value)
+                        (dataframe["ewo"] < self.ewo_low2.value)
                         | (
-                            (dataframe['ewo'] > self.ewo_high2.value)
-                            & (dataframe['rsi'] < self.rsi_buy2.value)
+                            (dataframe["ewo"] > self.ewo_high2.value)
+                            & (dataframe["rsi"] < self.rsi_buy2.value)
                         )
                     )
                 )
             )
-            & (dataframe['volume'] > 0)
+            & (dataframe["volume"] > 0)
         )
 
         if conditions:
             dataframe.loc[
                 (add_check & reduce(lambda x, y: x | y, conditions)),
-                ['buy_copy', 'buy'],
+                ["buy_copy", "buy"],
             ] = (1, 1)
 
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[:, 'sell'] = 0
+        dataframe.loc[:, "sell"] = 0
 
         return dataframe
 
@@ -554,7 +568,7 @@ def EWO(dataframe, sma1_length=5, sma2_length=35):
     df = dataframe.copy()
     sma1 = ta.EMA(df, period=sma1_length)
     sma2 = ta.EMA(df, period=sma2_length)
-    smadif = (sma1 - sma2) / df['close'] * 100
+    smadif = (sma1 - sma2) / df["close"] * 100
     return smadif
 
 
@@ -567,10 +581,10 @@ def pmax(df, period, multiplier, length, MAtype, src):
     MAtype = int(MAtype)
     src = int(src)
 
-    mavalue = f'MA_{MAtype}_{length}'
-    atr = f'ATR_{period}'
-    pm = f'pm_{period}_{multiplier}_{length}_{MAtype}'
-    pmx = f'pmX_{period}_{multiplier}_{length}_{MAtype}'
+    mavalue = f"MA_{MAtype}_{length}"
+    atr = f"ATR_{period}"
+    pm = f"pm_{period}_{multiplier}_{length}_{MAtype}"
+    pmx = f"pmX_{period}_{multiplier}_{length}_{MAtype}"
 
     # MAtype==1 --> EMA
     # MAtype==2 --> DEMA
@@ -608,12 +622,12 @@ def pmax(df, period, multiplier, length, MAtype, src):
         mavalue = zema(df, period=length)
 
     df[atr] = ta.ATR(df, period=period)
-    df['basic_ub'] = mavalue + ((multiplier / 10) * df[atr])
-    df['basic_lb'] = mavalue - ((multiplier / 10) * df[atr])
+    df["basic_ub"] = mavalue + ((multiplier / 10) * df[atr])
+    df["basic_lb"] = mavalue - ((multiplier / 10) * df[atr])
 
-    basic_ub = df['basic_ub'].values
+    basic_ub = df["basic_ub"].values
     final_ub = np.full(len(df), 0.00)
-    basic_lb = df['basic_lb'].values
+    basic_lb = df["basic_lb"].values
     final_lb = np.full(len(df), 0.00)
 
     for i in range(period, len(df)):
@@ -628,8 +642,8 @@ def pmax(df, period, multiplier, length, MAtype, src):
             else final_lb[i - 1]
         )
 
-    df['final_ub'] = final_ub
-    df['final_lb'] = final_lb
+    df["final_ub"] = final_ub
+    df["final_lb"] = final_lb
 
     pm_arr = np.full(len(df), 0.00)
     for i in range(period, len(df)):
@@ -648,7 +662,7 @@ def pmax(df, period, multiplier, length, MAtype, src):
     pm = Series(pm_arr)
 
     # Mark the trend direction up/down
-    pmx = np.where((pm_arr > 0.00), np.where((mavalue < pm_arr), 'down', 'up'), np.NaN)
+    pmx = np.where((pm_arr > 0.00), np.where((mavalue < pm_arr), "down", "up"), np.NaN)
 
     return pm, pmx
 
@@ -657,25 +671,28 @@ def pmax(df, period, multiplier, length, MAtype, src):
 def HA(dataframe, smoothing=None):
     df = dataframe.copy()
 
-    df['HA_Close'] = (df['open'] + df['high'] + df['low'] + df['close']) / 4
+    df["HA_Close"] = (df["open"] + df["high"] + df["low"] + df["close"]) / 4
 
     df.reset_index(inplace=True)
 
-    ha_open = [(df['open'][0] + df['close'][0]) / 2]
-    [ha_open.append((ha_open[i] + df['HA_Close'].values[i]) / 2) for i in range(0, len(df) - 1)]
-    df['HA_Open'] = ha_open
+    ha_open = [(df["open"][0] + df["close"][0]) / 2]
+    [
+        ha_open.append((ha_open[i] + df["HA_Close"].values[i]) / 2)
+        for i in range(0, len(df) - 1)
+    ]
+    df["HA_Open"] = ha_open
 
-    df.set_index('index', inplace=True)
+    df.set_index("index", inplace=True)
 
-    df['HA_High'] = df[['HA_Open', 'HA_Close', 'high']].max(axis=1)
-    df['HA_Low'] = df[['HA_Open', 'HA_Close', 'low']].min(axis=1)
+    df["HA_High"] = df[["HA_Open", "HA_Close", "high"]].max(axis=1)
+    df["HA_Low"] = df[["HA_Open", "HA_Close", "low"]].min(axis=1)
 
     if smoothing is not None:
         sml = abs(int(smoothing))
         if sml > 0:
-            df['Smooth_HA_O'] = ta_old.EMA(df['HA_Open'], sml)
-            df['Smooth_HA_C'] = ta_old.EMA(df['HA_Close'], sml)
-            df['Smooth_HA_H'] = ta_old.EMA(df['HA_High'], sml)
-            df['Smooth_HA_L'] = ta_old.EMA(df['HA_Low'], sml)
+            df["Smooth_HA_O"] = ta_old.EMA(df["HA_Open"], sml)
+            df["Smooth_HA_C"] = ta_old.EMA(df["HA_Close"], sml)
+            df["Smooth_HA_H"] = ta_old.EMA(df["HA_High"], sml)
+            df["Smooth_HA_L"] = ta_old.EMA(df["HA_Low"], sml)
 
     return df

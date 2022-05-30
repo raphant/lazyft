@@ -3,19 +3,18 @@ import logging
 import math
 from typing import Dict
 
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import numpy as np
+import talib.abstract as ta
 from freqtrade.misc import round_dict
 from freqtrade.optimize.space import SKDecimal
 from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy.parameters import DecimalParameter, IntParameter
 from pandas import DataFrame
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import numpy as np
-from freqtrade.strategy import DecimalParameter, IntParameter
-
 
 # --------------------------------
 from scipy.interpolate import interp1d
-from skopt.space import Dimension, Integer, Categorical
+from skopt.space import Categorical, Dimension, Integer
 
 logger = logging.getLogger()
 
@@ -24,7 +23,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
     ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['close'] * 100
+    emadif = (ema1 - ema2) / df["close"] * 100
     return emadif
 
 
@@ -58,7 +57,7 @@ class BBRSITV(IStrategy):
     trailing_only_offset_is_reached = True  # value loaded from strategy
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = False
@@ -97,26 +96,26 @@ class BBRSITV(IStrategy):
     ]
 
     ewo_high = DecimalParameter(
-        0, 7.0, default=buy_params['ewo_high'], space='buy', optimize=True
+        0, 7.0, default=buy_params["ewo_high"], space="buy", optimize=True
     )
     for_sigma = DecimalParameter(
-        0, 10.0, default=buy_params['for_sigma'], space='buy', optimize=True
+        0, 10.0, default=buy_params["for_sigma"], space="buy", optimize=True
     )
     for_sigma_sell = DecimalParameter(
-        0, 10.0, default=sell_params['for_sigma_sell'], space='sell', optimize=True
+        0, 10.0, default=sell_params["for_sigma_sell"], space="sell", optimize=True
     )
     rsi_high = IntParameter(
-        60, 100, default=sell_params['rsi_high'], space='sell', optimize=True
+        60, 100, default=sell_params["rsi_high"], space="sell", optimize=True
     )
     for_ma_length = IntParameter(
-        5, 80, default=buy_params['for_ma_length'], space='buy', optimize=True
+        5, 80, default=buy_params["for_ma_length"], space="buy", optimize=True
     )
     for_ma_length_sell = IntParameter(
-        5, 80, default=sell_params['for_ma_length_sell'], space='sell', optimize=True
+        5, 80, default=sell_params["for_ma_length_sell"], space="sell", optimize=True
     )
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
 
     # Protection
     fast_ewo = 50
@@ -128,7 +127,7 @@ class BBRSITV(IStrategy):
         #
         # // Инициализация параметров
         # src = input(title="Source", type=source, defval=close) // Устанавливаем тип цены для расчетов
-        src = 'close'
+        src = "close"
         # for_rsi = input(title="RSI_period", type=integer, defval=14) // Период для RSI
         for_rsi = 14
         # for_ma = input(title="Basis_BB", type=integer, defval=20) // Период для MA внутри BB
@@ -140,13 +139,13 @@ class BBRSITV(IStrategy):
         #
         # // Условия работы скрипта
         # current_rsi = rsi(src, for_rsi) // Текущее положение индикатора RSI
-        dataframe['rsi'] = ta.RSI(dataframe[src], for_rsi)
-        if self.config['runmode'].value == 'hyperopt':
+        dataframe["rsi"] = ta.RSI(dataframe[src], for_rsi)
+        if self.config["runmode"].value == "hyperopt":
             for for_ma in range(5, 81):
                 # basis = ema(current_rsi, for_ma)
-                dataframe[f'basis_{for_ma}'] = ta.EMA(dataframe['rsi'], for_ma)
+                dataframe[f"basis_{for_ma}"] = ta.EMA(dataframe["rsi"], for_ma)
                 # dev = for_mult * stdev(current_rsi, for_ma)
-                dataframe[f'dev_{for_ma}'] = ta.STDDEV(dataframe['rsi'], for_ma)
+                dataframe[f"dev_{for_ma}"] = ta.STDDEV(dataframe["rsi"], for_ma)
                 # upper = basis + dev
                 # dataframe[f'upper_{for_ma}'] = (dataframe[f'basis_{for_ma}'] + (dataframe[f'dev_{for_ma}'] * for_mult))
                 # lower = basis - dev
@@ -157,18 +156,18 @@ class BBRSITV(IStrategy):
                 # dataframe[f'disp_down_{for_ma}'] = dataframe[f'basis_{for_ma}'] - ((dataframe[f'upper_{for_ma}'] - dataframe[f'lower_{for_ma}']) * for_sigma)
                 # color_rsi = current_rsi >= disp_up ? lime : current_rsi <= disp_down ? red : #ffea00 // Текущий цвет RSI, в зависимости от его местоположения внутри BB
         else:
-            dataframe[f'basis_{self.for_ma_length.value}'] = ta.EMA(
-                dataframe['rsi'], self.for_ma_length.value
+            dataframe[f"basis_{self.for_ma_length.value}"] = ta.EMA(
+                dataframe["rsi"], self.for_ma_length.value
             )
-            dataframe[f'basis_{self.for_ma_length_sell.value}'] = ta.EMA(
-                dataframe['rsi'], self.for_ma_length_sell.value
+            dataframe[f"basis_{self.for_ma_length_sell.value}"] = ta.EMA(
+                dataframe["rsi"], self.for_ma_length_sell.value
             )
             # dev = for_mult * stdev(current_rsi, for_ma)
-            dataframe[f'dev_{self.for_ma_length.value}'] = ta.STDDEV(
-                dataframe['rsi'], self.for_ma_length.value
+            dataframe[f"dev_{self.for_ma_length.value}"] = ta.STDDEV(
+                dataframe["rsi"], self.for_ma_length.value
             )
-            dataframe[f'dev_{self.for_ma_length_sell.value}'] = ta.STDDEV(
-                dataframe['rsi'], self.for_ma_length_sell.value
+            dataframe[f"dev_{self.for_ma_length_sell.value}"] = ta.STDDEV(
+                dataframe["rsi"], self.for_ma_length_sell.value
             )
 
         #
@@ -200,7 +199,7 @@ class BBRSITV(IStrategy):
         # fill(s1, s2, color=white, transp=80)
         # plot(current_rsi, color=color_rsi, linewidth=2)
 
-        dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
+        dataframe["EWO"] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -213,19 +212,19 @@ class BBRSITV(IStrategy):
                 # disp_up = basis + (basis + dev * for_mult - basis + dev * for_mult)) * for_sigma) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (сверху)
                 # disp_up = basis + (2 * dev * for_sigma * for_mult) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (сверху)
                 (
-                    dataframe['rsi']
+                    dataframe["rsi"]
                     < (
-                        dataframe[f'basis_{self.for_ma_length.value}']
+                        dataframe[f"basis_{self.for_ma_length.value}"]
                         - (
-                            dataframe[f'dev_{self.for_ma_length.value}']
+                            dataframe[f"dev_{self.for_ma_length.value}"]
                             * self.for_sigma.value
                         )
                     )
                 )
-                & (dataframe['EWO'] > self.ewo_high.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] > self.ewo_high.value)
+                & (dataframe["volume"] > 0)
             ),
-            'buy',
+            "buy",
         ] = 1
         return dataframe
 
@@ -233,26 +232,26 @@ class BBRSITV(IStrategy):
         dataframe.loc[
             (
                 (
-                    (dataframe['rsi'] > self.rsi_high.value)
+                    (dataframe["rsi"] > self.rsi_high.value)
                     |
                     # upper = basis + dev
                     # lower = basis - dev
                     # disp_down = basis - ((upper - lower) * for_sigma) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (снизу)
                     # disp_down = basis - ((2* dev * for_sigma) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (снизу)
                     (
-                        dataframe['rsi']
-                        > dataframe[f'basis_{self.for_ma_length_sell.value}']
+                        dataframe["rsi"]
+                        > dataframe[f"basis_{self.for_ma_length_sell.value}"]
                         + (
                             (
-                                dataframe[f'dev_{self.for_ma_length_sell.value}']
+                                dataframe[f"dev_{self.for_ma_length_sell.value}"]
                                 * self.for_sigma_sell.value
                             )
                         )
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             ),
-            'sell',
+            "sell",
         ] = 1
         return dataframe
 
@@ -283,10 +282,10 @@ class BBRSITV(IStrategy):
             step = cls.roi_table_step_size
 
             minimal_roi = {
-                0: params['roi_p1'] + params['roi_p2'] + params['roi_p3'],
-                params['roi_t3']: params['roi_p1'] + params['roi_p2'],
-                params['roi_t3'] + params['roi_t2']: params['roi_p1'],
-                params['roi_t3'] + params['roi_t2'] + params['roi_t1']: 0,
+                0: params["roi_p1"] + params["roi_p2"] + params["roi_p3"],
+                params["roi_t3"]: params["roi_p1"] + params["roi_p2"],
+                params["roi_t3"] + params["roi_t2"]: params["roi_p1"],
+                params["roi_t3"] + params["roi_t2"] + params["roi_t1"]: 0,
             }
 
             max_value = max(map(int, minimal_roi.keys()))
@@ -322,68 +321,68 @@ class BBRSITV(IStrategy):
             roi_t_scale = timeframe_min
             roi_p_scale = math.log1p(timeframe_min) / math.log1p(5)
             roi_limits = {
-                'roi_t1_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t1_max': int(120 * roi_t_scale * roi_t_alpha),
-                'roi_t2_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t2_max': int(60 * roi_t_scale * roi_t_alpha),
-                'roi_t3_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t3_max': int(40 * roi_t_scale * roi_t_alpha),
-                'roi_p1_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p1_max': 0.04 * roi_p_scale * roi_p_alpha,
-                'roi_p2_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p2_max': 0.07 * roi_p_scale * roi_p_alpha,
-                'roi_p3_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p3_max': 0.20 * roi_p_scale * roi_p_alpha,
+                "roi_t1_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t1_max": int(120 * roi_t_scale * roi_t_alpha),
+                "roi_t2_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t2_max": int(60 * roi_t_scale * roi_t_alpha),
+                "roi_t3_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t3_max": int(40 * roi_t_scale * roi_t_alpha),
+                "roi_p1_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p1_max": 0.04 * roi_p_scale * roi_p_alpha,
+                "roi_p2_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p2_max": 0.07 * roi_p_scale * roi_p_alpha,
+                "roi_p3_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p3_max": 0.20 * roi_p_scale * roi_p_alpha,
             }
 
             # Generate MGM's custom long continuous ROI table
-            logger.debug(f'Using ROI space limits: {roi_limits}')
+            logger.debug(f"Using ROI space limits: {roi_limits}")
             p = {
-                'roi_t1': roi_limits['roi_t1_min'],
-                'roi_t2': roi_limits['roi_t2_min'],
-                'roi_t3': roi_limits['roi_t3_min'],
-                'roi_p1': roi_limits['roi_p1_min'],
-                'roi_p2': roi_limits['roi_p2_min'],
-                'roi_p3': roi_limits['roi_p3_min'],
+                "roi_t1": roi_limits["roi_t1_min"],
+                "roi_t2": roi_limits["roi_t2_min"],
+                "roi_t3": roi_limits["roi_t3_min"],
+                "roi_p1": roi_limits["roi_p1_min"],
+                "roi_p2": roi_limits["roi_p2_min"],
+                "roi_p3": roi_limits["roi_p3_min"],
             }
-            logger.info(f'Min ROI table: {round_dict(cls.generate_roi_table(p), 3)}')
+            logger.info(f"Min ROI table: {round_dict(cls.generate_roi_table(p), 3)}")
             p = {
-                'roi_t1': roi_limits['roi_t1_max'],
-                'roi_t2': roi_limits['roi_t2_max'],
-                'roi_t3': roi_limits['roi_t3_max'],
-                'roi_p1': roi_limits['roi_p1_max'],
-                'roi_p2': roi_limits['roi_p2_max'],
-                'roi_p3': roi_limits['roi_p3_max'],
+                "roi_t1": roi_limits["roi_t1_max"],
+                "roi_t2": roi_limits["roi_t2_max"],
+                "roi_t3": roi_limits["roi_t3_max"],
+                "roi_p1": roi_limits["roi_p1_max"],
+                "roi_p2": roi_limits["roi_p2_max"],
+                "roi_p3": roi_limits["roi_p3_max"],
             }
-            logger.info(f'Max ROI table: {round_dict(cls.generate_roi_table(p), 3)}')
+            logger.info(f"Max ROI table: {round_dict(cls.generate_roi_table(p), 3)}")
 
             return [
                 Integer(
-                    roi_limits['roi_t1_min'], roi_limits['roi_t1_max'], name='roi_t1'
+                    roi_limits["roi_t1_min"], roi_limits["roi_t1_max"], name="roi_t1"
                 ),
                 Integer(
-                    roi_limits['roi_t2_min'], roi_limits['roi_t2_max'], name='roi_t2'
+                    roi_limits["roi_t2_min"], roi_limits["roi_t2_max"], name="roi_t2"
                 ),
                 Integer(
-                    roi_limits['roi_t3_min'], roi_limits['roi_t3_max'], name='roi_t3'
+                    roi_limits["roi_t3_min"], roi_limits["roi_t3_max"], name="roi_t3"
                 ),
                 SKDecimal(
-                    roi_limits['roi_p1_min'],
-                    roi_limits['roi_p1_max'],
+                    roi_limits["roi_p1_min"],
+                    roi_limits["roi_p1_max"],
                     decimals=3,
-                    name='roi_p1',
+                    name="roi_p1",
                 ),
                 SKDecimal(
-                    roi_limits['roi_p2_min'],
-                    roi_limits['roi_p2_max'],
+                    roi_limits["roi_p2_min"],
+                    roi_limits["roi_p2_max"],
                     decimals=3,
-                    name='roi_p2',
+                    name="roi_p2",
                 ),
                 SKDecimal(
-                    roi_limits['roi_p3_min'],
-                    roi_limits['roi_p3_max'],
+                    roi_limits["roi_p3_min"],
+                    roi_limits["roi_p3_max"],
                     decimals=3,
-                    name='roi_p3',
+                    name="roi_p3",
                 ),
             ]
 
@@ -400,7 +399,7 @@ class BBRSITV(IStrategy):
                     cls.stoploss_max_value,
                     cls.stoploss_min_value,
                     decimals=3,
-                    name='stoploss',
+                    name="stoploss",
                 )
             ]
 
@@ -418,12 +417,12 @@ class BBRSITV(IStrategy):
                 # This parameter is included into the hyperspace dimensions rather than assigning
                 # it explicitly in the code in order to have it printed in the results along with
                 # other 'trailing' hyperspace parameters.
-                Categorical([True], name='trailing_stop'),
+                Categorical([True], name="trailing_stop"),
                 SKDecimal(
                     cls.trailing_stop_positive_min_value,
                     cls.trailing_stop_positive_max_value,
                     decimals=3,
-                    name='trailing_stop_positive',
+                    name="trailing_stop_positive",
                 ),
                 # 'trailing_stop_positive_offset' should be greater than 'trailing_stop_positive',
                 # so this intermediate parameter is used as the value of the difference between
@@ -434,9 +433,9 @@ class BBRSITV(IStrategy):
                     cls.trailing_stop_positive_offset_min_value,
                     cls.trailing_stop_positive_offset_max_value,
                     decimals=3,
-                    name='trailing_stop_positive_offset_p1',
+                    name="trailing_stop_positive_offset_p1",
                 ),
-                Categorical([True, False], name='trailing_only_offset_is_reached'),
+                Categorical([True, False], name="trailing_only_offset_is_reached"),
             ]
 
 

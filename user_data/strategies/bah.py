@@ -4,17 +4,17 @@ from datetime import datetime, timedelta
 from functools import reduce
 from numbers import Number
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import pandas as pd
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IntParameter,
-    DecimalParameter,
-    merge_informative_pair,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
 )
 from freqtrade.strategy.interface import IStrategy
 from numpy import number
@@ -36,7 +36,7 @@ class BuyAndHold(IStrategy):
     https://github.com/sthewissen/Mynt/blob/master/src/Mynt.Core/Strategies/BbandRsi.cs
     """
 
-    CategoricalParameter(['type1', 'type2'])
+    CategoricalParameter(["type1", "type2"])
 
     # region Params
     minimal_roi = {"0": 100}
@@ -44,10 +44,10 @@ class BuyAndHold(IStrategy):
     # endregion
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
 
     # Recommended
-    use_sell_signal = False
+    exit_sell_signal = False
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
     startup_candle_count = 500
@@ -55,7 +55,7 @@ class BuyAndHold(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -95,11 +95,11 @@ class BuyAndHold(IStrategy):
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['buy'] = 1
+        dataframe["buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['sell'] = 0
+        dataframe["sell"] = 0
         return dataframe
 
 
@@ -113,5 +113,5 @@ def bollinger_bands(series, window=20, stds: Number = 2):
     lower = ma - std * stds
 
     return pd.DataFrame(
-        index=series.index, data={'upper': upper, 'mid': ma, 'lower': lower}
+        index=series.index, data={"upper": upper, "mid": ma, "lower": lower}
     )

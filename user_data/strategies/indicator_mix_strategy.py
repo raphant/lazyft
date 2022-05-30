@@ -35,10 +35,10 @@ class IndicatorMixStrategy(IMBaseNormalOptimizationStrategy):
     # region Params
     minimal_roi = {"0": 0.201, "12": 0.041, "31": 0.012, "109": 0}
     stoploss = -0.20
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
 
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = False
     startup_candle_count = 200

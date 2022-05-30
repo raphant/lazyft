@@ -16,6 +16,7 @@ from sh import RunningCommand
 
 from lazyft import strategy
 from lazyft.models import HyperoptReport, StrategyBackup
+from lazyft.strategy import get_strategy_hash_and_text
 
 if TYPE_CHECKING:
     from lazyft.backtest.commands import BacktestCommand
@@ -43,7 +44,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         self.error_list = []
         self.output_list = []
 
-        self.strategy_hash = None
+        self.strategy_hash = get_strategy_hash_and_text(self.strategy)[0]
         self.tmp_strategy_path = None
 
     # region Properties

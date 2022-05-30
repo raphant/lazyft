@@ -64,7 +64,7 @@
 #     sell_comparisons_per_group = 2
 #
 #     # Recommended
-#     use_sell_signal = True
+#     exit_sell_signal = True
 #     sell_profit_only = False
 #     ignore_roi_if_buy_signal = True
 #     startup_candle_count = 200

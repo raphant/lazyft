@@ -39,16 +39,23 @@
 # freqtrade hyperopt --hyperopt-loss OnlyProfitHyperOptLoss --spaces buy sell roi trailing stoploss --strategy Diamond -j 2 -e 10
 # *    7/10:    117 trades. 74/41/2 Wins/Draws/Losses. Avg profit   1.91%. Median profit   1.50%. Total profit  0.07370921 BTC (  73.71%). Avg duration 9:26:00 min. Objective: -0.07371
 
-# --- Do not remove these libs ---
-from freqtrade.strategy.hyper import CategoricalParameter, DecimalParameter, IntParameter
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame
-# --------------------------------
+from functools import reduce
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 # Add your lib to import here
 import talib.abstract as ta
-from functools import reduce
-import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy.interface import IStrategy
+
+# --- Do not remove these libs ---
+from freqtrade.strategy.parameters import (
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+)
+from pandas import DataFrame
+
+# --------------------------------
 
 
 class Diamond(IStrategy):
@@ -74,12 +81,7 @@ class Diamond(IStrategy):
     }
 
     # ROI table:
-    minimal_roi = {
-        "0": 0.242,
-        "13": 0.044,
-        "51": 0.02,
-        "170": 0
-    }
+    minimal_roi = {"0": 0.242, "13": 0.044, "51": 0.02, "170": 0}
 
     # Stoploss:
     stoploss = -0.271
@@ -90,29 +92,65 @@ class Diamond(IStrategy):
     trailing_stop_positive_offset = 0.054
     trailing_only_offset_is_reached = False
     # timeframe
-    timeframe = '5m'
+    timeframe = "5m"
     # #################### END OF RESULT PLACE ####################
 
-    buy_vertical_push = DecimalParameter(0.5, 1.5, decimals=3, default=1, space='buy')
-    buy_horizontal_push = IntParameter(0, 10, default=0, space='buy')
-    buy_fast_key = CategoricalParameter(['open', 'high', 'low', 'close', 'volume',
-                                         #  you can not enable this lines befour you
-                                         #  populate an indicator for them and set
-                                         #  the same key name for it
-                                         #  'ma_fast', 'ma_slow', {...}
-                                         ], default='ma_fast', space='buy')
-    buy_slow_key = CategoricalParameter(['open', 'high', 'low', 'close', 'volume',
-                                         #  'ma_fast', 'ma_slow', {...}
-                                         ], default='ma_slow', space='buy')
+    buy_vertical_push = DecimalParameter(0.5, 1.5, decimals=3, default=1, space="buy")
+    buy_horizontal_push = IntParameter(0, 10, default=0, space="buy")
+    buy_fast_key = CategoricalParameter(
+        [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            #  you can not enable this lines befour you
+            #  populate an indicator for them and set
+            #  the same key name for it
+            #  'ma_fast', 'ma_slow', {...}
+        ],
+        default="ma_fast",
+        space="buy",
+    )
+    buy_slow_key = CategoricalParameter(
+        [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            #  'ma_fast', 'ma_slow', {...}
+        ],
+        default="ma_slow",
+        space="buy",
+    )
 
-    sell_vertical_push = DecimalParameter(0.5, 1.5, decimals=3,  default=1, space='sell')
-    sell_horizontal_push = IntParameter(0, 10, default=0, space='sell')
-    sell_fast_key = CategoricalParameter(['open', 'high', 'low', 'close', 'volume',
-                                          #  'ma_fast', 'ma_slow', {...}
-                                          ], default='ma_fast', space='sell')
-    sell_slow_key = CategoricalParameter(['open', 'high', 'low', 'close', 'volume',
-                                          #  'ma_fast', 'ma_slow', {...}
-                                          ], default='ma_slow', space='sell')
+    sell_vertical_push = DecimalParameter(0.5, 1.5, decimals=3, default=1, space="sell")
+    sell_horizontal_push = IntParameter(0, 10, default=0, space="sell")
+    sell_fast_key = CategoricalParameter(
+        [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            #  'ma_fast', 'ma_slow', {...}
+        ],
+        default="ma_fast",
+        space="sell",
+    )
+    sell_slow_key = CategoricalParameter(
+        [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            #  'ma_fast', 'ma_slow', {...}
+        ],
+        default="ma_slow",
+        space="sell",
+    )
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # you can add new indicators and enable them inside
@@ -125,31 +163,29 @@ class Diamond(IStrategy):
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         conditions.append(
-            qtpylib.crossed_above
-            (
-                dataframe[self.buy_fast_key.value].shift(self.buy_horizontal_push.value),
-                dataframe[self.buy_slow_key.value] * self.buy_vertical_push.value
+            qtpylib.crossed_above(
+                dataframe[self.buy_fast_key.value].shift(
+                    self.buy_horizontal_push.value
+                ),
+                dataframe[self.buy_slow_key.value] * self.buy_vertical_push.value,
             )
         )
 
         if conditions:
-            dataframe.loc[
-                reduce(lambda x, y: x & y, conditions),
-                'buy']=1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
 
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         conditions.append(
-            qtpylib.crossed_below
-            (
-                dataframe[self.sell_fast_key.value].shift(self.sell_horizontal_push.value),
-                dataframe[self.sell_slow_key.value] * self.sell_vertical_push.value
+            qtpylib.crossed_below(
+                dataframe[self.sell_fast_key.value].shift(
+                    self.sell_horizontal_push.value
+                ),
+                dataframe[self.sell_slow_key.value] * self.sell_vertical_push.value,
             )
         )
         if conditions:
-            dataframe.loc[
-                reduce(lambda x, y: x & y, conditions),
-                'sell']=1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "sell"] = 1
         return dataframe

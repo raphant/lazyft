@@ -3,13 +3,13 @@ import sys
 from datetime import datetime, timedelta
 from functools import reduce
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IntParameter, DecimalParameter, merge_informative_pair
-from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import IStrategy, merge_informative_pair
+from freqtrade.strategy.parameters import DecimalParameter, IntParameter
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
@@ -27,14 +27,14 @@ class BbandSar(IStrategy):
     minimal_roi = {"0": 0.05, "60": 0}
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
     use_custom_stoploss = False
@@ -42,7 +42,7 @@ class BbandSar(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -84,32 +84,32 @@ class BbandSar(IStrategy):
     #     return informative_pairs
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['sar'] = ta.SAR(dataframe['high'], dataframe['low'], 0.2, 0.2)
+        dataframe["sar"] = ta.SAR(dataframe["high"], dataframe["low"], 0.2, 0.2)
 
         # Bollinger bands
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=40, stds=2
         )
-        dataframe['bb_lower'] = bollinger['lower']
-        dataframe['bb_mid'] = bollinger['mid']
-        dataframe['bb_upper'] = bollinger['upper']
+        dataframe["bb_lower"] = bollinger["lower"]
+        dataframe["bb_mid"] = bollinger["mid"]
+        dataframe["bb_upper"] = bollinger["upper"]
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
 
         conditions.append(
-            (qtpylib.crossed_below(dataframe['sar'], dataframe['bb_lower']))
+            (qtpylib.crossed_below(dataframe["sar"], dataframe["bb_lower"]))
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (qtpylib.crossed_above(dataframe['sar'], dataframe['bb_upper'])), 'sell'
+            (qtpylib.crossed_above(dataframe["sar"], dataframe["bb_upper"])), "sell"
         ] = 1
         # dataframe['sell'] = 0
         return dataframe

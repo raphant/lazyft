@@ -9,10 +9,10 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IntParameter,
-    DecimalParameter,
-    merge_informative_pair,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
 )
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
@@ -26,7 +26,7 @@ class BollingerBands3(IStrategy):
     # buy_rsi = IntParameter(5, 50, default=30, load=True)
     # sell_rsi = IntParameter(50, 100, default=70, load=True)
     buy_low_or_close = CategoricalParameter(
-        ['low', 'close', 'high'], default='close', load=True, optimize=True
+        ["low", "close", "high"], default="close", load=True, optimize=True
     )
 
     sell_band_matching = CategoricalParameter(
@@ -36,22 +36,22 @@ class BollingerBands3(IStrategy):
     #     low=0.0, high=0.05, default=0.0, load=True
     # )
     sell_low_or_close = CategoricalParameter(
-        ['low', 'close', 'high'], default='close', load=True, optimize=True
+        ["low", "close", "high"], default="close", load=True, optimize=True
     )
 
     # region Params
     stoploss = -0.147
-    minimal_roi = {'0': 0.188, '21': 0.095, '35': 0.033, '130': 0}
+    minimal_roi = {"0": 0.188, "21": 0.095, "35": 0.033, "130": 0}
 
     # endregion
 
     # Optimal timeframe for the strategy
     # inf_timeframe = '1h'
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
 
@@ -61,7 +61,7 @@ class BollingerBands3(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -103,21 +103,21 @@ class BollingerBands3(IStrategy):
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe["bb_lowerband"] = bollinger["lower"]
+        dataframe["bb_middleband"] = bollinger["mid"]
+        dataframe["bb_upperband"] = bollinger["upper"]
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
 
         conditions.append(
-            (dataframe[self.buy_low_or_close.value] < dataframe['bb_lowerband'])
+            (dataframe[self.buy_low_or_close.value] < dataframe["bb_lowerband"])
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
             # print('last_lowerband:', float(dataframe['bb_lowerband'].tail(1)))
             # print(metadata)
         return dataframe
@@ -128,19 +128,19 @@ class BollingerBands3(IStrategy):
         conditions.append(
             (
                 qtpylib.crossed_above(
-                    dataframe[self.sell_low_or_close.value], dataframe['bb_upperband']
+                    dataframe[self.sell_low_or_close.value], dataframe["bb_upperband"]
                 )
             )
         )
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "sell"] = 1
         return dataframe
 
     def custom_sell(
         self,
         pair: str,
-        trade: 'Trade',
-        current_time: 'datetime',
+        trade: "Trade",
+        current_time: "datetime",
         current_rate: float,
         current_profit: float,
         **kwargs,
@@ -152,9 +152,9 @@ class BollingerBands3(IStrategy):
             cpair = self.cust_last_lowerband.get(pair)
             if trade.open_date not in cpair:
                 return
-            if cpair[trade.open_date] >= last_candle['bb_upperband']:
+            if cpair[trade.open_date] >= last_candle["bb_upperband"]:
                 self.cust_last_lowerband[pair].pop(trade.open_date)
-                return 'band_matched'
+                return "band_matched"
 
     def confirm_trade_entry(
         self,
@@ -189,7 +189,7 @@ class BollingerBands3(IStrategy):
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].squeeze()
         cpair = self.cust_last_lowerband.get(pair, {})
-        cpair[current_time] = float(dataframe.loc['']['bb_lowerband'])
+        cpair[current_time] = float(dataframe.loc[""]["bb_lowerband"])
         self.cust_last_lowerband[pair] = cpair
         return True
 

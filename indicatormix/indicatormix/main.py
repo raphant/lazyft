@@ -1,39 +1,61 @@
+from __future__ import annotations
+
 import logging
+from typing import Union
 
-import pandas_datareader.data as web
-
-from indicatormix import State
-from indicatormix.indicator_depot import IndicatorDepot
-from indicatormix.parameter_tools import ParameterTools
-from indicatormix.populator import Populator
+from indicatormix import State, populator
+from indicatormix.entities import comparison
+from indicatormix.helpers.custom_indicators import macd_strategy
 
 logger = logging.getLogger(__name__)
 
 
 class IndicatorMix:
-    def __init__(self) -> None:
-        self.state = State(indicator_depot=IndicatorDepot())
-
-    def main(self):
-        logger.info("Filling parameter map")
-        self.state.parameter_map.update(ParameterTools.get_all_parameters(self.state))
+    """
+    The IndicatorMix class is a class that adds the ability to create a list of indicators
+    """
+    def __init__(self, timeframe: str = None) -> None:
+        self.state = State(timeframe=timeframe)
 
     @property
     def indicators(self):
+        """
+        Return the indicators of the depot
+        :return: A list of indicators.
+        """
         return self.state.indicator_depot.indicators
+
+    def add_custom_parameter_values(self, parameter_values: dict[str, Union[int, float]]):
+        """
+        Add the given dictionary of parameter values to the custom parameter values of the current state
+
+        :param parameter_values: dict[str, Union[int, float]]
+        :type parameter_values: dict[str, Union[int, float]]
+        """
+        self.state.custom_parameter_values.update(parameter_values)
 
 
 if __name__ == '__main__':
+    import pandas_datareader.data as web
+
     im = IndicatorMix()
-    im.main()
     print(im.state)
     # download AAPL data
-    df = web.DataReader('AAPL', 'yahoo', start='2020-09-10', end='2021-09-09')
+    df = web.DataReader('TSLA', 'yahoo', start='2021-09-1')
     # make ohlc columns lowercase
     df.columns = [c.lower() for c in df.columns]
-    dataframe = Populator.populate(
-        im.state, im.indicators.get('supertrend_fast').name, df
+    print(macd_strategy(df['close'], 3, 9, 10))
+    exit()
+    # print(df.close)
+    # print(normalize(df.close))
+    dataframe = populator.populate(im.state, 'wavetrend', df)
+    print(dataframe.to_markdown())
+    # print(dataframe.head().to_markdown())
+    # print(dataframe.tail().to_markdown())
+    # # print(im.state.series_to_inf_series_map)
+    compare = comparison.create(im.state, 'wavetrend__signal', 'none', 'none').compare(
+        im.state, dataframe, 'buy'
     )
-    # print(dataframe.to_markdown())
-    print(im.state.series_to_inf_series_map)
-    # print(ParameterTools.create_comparison_groups(im.state, 'buy', 3))
+    # print(compare)
+    # print(compare.unique())
+    print(compare.sort_values())

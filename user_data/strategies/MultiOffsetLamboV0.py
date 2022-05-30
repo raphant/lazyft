@@ -1,26 +1,27 @@
 # --- Do not remove these libs ---
-from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
+import datetime
+from datetime import datetime, timedelta
 from functools import reduce
+from typing import Dict, List
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import numpy as np
+import talib.abstract as ta
+import technical.indicators as ftt
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
+    stoploss_from_open,
+)
+from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
+from technical.util import resample_to_interval, resampled_merge
 
 # --------------------------------
 
-import talib.abstract as ta
-import numpy as np
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import datetime
-from technical.util import resample_to_interval, resampled_merge
-from datetime import datetime, timedelta
-from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    stoploss_from_open,
-    merge_informative_pair,
-    DecimalParameter,
-    IntParameter,
-    CategoricalParameter,
-)
-import technical.indicators as ftt
 
 # - Credits -
 # tirail: SMAOffset idea
@@ -32,7 +33,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
     ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['close'] * 100
+    emadif = (ema1 - ema2) / df["close"] * 100
     return emadif
 
 
@@ -55,81 +56,81 @@ class MultiOffsetLamboV0(IStrategy):
 
     # Offset
     base_nb_candles_buy = IntParameter(
-        5, 80, default=20, load=True, space='buy', optimize=True
+        5, 80, default=20, load=True, space="buy", optimize=True
     )
     base_nb_candles_sell = IntParameter(
-        5, 80, default=20, load=True, space='sell', optimize=True
+        5, 80, default=20, load=True, space="sell", optimize=True
     )
     low_offset_sma = DecimalParameter(
-        0.9, 0.99, default=0.958, load=True, space='buy', optimize=True
+        0.9, 0.99, default=0.958, load=True, space="buy", optimize=True
     )
     high_offset_sma = DecimalParameter(
-        0.99, 1.1, default=1.012, load=True, space='sell', optimize=True
+        0.99, 1.1, default=1.012, load=True, space="sell", optimize=True
     )
     low_offset_ema = DecimalParameter(
-        0.9, 0.99, default=0.958, load=True, space='buy', optimize=True
+        0.9, 0.99, default=0.958, load=True, space="buy", optimize=True
     )
     high_offset_ema = DecimalParameter(
-        0.99, 1.1, default=1.012, load=True, space='sell', optimize=True
+        0.99, 1.1, default=1.012, load=True, space="sell", optimize=True
     )
     low_offset_trima = DecimalParameter(
-        0.9, 0.99, default=0.958, load=True, space='buy', optimize=True
+        0.9, 0.99, default=0.958, load=True, space="buy", optimize=True
     )
     high_offset_trima = DecimalParameter(
-        0.99, 1.1, default=1.012, load=True, space='sell', optimize=True
+        0.99, 1.1, default=1.012, load=True, space="sell", optimize=True
     )
     low_offset_t3 = DecimalParameter(
-        0.9, 0.99, default=0.958, load=True, space='buy', optimize=True
+        0.9, 0.99, default=0.958, load=True, space="buy", optimize=True
     )
     high_offset_t3 = DecimalParameter(
-        0.99, 1.1, default=1.012, load=True, space='sell', optimize=True
+        0.99, 1.1, default=1.012, load=True, space="sell", optimize=True
     )
     low_offset_kama = DecimalParameter(
-        0.9, 0.99, default=0.958, load=True, space='buy', optimize=True
+        0.9, 0.99, default=0.958, load=True, space="buy", optimize=True
     )
     high_offset_kama = DecimalParameter(
-        0.99, 1.1, default=1.012, load=True, space='sell', optimize=True
+        0.99, 1.1, default=1.012, load=True, space="sell", optimize=True
     )
 
     # Protection
     ewo_low = DecimalParameter(
-        -20.0, -8.0, default=-20.0, load=True, space='buy', optimize=True
+        -20.0, -8.0, default=-20.0, load=True, space="buy", optimize=True
     )
     ewo_high = DecimalParameter(
-        2.0, 12.0, default=6.0, load=True, space='buy', optimize=True
+        2.0, 12.0, default=6.0, load=True, space="buy", optimize=True
     )
-    fast_ewo = IntParameter(10, 50, default=50, load=True, space='buy', optimize=False)
+    fast_ewo = IntParameter(10, 50, default=50, load=True, space="buy", optimize=False)
     slow_ewo = IntParameter(
-        100, 200, default=200, load=True, space='buy', optimize=False
+        100, 200, default=200, load=True, space="buy", optimize=False
     )
 
     # MA list
-    ma_types = ['sma', 'ema', 'trima', 't3', 'kama']
+    ma_types = ["sma", "ema", "trima", "t3", "kama"]
     ma_map = {
-        'sma': {
-            'low_offset': low_offset_sma.value,
-            'high_offset': high_offset_sma.value,
-            'calculate': ta.SMA,
+        "sma": {
+            "low_offset": low_offset_sma.value,
+            "high_offset": high_offset_sma.value,
+            "calculate": ta.SMA,
         },
-        'ema': {
-            'low_offset': low_offset_ema.value,
-            'high_offset': high_offset_ema.value,
-            'calculate': ta.EMA,
+        "ema": {
+            "low_offset": low_offset_ema.value,
+            "high_offset": high_offset_ema.value,
+            "calculate": ta.EMA,
         },
-        'trima': {
-            'low_offset': low_offset_trima.value,
-            'high_offset': high_offset_trima.value,
-            'calculate': ta.TRIMA,
+        "trima": {
+            "low_offset": low_offset_trima.value,
+            "high_offset": high_offset_trima.value,
+            "calculate": ta.TRIMA,
         },
-        't3': {
-            'low_offset': low_offset_t3.value,
-            'high_offset': high_offset_t3.value,
-            'calculate': ta.T3,
+        "t3": {
+            "low_offset": low_offset_t3.value,
+            "high_offset": high_offset_t3.value,
+            "calculate": ta.T3,
         },
-        'kama': {
-            'low_offset': low_offset_kama.value,
-            'high_offset': high_offset_kama.value,
-            'calculate': ta.KAMA,
+        "kama": {
+            "low_offset": low_offset_kama.value,
+            "high_offset": high_offset_kama.value,
+            "calculate": ta.KAMA,
         },
     }
 
@@ -140,25 +141,25 @@ class MultiOffsetLamboV0(IStrategy):
     trailing_only_offset_is_reached = True
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = True
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
-    informative_timeframe = '1h'
+    timeframe = "5m"
+    informative_timeframe = "1h"
 
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
 
     process_only_new_candles = True
     startup_candle_count = 30
 
     plot_config = {
-        'main_plot': {
-            'ma_offset_buy': {'color': 'orange'},
-            'ma_offset_sell': {'color': 'orange'},
+        "main_plot": {
+            "ma_offset_buy": {"color": "orange"},
+            "ma_offset_sell": {"color": "orange"},
         },
     }
 
@@ -168,21 +169,21 @@ class MultiOffsetLamboV0(IStrategy):
 
         # Offset
         for i in self.ma_types:
-            dataframe[f'{i}_offset_buy'] = (
-                self.ma_map[f'{i}']['calculate'](
+            dataframe[f"{i}_offset_buy"] = (
+                self.ma_map[f"{i}"]["calculate"](
                     dataframe, self.base_nb_candles_buy.value
                 )
-                * self.ma_map[f'{i}']['low_offset']
+                * self.ma_map[f"{i}"]["low_offset"]
             )
-            dataframe[f'{i}_offset_sell'] = (
-                self.ma_map[f'{i}']['calculate'](
+            dataframe[f"{i}_offset_sell"] = (
+                self.ma_map[f"{i}"]["calculate"](
                     dataframe, self.base_nb_candles_sell.value
                 )
-                * self.ma_map[f'{i}']['high_offset']
+                * self.ma_map[f"{i}"]["high_offset"]
             )
 
         # Elliot
-        dataframe['EWO'] = EWO(dataframe, self.fast_ewo.value, self.slow_ewo.value)
+        dataframe["EWO"] = EWO(dataframe, self.fast_ewo.value, self.slow_ewo.value)
 
         return dataframe
 
@@ -191,16 +192,16 @@ class MultiOffsetLamboV0(IStrategy):
 
         for i in self.ma_types:
             conditions.append(
-                (dataframe['close'] < dataframe[f'{i}_offset_buy'])
+                (dataframe["close"] < dataframe[f"{i}_offset_buy"])
                 & (
-                    (dataframe['EWO'] < self.ewo_low.value)
-                    | (dataframe['EWO'] > self.ewo_high.value)
+                    (dataframe["EWO"] < self.ewo_low.value)
+                    | (dataframe["EWO"] > self.ewo_high.value)
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "buy"] = 1
 
         return dataframe
 
@@ -210,12 +211,12 @@ class MultiOffsetLamboV0(IStrategy):
         for i in self.ma_types:
             conditions.append(
                 (
-                    (dataframe['close'] > dataframe[f'{i}_offset_sell'])
-                    & (dataframe['volume'] > 0)
+                    (dataframe["close"] > dataframe[f"{i}_offset_sell"])
+                    & (dataframe["volume"] > 0)
                 )
             )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
 
         return dataframe

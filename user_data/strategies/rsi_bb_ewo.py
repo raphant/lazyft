@@ -3,13 +3,13 @@ import sys
 from datetime import datetime, timedelta
 from functools import reduce
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IntParameter, DecimalParameter, merge_informative_pair
-from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import IStrategy, merge_informative_pair
+from freqtrade.strategy.parameters import DecimalParameter, IntParameter
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
@@ -27,21 +27,21 @@ class RsiBbEwo(IStrategy):
     # endregion
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -83,18 +83,18 @@ class RsiBbEwo(IStrategy):
     #     return informative_pairs
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['ema'] = ta.EMA(dataframe, 100)
+        dataframe["ema"] = ta.EMA(dataframe, 100)
 
         # Bollinger bands
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lower'] = bollinger['lower']
-        dataframe['bb_mid'] = bollinger['mid']
-        dataframe['bb_upper'] = bollinger['upper']
+        dataframe["bb_lower"] = bollinger["lower"]
+        dataframe["bb_mid"] = bollinger["mid"]
+        dataframe["bb_upper"] = bollinger["upper"]
         # rsi
-        dataframe['rsi'] = ta.RSI(dataframe)
-        dataframe['ewo'] = cta.EWO(dataframe)
+        dataframe["rsi"] = ta.RSI(dataframe)
+        dataframe["ewo"] = cta.EWO(dataframe)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -103,22 +103,22 @@ class RsiBbEwo(IStrategy):
         # conditions.append(
         #     (qtpylib.crossed_above(dataframe['bb_mid'], dataframe['bb_lower']))
         # )
-        conditions.append((dataframe['rsi'] > 70))
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append((dataframe["rsi"] > 70))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         # ewo crossed above bb_lower
         conditions.append(
-            qtpylib.crossed_above(dataframe['ewo'], dataframe['bb_lower'])
+            qtpylib.crossed_above(dataframe["ewo"], dataframe["bb_lower"])
         )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "sell"] = 1
         return dataframe
 
     # def custom_sell(

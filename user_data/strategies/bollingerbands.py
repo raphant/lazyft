@@ -8,10 +8,10 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IntParameter,
-    DecimalParameter,
-    merge_informative_pair,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
 )
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
@@ -25,32 +25,31 @@ class BollingerBands(IStrategy):
     # buy_rsi = IntParameter(5, 50, default=30, load=True)
     # sell_rsi = IntParameter(50, 100, default=70, load=True)
     sell_band = CategoricalParameter(
-        ['bb_middleband', 'bb_upperband'], default='bb_upperband', load=True
+        ["bb_middleband", "bb_upperband"], default="bb_upperband", load=True
     )
     # region Params
     stoploss = -0.147
-    minimal_roi = {'0': 0.188, '21': 0.095, '35': 0.033, '130': 0}
-
+    minimal_roi = {"0": 0.188, "21": 0.095, "35": 0.033, "130": 0}
 
     # endregion
 
     # Optimal timeframe for the strategy
     # inf_timeframe = '1h'
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -92,24 +91,24 @@ class BollingerBands(IStrategy):
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe["bb_lowerband"] = bollinger["lower"]
+        dataframe["bb_middleband"] = bollinger["mid"]
+        dataframe["bb_upperband"] = bollinger["upper"]
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
 
-        conditions.append((dataframe['close'] < dataframe['bb_lowerband']))
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append((dataframe["close"] < dataframe["bb_lowerband"]))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            qtpylib.crossed_above(dataframe['close'], dataframe[self.sell_band.value]),
-            'sell',
+            qtpylib.crossed_above(dataframe["close"], dataframe[self.sell_band.value]),
+            "sell",
         ] = 1
         return dataframe

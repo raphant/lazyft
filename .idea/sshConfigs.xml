@@ -3,7 +3,7 @@
   <component name="SshConfigs">
     <configs>
       <sshConfig host="sage-server1.local" id="b9f2c4a8-ae5e-40d3-aceb-00a2cc187850" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="sage" />
-      <sshConfig host="pi4.local" id="7b27eeb3-bf10-4abb-9010-f2954445eac1" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="pi" useOpenSSHConfig="true" />
+      <sshConfig host="192.168.1.29" id="7b27eeb3-bf10-4abb-9010-f2954445eac1" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="pi" useOpenSSHConfig="true" />
     </configs>
   </component>
 </project>

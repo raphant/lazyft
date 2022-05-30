@@ -11,10 +11,11 @@ from freqtrade.data.btanalysis import load_trades_from_db
 
 from lazyft import logger, paths, parameter_tools
 from lazyft.config import Config
-from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy
+from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy, StrategyBackup
+from lazyft.reports import get_hyperopt_repo
 from lazyft.strategy import create_strategy_params_filepath, get_file_name
 
-
+DEBUG = False
 RUN_MODES = ["dry", "live"]
 remotes_file = paths.BASE_DIR.joinpath("remotes.json")
 if remotes_file.exists():
@@ -81,8 +82,11 @@ class RemoteBot:
         self._config = None
         self._env = None
 
-    def restart(self):
-        self.tools.restart_bot(self.bot_id)
+    def restart(self, build=False):
+        self.tools.restart_bot(self.bot_id, build=build)
+
+    def stop(self):
+        self.tools.stop_bot(self.bot_id)
 
     def set_run_mode(self, mode: str):
         mode = mode.lower()
@@ -95,12 +99,13 @@ class RemoteBot:
         self.send_file(self.env.file, ".env")
 
     def set_strategy(self, strategy: str, id: str = ""):
-        logger.info(f'Setting strategy for bot {self.bot_id} to "{strategy}" with id "{id}"')
+        logger.info(f'Setting strategy for bot {self.bot_id} to "{strategy}" with id "{id}"...')
         self.tools.update_remote_strategy(self.bot_id, strategy, id)
         self.env.data["STRATEGY"] = strategy
         self.env.data["ID"] = id
         self.env.save()
         self.send_file(self.env.file, ".env")
+        logger.info(f"Strategy for bot #{self.bot_id} set to {strategy} with id {id}")
 
     def get_trades(self):
         """Get trades using the currently configured DB_FILE in the env"""
@@ -206,19 +211,27 @@ class RemoteTools:
         self,
         bot_id: int,
         strategy_name: str,
-        strategy_id: str = "",
+        hyperopt_id: str = "",
     ):
         strategy_file_name = get_file_name(strategy=strategy_name)
         if not strategy_file_name:
             raise FileNotFoundError("Could not find strategy file that matches %s" % strategy_name)
-
+        strategy_path = Path(paths.STRATEGY_DIR, strategy_file_name)
+        if hyperopt_id:
+            hash = get_hyperopt_repo().get(hyperopt_id).strategy_hash
+            if hash:
+                logger.info(f'Sending "{strategy_name}" using strategy hash "{hash}"')
+                # create tmp dir
+                tmp_dir = tempfile.mkdtemp()
+                strategy_path = Path(tmp_dir, strategy_file_name)
+                StrategyBackup.load_hash(hash).export_to(strategy_path)
+            self.update_strategy_params(bot_id, strategy_name, hyperopt_id)
         self.send_file(
             bot_id,
-            Path(paths.STRATEGY_DIR, strategy_file_name),
+            strategy_path,
             "user_data/strategies/",
         )
-        if strategy_id:
-            self.update_strategy_params(bot_id, strategy_name, strategy_id)
+        strategy_path.unlink()
 
     def send_file(self, bot_id: int, local_path: Union[str, os.PathLike[str]], remote_path: str):
         """
@@ -274,12 +287,12 @@ class RemoteTools:
         if any(self.preset.opt_port):
             pre_command = self.preset.opt_port + pre_command
         command = [str(s) for s in pre_command]
-
-        logger.debug('[sh] "rsync {}"', " ".join(command))
+        log = logger.debug if DEBUG else logger.info
+        log('[sh] "rsync {}"', " ".join(command))
         sh.rsync(
             command,
-            _err=lambda o: logger.debug(o.strip()),
-            _out=lambda o: logger.debug(o.strip()),
+            _err=lambda o: log(o.strip()),
+            _out=lambda o: log(o.strip()),
         )
 
     def delete_strategy_params(self, bot_id: int, strategy: str):
@@ -293,10 +306,23 @@ class RemoteTools:
             _out=lambda o: logger.info(o.strip()),
         )
 
-    def restart_bot(self, bot_id: int):
+    def restart_bot(self, bot_id: int, build=False):
         logger.debug("[restart bot] {}", bot_id)
         project_dir = self.path + self.FORMATTABLE_BOT_STRING.format(bot_id)
         command = f"cd {project_dir} && docker-compose --ansi never up  -d"
+        if build:
+            command += " --build"
+        logger.debug("Running ssh {}", command)
+        sh.ssh(
+            [f"-p {self.preset.port}", self.address, " ".join(command.split())],
+            _err=lambda o: logger.info(o.strip()),
+            _out=lambda o: logger.info(o.strip()),
+        )
+
+    def stop_bot(self, bot_id: int):
+        logger.debug("[stop bot] {}", bot_id)
+        project_dir = self.path + self.FORMATTABLE_BOT_STRING.format(bot_id)
+        command = f"cd {project_dir} && docker-compose --ansi never down"
         logger.debug("Running ssh {}", command)
         sh.ssh(
             [f"-p {self.preset.port}", self.address, " ".join(command.split())],

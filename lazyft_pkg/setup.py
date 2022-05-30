@@ -1,11 +1,12 @@
 from io import open as io_open
 from os import path
+from pathlib import Path
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 here = path.abspath(path.dirname(__file__))
 
-with open("requirements.txt") as f:
+with open(Path(here, 'requirements.txt')) as f:
     dependencies = f.read().splitlines()
 
 
@@ -16,7 +17,7 @@ def readall(*args):
 
 setup(
     name='lazyft',
-    version='0.0.9',
+    version='0.0.10',
     packages=find_packages(),
     # url='https://github.com/raph92/fenparser',
     license="GPLv3",
@@ -24,12 +25,14 @@ setup(
     author_email='rtnanje@gmail.com',
     maintainer="Raphael N",
     description='Easily get the latest fork of a Github repo',
+    package_data={'': ["scripts/space_handlerify.py"]},
     entry_points={
         'console_scripts': [
             # 'study=easyft.main:study',
             # 'manage=manage:core',
             # 'manage2=easyft.manage2:cli',
             # 'backtest=easyft.main:backtest_cli',
+            'lft=lazyft.cli.cli:main',
         ],
     },
     install_requires=dependencies,

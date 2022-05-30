@@ -3,12 +3,12 @@ import logging
 import time
 import warnings
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import datetime
 from functools import reduce
 from itertools import combinations
 from pathlib import Path
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import pandas as pd
 import rapidjson
@@ -16,18 +16,18 @@ from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
-    IStrategy,
-    IntParameter,
     DecimalParameter,
+    IntParameter,
+    IStrategy,
     stoploss_from_open,
 )
-from freqtrade.strategy.interface import SellCheckTuple
+from freqtrade.strategy.interface import ExitCheckTuple
 from pandas import DataFrame
 from pandas.core.common import SettingWithCopyWarning
 
 warnings.filterwarnings(
-    'ignore',
-    'CustomStoploss.*',
+    "ignore",
+    "CustomStoploss.*",
 )
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ keys_to_delete = [
     "ignore_roi_if_buy_signal",
 ]
 
-ensemble_path = Path('user_data/strategies/ensemble.json')
+ensemble_path = Path("user_data/strategies/ensemble.json")
 
 STRATEGIES = []
 if ensemble_path.exists():
@@ -57,12 +57,12 @@ class MyEnsembleStrategy3(IStrategy):
     custom_indicators = defaultdict(dict)
 
     stoploss = -0.99
-    minimal_roi = {'0': 0.1669, '19': 0.049, '61': 0.023, '152': 0}
+    minimal_roi = {"0": 0.1669, "19": 0.049, "61": 0.023, "152": 0}
 
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
-    use_sell_signal = True
+    exit_sell_signal = True
     ignore_roi_if_buy_signal = False
     sell_profit_only = False
 
@@ -82,7 +82,7 @@ class MyEnsembleStrategy3(IStrategy):
     startup_candle_count: int = 200
 
     plot_config = {
-        'main_plot': {
+        "main_plot": {
             "buy_sell": {
                 "sell_tag": {"color": "red"},
                 "buy_tag": {"color": "blue"},
@@ -90,7 +90,7 @@ class MyEnsembleStrategy3(IStrategy):
         }
     }
 
-    combo_sell_signal = IntParameter(1, len(STRATEGIES) + 1, default=2, space='buy')
+    combo_sell_signal = IntParameter(1, len(STRATEGIES) + 1, default=2, space="buy")
     # protections = [
     #     {"method": "CooldownPeriod", "stop_duration_candles": 2},
     #     {
@@ -107,24 +107,24 @@ class MyEnsembleStrategy3(IStrategy):
         -0.040,
         default=-0.195,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=True,
         load=True,
     )
     # profit threshold 1, trigger point, SL_1 is used
     pPF_1 = DecimalParameter(
-        0.008, 0.020, default=0.009, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.009, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_1 = DecimalParameter(
-        0.008, 0.020, default=0.011, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.011, decimals=3, space="sell", optimize=True, load=True
     )
 
     # profit threshold 2, SL_2 is used
     pPF_2 = DecimalParameter(
-        0.040, 0.100, default=0.063, decimals=3, space='sell', optimize=True, load=True
+        0.040, 0.100, default=0.063, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_2 = DecimalParameter(
-        0.020, 0.070, default=0.062, decimals=3, space='sell', optimize=True, load=True
+        0.020, 0.070, default=0.062, decimals=3, space="sell", optimize=True, load=True
     )
 
     def __init__(self, config: dict) -> None:
@@ -134,7 +134,7 @@ class MyEnsembleStrategy3(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -205,7 +205,7 @@ class MyEnsembleStrategy3(IStrategy):
             for future in concurrent.futures.as_completed(futures):
                 future.result()
         # self.average_times.append(time.time() - t1)
-        logger.info('Analyzed everything in %.f2 seconds', time.time() - t1)
+        logger.info("Analyzed everything in %.f2 seconds", time.time() - t1)
 
     def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         """only used in backtesting"""
@@ -228,7 +228,7 @@ class MyEnsembleStrategy3(IStrategy):
         #         result = future.result()
         #         new_data[result['pair']] = result['data']
         indicators = super().advise_all_indicators(data)
-        logger.info('Advise all elapsed: %s', time.time() - t1)
+        logger.info("Advise all elapsed: %s", time.time() - t1)
         return indicators
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -244,12 +244,12 @@ class MyEnsembleStrategy3(IStrategy):
             t1 = time.time()
             temp = strategy.advise_indicators(dataframe.copy(), metadata)
             logger.info(
-                'Advise indicators for %s took %.2f seconds',
+                "Advise indicators for %s took %.2f seconds",
                 strategy_name,
                 time.time() - t1,
             )
             indicators.append(
-                temp.drop(['open', 'high', 'low', 'close', 'volume', 'date'], axis=1)
+                temp.drop(["open", "high", "low", "close", "volume", "date"], axis=1)
             )
             # remove inf data from dataframe to avoid duplicates
             # _x or _y gets added to the inf columns that already exist
@@ -267,13 +267,13 @@ class MyEnsembleStrategy3(IStrategy):
         #             continue
         #         dataframe[col] = series
         for df in indicators:
-            dataframe = pd.merge(dataframe, df, suffixes=('_dup', '_dup'))
+            dataframe = pd.merge(dataframe, df, suffixes=("_dup", "_dup"))
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # logger.info('Populating buy_trend for %s', metadata['pair'])
         strategies = STRATEGIES.copy()
-        dataframe['ensemble_buy'] = ''
+        dataframe["ensemble_buy"] = ""
         with ThreadPoolExecutor() as executor:
             futures = []
             for strategy_name in strategies:
@@ -294,14 +294,14 @@ class MyEnsembleStrategy3(IStrategy):
         # signals = dataframe.filter(like='strat_buy_signal_')
         # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
 
-        dataframe.loc[dataframe.ensemble_buy != '', 'buy'] = 1
-        dataframe.loc[dataframe.buy == 1, 'buy_tag'] = dataframe['ensemble_buy']
+        dataframe.loc[dataframe.ensemble_buy != "", "buy"] = 1
+        dataframe.loc[dataframe.buy == 1, "buy_tag"] = dataframe["ensemble_buy"]
 
         dataframe.drop(
-            ['ensemble_buy', 'existing_buy', 'strategy', 'buy_copy'],
+            ["ensemble_buy", "existing_buy", "strategy", "buy_copy"],
             axis=1,
             inplace=True,
-            errors='ignore',
+            errors="ignore",
         )
         # if not self.buy_example:
         #     logger.info(
@@ -316,62 +316,62 @@ class MyEnsembleStrategy3(IStrategy):
     def populate_buy_trend_worker(self, dataframe, metadata, strategy_name):
         strategy = self.get_strategy(strategy_name)
         combined_df = dataframe.join(
-            self.custom_indicators[strategy_name][metadata['pair']], rsuffix='_dup'
+            self.custom_indicators[strategy_name][metadata["pair"]], rsuffix="_dup"
         )
         combined_df = strategy.advise_buy(combined_df, metadata)
-        combined_df['strategy'] = ''
-        combined_df.loc[combined_df.buy == 1, 'strategy'] = strategy_name
-        combined_df['existing_buy'] = dataframe['ensemble_buy']
-        combined_df['ensemble_buy'] = combined_df.apply(
-            lambda x: concat_strategy(x['strategy'], x['existing_buy']), axis=1
+        combined_df["strategy"] = ""
+        combined_df.loc[combined_df.buy == 1, "strategy"] = strategy_name
+        combined_df["existing_buy"] = dataframe["ensemble_buy"]
+        combined_df["ensemble_buy"] = combined_df.apply(
+            lambda x: concat_strategy(x["strategy"], x["existing_buy"]), axis=1
         )
-        dataframe['ensemble_buy'] = (
-            dataframe['ensemble_buy'] + ',' + combined_df['strategy']
+        dataframe["ensemble_buy"] = (
+            dataframe["ensemble_buy"] + "," + combined_df["strategy"]
         )
-        dataframe['ensemble_buy'] = dataframe['ensemble_buy'].str.strip()
+        dataframe["ensemble_buy"] = dataframe["ensemble_buy"].str.strip()
 
     @property
     def is_live_or_dry(self):
-        return self.config['runmode'].value in ('live', 'dry_run')
+        return self.config["runmode"].value in ("live", "dry_run")
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # logger.info('Populating sell_trend for %s', metadata['pair'])
 
-        dataframe['ensemble_sell'] = ''
+        dataframe["ensemble_sell"] = ""
         strategies = STRATEGIES.copy()
         # only populate strategies with open trades
         if self.is_live_or_dry:
             strategies_in_trades = set()
             trades: list[Trade] = Trade.get_open_trades()
             for t in trades:
-                strategies_in_trades.update(t.buy_tag.split(','))
+                strategies_in_trades.update(t.buy_tag.split(","))
             strategies = strategies_in_trades
         for strategy_name in strategies:
             combined_df = dataframe.join(
-                self.custom_indicators[strategy_name][metadata['pair']], rsuffix='_dup'
+                self.custom_indicators[strategy_name][metadata["pair"]], rsuffix="_dup"
             )
             strategy = self.get_strategy(strategy_name)
             combined_df = strategy.advise_sell(combined_df, metadata)
-            combined_df['strategy'] = ''
-            combined_df.loc[combined_df.sell == 1, 'strategy'] = strategy_name
-            combined_df['existing_sell'] = dataframe['ensemble_sell']
-            combined_df['ensemble_sell'] = combined_df.apply(
-                lambda x: concat_strategy(x['strategy'], x['existing_sell']), axis=1
+            combined_df["strategy"] = ""
+            combined_df.loc[combined_df.sell == 1, "strategy"] = strategy_name
+            combined_df["existing_sell"] = dataframe["ensemble_sell"]
+            combined_df["ensemble_sell"] = combined_df.apply(
+                lambda x: concat_strategy(x["strategy"], x["existing_sell"]), axis=1
             )
-            dataframe['ensemble_sell'] = combined_df['ensemble_sell']
+            dataframe["ensemble_sell"] = combined_df["ensemble_sell"]
             # dataframe[f"ensemble_sell"] = ["sell"]
         # signals = dataframe.filter(like='strat_sell_signal_')
         # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
 
-        dataframe.loc[dataframe.ensemble_sell != '', 'sell'] = 1
-        dataframe['sell_tag'] = ''
-        dataframe.loc[dataframe.sell == 1, 'sell_tag'] = dataframe['ensemble_sell']
-        dataframe['sell'] = 0
+        dataframe.loc[dataframe.ensemble_sell != "", "sell"] = 1
+        dataframe["sell_tag"] = ""
+        dataframe.loc[dataframe.sell == 1, "sell_tag"] = dataframe["ensemble_sell"]
+        dataframe["sell"] = 0
         dataframe.drop(
-            ['ensemble_sell', 'existing_sell', 'strategy'],
+            ["ensemble_sell", "existing_sell", "strategy"],
             axis=1,
             inplace=True,
-            errors='ignore',
+            errors="ignore",
         )
         return dataframe
 
@@ -385,7 +385,7 @@ class MyEnsembleStrategy3(IStrategy):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
+    ) -> ExitCheckTuple:
         # if trade.pair == 'BTC/USDT':
         #     breakpoint()
         if (date - trade.open_date).days > 100:
@@ -450,7 +450,7 @@ class MyEnsembleStrategy3(IStrategy):
         # rounded.
         trade_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
         # Look up trade candle.
-        trade_candle = dataframe.loc[dataframe['date'] == trade_date]
+        trade_candle = dataframe.loc[dataframe["date"] == trade_date]
         if trade_candle.empty:
             return
 
@@ -465,27 +465,27 @@ class MyEnsembleStrategy3(IStrategy):
             strategy = self.get_strategy(strategy_name)
             # regular sell signal. this does not cover custom_sells
             if (
-                strategy_name in trade_candle['sell_tag']
+                strategy_name in trade_candle["sell_tag"]
                 and strategy_name in trade.buy_tag
             ):
-                return strategy_name + '-sell_signal'
+                return strategy_name + "-sell_signal"
 
             strategy_in_current_buy_tag = (
-                bool(trade_candle['buy_tag'])
-                and strategy_name in trade_candle['buy_tag']
+                bool(trade_candle["buy_tag"])
+                and strategy_name in trade_candle["buy_tag"]
             )  # do we currently have a valid buy signal?
-            valid_buy_signal = bool(trade_candle['buy']) and strategy_in_current_buy_tag
+            valid_buy_signal = bool(trade_candle["buy"]) and strategy_in_current_buy_tag
             should_sell = strategy.should_sell(
                 trade,
                 current_rate,
                 current_time,
                 valid_buy_signal,
                 False,
-                trade_candle['low'],
-                last_candle['high'],
+                trade_candle["low"],
+                last_candle["high"],
             )  # scan for strategies roi/stoploss/custom_sell
             if should_sell.sell_flag:
-                return strategy_name + '-' + should_sell.sell_reason
+                return strategy_name + "-" + should_sell.sell_reason
 
     def confirm_trade_exit(
         self,
@@ -499,7 +499,7 @@ class MyEnsembleStrategy3(IStrategy):
         current_time: datetime,
         **kwargs,
     ) -> bool:
-        for strategy_name in trade.buy_tag.split(','):
+        for strategy_name in trade.buy_tag.split(","):
             strategy = self.get_strategy(strategy_name)
             try:
                 trade_exit = strategy.confirm_trade_exit(
@@ -514,7 +514,7 @@ class MyEnsembleStrategy3(IStrategy):
                 )
             except Exception as e:
                 logger.exception(
-                    'Exception from %s in confirm_trade_exit', strategy_name, exc_info=e
+                    "Exception from %s in confirm_trade_exit", strategy_name, exc_info=e
                 )
                 continue
             if not trade_exit:
@@ -526,5 +526,5 @@ class MyEnsembleStrategy3(IStrategy):
 
 def concat_strategy(string1, string2):
     """This strategy will apply all the strategies who's buy signal is True"""
-    concat = ','.join([string1, string2]).strip(',')
+    concat = ",".join([string1, string2]).strip(",")
     return concat

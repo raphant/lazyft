@@ -5,35 +5,34 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from freqtrade.constants import ListPairsWithTimeframes
-from freqtrade.enums import SellType
-from freqtrade.persistence import Trade
-from freqtrade.strategy.interface import IStrategy, SellCheckTuple
-from pandas import DataFrame
-
 from cbs import CbsConfiguration
 from cbs.mapper import Mapper
 from cbs.populator import Populator
+from freqtrade.constants import ListPairsWithTimeframes
+from freqtrade.enums import ExitType
+from freqtrade.persistence import Trade
+from freqtrade.strategy.interface import ExitCheckTuple, IStrategy
+from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
 try:
-    map_file = Path(__file__).parent.joinpath('cbs.json')
+    map_file = Path(__file__).parent.joinpath("cbs.json")
 except FileNotFoundError:
-    logger.warning('No cbs.json file found.')
+    logger.warning("No cbs.json file found.")
 else:
-    logger.info(f'Using cbs.json file: {map_file}')
+    logger.info(f"Using cbs.json file: {map_file}")
 
 
 class CbsStrategy(IStrategy):
     # Stoploss:
-    stoploss = -99
+    stoploss = -1
 
     # ROI table:
     minimal_roi = {"0": 100}
 
     # endregion
     startup_candle_count = 1
-    ticker_interval = '5m'
+    ticker_interval = "5m"
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
@@ -42,22 +41,26 @@ class CbsStrategy(IStrategy):
 
     def informative_pairs(self) -> ListPairsWithTimeframes:
         pair_timeframe_tuples = set()
-        logger.info(f'Found {len(Populator.cached_strategies)} strategies in Populator cache')
+        logger.info(
+            f"Found {len(Populator.cached_strategies)} strategies in Populator cache"
+        )
         for s in Populator.cached_strategies.values():
             pair_timeframe_tuples.update(s.informative_pairs())
         return list(pair_timeframe_tuples)
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        Populator.prep(self, metadata['pair'], self.mapper)
-        dataframe = Populator.populate_indicators(dataframe, metadata['pair'], self.mapper)
+        Populator.prep(self, metadata["pair"], self.mapper)
+        dataframe = Populator.populate_indicators(
+            dataframe, metadata["pair"], self.mapper
+        )
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe = Populator.buy_trend(dataframe, metadata['pair'], self.mapper)
+        dataframe = Populator.buy_trend(dataframe, metadata["pair"], self.mapper)
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe = Populator.sell_trend(dataframe, metadata['pair'], self.mapper)
+        dataframe = Populator.sell_trend(dataframe, metadata["pair"], self.mapper)
         return dataframe
 
     def should_sell(
@@ -70,7 +73,7 @@ class CbsStrategy(IStrategy):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
+    ) -> ExitCheckTuple:
         # load the valid strategies for the pair
         strategies = Populator.load_strategies(self.mapper, trade.pair)
         # go through each strategy and ask if it should sell
@@ -79,14 +82,14 @@ class CbsStrategy(IStrategy):
 
         # do not honor the sell signal of a strategy that is not in the buy tag
         if sell:
-            buy_strategies = set(trade.buy_tag.split(' ')[1].split(','))
-            sell_strategies = set(last_candle['sell_strategies'].split(','))
+            buy_strategies = set(trade.buy_tag.split(" ")[1].split(","))
+            sell_strategies = set(last_candle["sell_strategies"].split(","))
             # make sure at least 1 sell strategy is in the buy strategies
             if not sell_strategies.intersection(buy_strategies):
                 sell = False
             else:
-                return SellCheckTuple(
-                    SellType.SELL_SIGNAL,
+                return ExitCheckTuple(
+                    ExitType.SELL_SIGNAL,
                     f'({trade.pair}) {last_candle["sell_strategies"]}-ss',
                 )
 
@@ -99,9 +102,9 @@ class CbsStrategy(IStrategy):
             )
             if sell_check is not None:
                 sell_check.sell_reason = (
-                    f'({trade.pair}) '
-                    f'{strategy.get_strategy_name()}-'
-                    f'{sell_check.sell_reason}'
+                    f"({trade.pair}) "
+                    f"{strategy.get_strategy_name()}-"
+                    f"{sell_check.sell_reason}"
                 )
                 return sell_check
 

@@ -11,8 +11,8 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 # --------------------------------
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import DecimalParameter, IntParameter
 from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy.parameters import DecimalParameter, IntParameter
 from pandas import DataFrame
 
 from lft_rest.rest_strategy import BaseRestStrategy
@@ -96,7 +96,9 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
         -6.0, 12.0, default=buy_params["ewo_high_2"], space="buy", optimize=True
     )
 
-    rsi_buy = IntParameter(30, 70, default=buy_params["rsi_buy"], space="buy", optimize=True)
+    rsi_buy = IntParameter(
+        30, 70, default=buy_params["rsi_buy"], space="buy", optimize=True
+    )
 
     # Trailing stop:
     trailing_stop = False
@@ -105,7 +107,7 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
     trailing_only_offset_is_reached = False
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = False
@@ -330,8 +332,10 @@ class NotAnotherSMAOffsetStrategyHOv3(IStrategy):
         return dataframe
 
 
-class NotAnotherSMAOffsetStrategyHOv3Rest(BaseRestStrategy, NotAnotherSMAOffsetStrategyHOv3):
-    rest_strategy_name = 'NotAnotherSMAOffsetStrategyHOv3'
+class NotAnotherSMAOffsetStrategyHOv3Rest(
+    BaseRestStrategy, NotAnotherSMAOffsetStrategyHOv3
+):
+    rest_strategy_name = "NotAnotherSMAOffsetStrategyHOv3"
     backtest_days = 10
     hyperopt_days = 5
     hyperopt_epochs = 65

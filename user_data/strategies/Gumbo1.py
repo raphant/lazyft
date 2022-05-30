@@ -1,6 +1,8 @@
 """
 https://kaabar-sofien.medium.com/the-catapult-indicator-innovative-trading-techniques-8910ac962c57
 """
+import logging
+
 # --- Do not remove these libs ---
 import sys
 from datetime import datetime, timedelta
@@ -8,7 +10,7 @@ from functools import reduce
 from numbers import Number
 from pathlib import Path
 from pprint import pprint
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
@@ -19,16 +21,15 @@ from finta import TA
 from freqtrade.constants import ListPairsWithTimeframes
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IntParameter,
-    DecimalParameter,
-    merge_informative_pair,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
 )
 from freqtrade.strategy.interface import IStrategy
 from numpy import number
 from pandas import DataFrame
 from pandas_ta import ema
-import logging
 
 from lft_rest.rest_strategy import BaseRestStrategy
 
@@ -52,11 +53,11 @@ class Gumbo1(IStrategy):
     minimal_roi = {"0": 0.28900000000000003, "31": 0.097, "90": 0.037, "194": 0}
     stoploss = -0.343
     # endregion
-    timeframe = '5m'
+    timeframe = "5m"
     use_custom_stoploss = False
-    inf_timeframe = '1h'
+    inf_timeframe = "1h"
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
     startup_candle_count = 200
@@ -66,20 +67,20 @@ class Gumbo1(IStrategy):
 
     def informative_pairs(self) -> ListPairsWithTimeframes:
         pairs = self.dp.current_whitelist()
-        informative_pairs = [(pair, '1h') for pair in pairs]
+        informative_pairs = [(pair, "1h") for pair in pairs]
         return informative_pairs
 
     def populate_informative_indicators(self, dataframe: DataFrame, metadata):
         informative = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_timeframe
+            pair=metadata["pair"], timeframe=self.inf_timeframe
         )
         # t3 from custom_indicators
-        informative['T3'] = ci.T3(informative)
+        informative["T3"] = ci.T3(informative)
         # bollinger bands
         bbands = ta.BBANDS(informative, timeperiod=20)
-        informative['bb_lowerband'] = bbands['lowerband']
-        informative['bb_middleband'] = bbands['middleband']
-        informative['bb_upperband'] = bbands['upperband']
+        informative["bb_lowerband"] = bbands["lowerband"]
+        informative["bb_middleband"] = bbands["middleband"]
+        informative["bb_upperband"] = bbands["upperband"]
 
         dataframe = merge_informative_pair(
             dataframe, informative, self.timeframe, self.inf_timeframe
@@ -89,48 +90,52 @@ class Gumbo1(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # ewo
-        dataframe['EWO'] = ci.EWO(dataframe)
+        dataframe["EWO"] = ci.EWO(dataframe)
         # ema
-        dataframe['EMA'] = pandas_ta.ema(dataframe['close'], length=30)
+        dataframe["EMA"] = pandas_ta.ema(dataframe["close"], length=30)
         # t3
         for i in self.t3_periods.range:
-            dataframe[f'T3_{i}'] = ci.T3(dataframe, i)
+            dataframe[f"T3_{i}"] = ci.T3(dataframe, i)
         # bollinger bands 40
         bbands = ta.BBANDS(dataframe, timeperiod=40)
-        dataframe['bb_lowerband_40'] = bbands['lowerband']
-        dataframe['bb_middleband_40'] = bbands['middleband']
-        dataframe['bb_upperband_40'] = bbands['upperband']
+        dataframe["bb_lowerband_40"] = bbands["lowerband"]
+        dataframe["bb_middleband_40"] = bbands["middleband"]
+        dataframe["bb_upperband_40"] = bbands["upperband"]
         # stochastic windows
         for i in self.stock_periods.range:
-            dataframe[f'stoch_{i}'] = ci.stoch_sma(dataframe, window=i)
+            dataframe[f"stoch_{i}"] = ci.stoch_sma(dataframe, window=i)
         dataframe = self.populate_informative_indicators(dataframe, metadata)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         # ewo < 0
-        conditions.append(dataframe['EWO'] < self.ewo_low.value)
+        conditions.append(dataframe["EWO"] < self.ewo_low.value)
         # middleband 1h >= t3 1h
-        conditions.append(dataframe['bb_middleband_1h'] >= dataframe['T3_1h'])
+        conditions.append(dataframe["bb_middleband_1h"] >= dataframe["T3_1h"])
         # t3 <= ema
-        conditions.append(dataframe[f'T3_{self.t3_periods.value}'] <= dataframe['EMA'])
+        conditions.append(dataframe[f"T3_{self.t3_periods.value}"] <= dataframe["EMA"])
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         # stoch > 80
-        conditions.append(dataframe[f'stoch_{self.stock_periods.value}'] > self.stoch_high.value)
+        conditions.append(
+            dataframe[f"stoch_{self.stock_periods.value}"] > self.stoch_high.value
+        )
         # t3 >= middleband_40
-        conditions.append(dataframe[f'T3_{self.t3_periods.value}'] >= dataframe['bb_middleband_40'])
+        conditions.append(
+            dataframe[f"T3_{self.t3_periods.value}"] >= dataframe["bb_middleband_40"]
+        )
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
         return dataframe
 
 
 class Gumbo1Rest(BaseRestStrategy, Gumbo1):
-    rest_strategy_name = 'Gumbo1'
+    rest_strategy_name = "Gumbo1"
     backtest_days = 10
     hyperopt_days = 5
     hyperopt_epochs = 65

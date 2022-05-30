@@ -3,13 +3,13 @@ import sys
 from datetime import datetime, timedelta
 from functools import reduce
 from pathlib import Path
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IntParameter, DecimalParameter, merge_informative_pair
-from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import IStrategy, merge_informative_pair
+from freqtrade.strategy.parameters import IntParameter
 from pandas import DataFrame
 
 sys.path.append(str(Path(__file__).parent))
@@ -36,45 +36,45 @@ class BbandRsi_ICP(IStrategy):
     # endregion
 
     # Optimal timeframe for the strategy
-    inf_timeframe = '1h'
-    timeframe = '5m'
+    inf_timeframe = "1h"
+    timeframe = "5m"
     use_custom_stoploss = False
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
     coin_profiles = {
-        'VRA/USDT': {
-            'buy': {'buy_rsi': 41},
-            'sell': {'sell_rsi': 50},
-            'protection': {},
-            'roi': {'0': 0.247, '15': 0.05499999999999999, '75': 0.036, '187': 0},
-            'stoploss': {'stoploss': -0.262},
+        "VRA/USDT": {
+            "buy": {"buy_rsi": 41},
+            "sell": {"sell_rsi": 50},
+            "protection": {},
+            "roi": {"0": 0.247, "15": 0.05499999999999999, "75": 0.036, "187": 0},
+            "stoploss": {"stoploss": -0.262},
         },
-        'HTR/USDT': {
+        "HTR/USDT": {
             "buy": {"buy_rsi": 39},
             "sell": {"sell_rsi": 50},
             "protection": {},
             "roi": {"0": 0.08499999999999999, "38": 0.033, "98": 0.018, "186": 0},
             "stoploss": {"stoploss": -0.246},
         },
-        'KSM/USDT': {
-            'buy': {'buy_rsi': 41},
-            'sell': {'sell_rsi': 53},
-            'protection': {},
-            'roi': {'0': 0.191, '31': 0.024, '90': 0.011, '205': 0},
-            'stoploss': {'stoploss': -0.216},
+        "KSM/USDT": {
+            "buy": {"buy_rsi": 41},
+            "sell": {"sell_rsi": 53},
+            "protection": {},
+            "roi": {"0": 0.191, "31": 0.024, "90": 0.011, "205": 0},
+            "stoploss": {"stoploss": -0.216},
         },
     }
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -82,7 +82,7 @@ class BbandRsi_ICP(IStrategy):
     ) -> float:
         if pair not in self.coin_profiles:
             return self.stoploss
-        return self.coin_profiles[pair]['stoploss']['stoploss']
+        return self.coin_profiles[pair]["stoploss"]["stoploss"]
 
     def custom_sell(
         self,
@@ -115,13 +115,13 @@ class BbandRsi_ICP(IStrategy):
     ) -> Tuple[Optional[int], Optional[float]]:
         roi_list = list(
             filter(
-                lambda x: int(x) <= trade_dur, self.coin_profiles[pair]['roi'].keys()
+                lambda x: int(x) <= trade_dur, self.coin_profiles[pair]["roi"].keys()
             )
         )
         if not roi_list:
             return None, None
         roi_entry = max(roi_list)
-        return roi_entry, self.coin_profiles[pair]['roi'][roi_entry]
+        return roi_entry, self.coin_profiles[pair]["roi"][roi_entry]
 
     # def informative_pairs(self):
     #     # add all whitelisted pairs on informative timeframe
@@ -146,15 +146,15 @@ class BbandRsi_ICP(IStrategy):
     #     return informative_pairs
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
         # Bollinger bands
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe["bb_lowerband"] = bollinger["lower"]
+        dataframe["bb_middleband"] = bollinger["mid"]
+        dataframe["bb_upperband"] = bollinger["upper"]
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -163,24 +163,24 @@ class BbandRsi_ICP(IStrategy):
         conditions.append(
             (
                 (
-                    dataframe['rsi']
-                    < self.coin_profiles[metadata['pair']]['buy']['buy_rsi']
+                    dataframe["rsi"]
+                    < self.coin_profiles[metadata["pair"]]["buy"]["buy_rsi"]
                 )
-                & (dataframe['close'] < dataframe['bb_lowerband'])
+                & (dataframe["close"] < dataframe["bb_lowerband"])
             )
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
             (
-                dataframe['rsi']
-                > self.coin_profiles[metadata['pair']]['sell']['sell_rsi']
+                dataframe["rsi"]
+                > self.coin_profiles[metadata["pair"]]["sell"]["sell_rsi"]
             ),
-            'sell',
+            "sell",
         ] = 1
         return dataframe

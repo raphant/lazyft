@@ -23,26 +23,6 @@ class BacktestCommand(Command):
         self.args = ['backtesting', f'-s {strategy}']
         # self.config = Strategy.init_config(config=config, strategy=strategy)
         self.secret_config = params.secrets_config
-        self._hash = ''
-
-    @property
-    def hash(self):
-        """To help avoid running the same backtest"""
-        if self._hash:
-            return self._hash
-        command_string = (
-            ''.join(sorted(self.command_string.split()))
-            + str(self.id)
-            + self.config['exchange']['name']
-            + self.params.tag
-        )
-        if self.params.ensemble:
-            command_string += ','.join([str(s) for s in self.params.ensemble])
-        # logger.debug('Hashing "{}"', command_string)
-
-        self._hash = util.hash(command_string)
-        logger.debug('Command hash: {}', self._hash)
-        return self._hash
 
 
 # def create_commands(

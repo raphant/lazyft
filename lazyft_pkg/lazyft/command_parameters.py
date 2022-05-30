@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import datetime
+import logging
+import sys
 from pathlib import Path
-from typing import Union, Any
+from typing import Any, Union
 
 import attr
+import lazyft.paths
 from freqtrade.commands import Arguments
 from freqtrade.configuration import Configuration
 from freqtrade.exceptions import OperationalException
-
-import lazyft.paths
+from freqtrade.loggers import LOGFORMAT, bufferHandler, setup_logging_pre
 from lazyft import logger, parameter_tools
 from lazyft.config import Config
 from lazyft.ensemble import set_ensemble_strategies
@@ -102,6 +104,14 @@ class GlobalParameters:
         return Configuration(args).get_config()
 
 
+def enable_ft_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format=LOGFORMAT,
+        handlers=[logging.StreamHandler(sys.stderr), bufferHandler],
+    )
+
+
 @attr.s
 class BacktestParameters(GlobalParameters):
     command = 'backtesting'
@@ -115,9 +125,11 @@ class BacktestParameters(GlobalParameters):
     max_open_trades: int = attr.ib(default=5, metadata={'arg': '--max-open-trades'})
     interval: str = attr.ib(default='', metadata={'arg': '--timeframe'})
     timeframe_detail: str = attr.ib(default='', metadata={'arg': '--timeframe-detail'})
-    cache: str = attr.ib(default='', metadata={'arg': '--cache'})
+    cache: str = attr.ib(default='none', metadata={'arg': '--cache'})
     inf_interval: str = attr.ib(default='')
     tag: str = attr.ib(default='')
+    custom_spaces: str = attr.ib(default='')
+    custom_settings: dict = attr.ib(factory=dict)
 
     def __attrs_post_init__(self):
         if not self.timerange:
@@ -137,9 +149,11 @@ class BacktestParameters(GlobalParameters):
             intervals += ' ' + self.inf_interval + ' ' + self.timeframe_detail
         return intervals
 
-    def run(self, strategy: Union[str, Strategy], load_from_hash=False, verbose=False):
-        from lazyft.backtest.runner import BacktestRunner
+    def run(
+        self, strategy: Union[str, Strategy], load_from_hash=False, verbose=False, stdout=False
+    ):
         from lazyft.backtest import commands
+        from lazyft.backtest.runner import BacktestRunner
 
         if isinstance(strategy, str):
             try:
@@ -165,6 +179,8 @@ class BacktestParameters(GlobalParameters):
             verbose=verbose,
             id=strategy.id,
         )
+        if stdout:
+            enable_ft_logging()
         runner = BacktestRunner(command, load_from_hash=load_from_hash)
         try:
             runner.execute()
@@ -178,7 +194,6 @@ class BacktestParameters(GlobalParameters):
 
 @attr.s
 class HyperoptParameters(BacktestParameters):
-
     command = 'hyperopt'
     epochs: int = attr.ib(default=500, metadata={'arg': '--epochs'})
     min_trades: int = attr.ib(default=100, metadata={'arg': '--min-trades'})
@@ -189,8 +204,7 @@ class HyperoptParameters(BacktestParameters):
     disable_param_export: bool = attr.ib(default=True, metadata={'arg': '--disable-param-export'})
     print_all: bool = attr.ib(default=False, metadata={'arg': '--print-all'})
     ignore_missing_spaces: bool = attr.ib(default=True, metadata={'arg': '--ignore-missing-spaces'})
-    custom_spaces: str = attr.ib(default='')
-    custom_settings: dict = attr.ib(factory=dict)
+    cache: str = None
 
     def __attrs_post_init__(self):
         if not self.timerange:
@@ -199,6 +213,7 @@ class HyperoptParameters(BacktestParameters):
             self.tag = self.timerange + ',' + self.spaces
         if not self.pairs:
             self.pairs = self.config.whitelist
+        del self.cache
 
     def run(
         self,
@@ -209,8 +224,8 @@ class HyperoptParameters(BacktestParameters):
         background=False,
         load_hashed_strategy=False,
     ):
-        from lazyft.hyperopt.runner import HyperoptRunner
         from lazyft.hyperopt import commands
+        from lazyft.hyperopt.runner import HyperoptRunner
 
         if isinstance(strategy, str):
             try:

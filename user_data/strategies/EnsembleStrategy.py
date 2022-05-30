@@ -1,30 +1,30 @@
+import logging
+from datetime import datetime
+from functools import reduce
+from itertools import combinations
 from pathlib import Path
 
+import numpy as np
 import rapidjson
+from freqtrade.persistence import Trade
+from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
-    IStrategy,
     DecimalParameter,
     IntParameter,
+    IStrategy,
     stoploss_from_open,
 )
-import logging
 from pandas import DataFrame
-from freqtrade.resolvers import StrategyResolver
-from itertools import combinations
-from functools import reduce
-from freqtrade.persistence import Trade
-from datetime import datetime
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
 STRATEGIES = []
 try:
     STRATEGIES = rapidjson.loads(
-        Path('user_data/strategies/ensemble.json').resolve().read_text()
+        Path("user_data/strategies/ensemble.json").resolve().read_text()
     )
 except rapidjson.JSONDecodeError:
-    raise rapidjson.JSONDecodeError('Invalid JSON format.')
+    raise rapidjson.JSONDecodeError("Invalid JSON format.")
 except FileNotFoundError:
     pass
 
@@ -71,7 +71,7 @@ class EnsembleStrategy(IStrategy):
     sell_profit_offset = (
         0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     )
-    use_sell_signal = False
+    exit_sell_signal = False
     ignore_roi_if_buy_signal = False
     sell_profit_only = False
 
@@ -141,8 +141,8 @@ class EnsembleStrategy(IStrategy):
         # signals = dataframe.filter(like='strat_buy_signal_')
         # signal_names = '+'.join([s.split('_', 3)[-1] for s in list(signals.keys())])
 
-        dataframe['buy'] = (
-            dataframe.filter(like='strat_buy_signal_').mean(axis=1)
+        dataframe["buy"] = (
+            dataframe.filter(like="strat_buy_signal_").mean(axis=1)
             > self.buy_action_diff_threshold.value
         ).astype(int)
         return dataframe

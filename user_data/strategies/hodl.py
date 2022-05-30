@@ -13,7 +13,7 @@ import pandas_ta
 
 class Hodl(IStrategy):
     # Stoploss:
-    stoploss = -99
+    stoploss = -1
 
     # ROI table:
     minimal_roi = {"0": 1000}

@@ -1,7 +1,7 @@
 from io import open as io_open
 from os import path
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 here = path.abspath(path.dirname(__file__))
 
@@ -16,8 +16,8 @@ def readall(*args):
 
 setup(
     name='indicatormix',
-    version='0.0.1',
-    packages=['indicatormix'],
+    version='0.1.0',
+    packages=find_packages(),
     # url='https://github.com/raph92/fenparser',
     license="GPLv3",
     author='Raphael N',

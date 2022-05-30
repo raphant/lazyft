@@ -1,28 +1,29 @@
 # --- Do not remove these libs ---
 # --- Do not remove these libs ---
-from logging import FATAL
-from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
+import datetime
+from datetime import datetime, timedelta
 from functools import reduce
-from pandas import DataFrame
+from logging import FATAL
+from typing import Dict, List
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import numpy as np
 
 # --------------------------------
 import talib.abstract as ta
-import numpy as np
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import datetime
-from technical.util import resample_to_interval, resampled_merge
-from datetime import datetime, timedelta
-from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    stoploss_from_open,
-    merge_informative_pair,
-    DecimalParameter,
-    IntParameter,
-    CategoricalParameter,
-)
 import technical.indicators as ftt
 from finta import TA
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
+    stoploss_from_open,
+)
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
+from technical.util import resample_to_interval, resampled_merge
 
 # @Rallipanos
 # @pluxury
@@ -57,7 +58,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = TA.EMA(dataframe, period=ema_length)
     ema2 = TA.EMA(dataframe, period=ema2_length)
-    emadif = (ema1 - ema2) / df['low'] * 100
+    emadif = (ema1 - ema2) / df["low"] * 100
     return emadif
 
 
@@ -77,22 +78,22 @@ class NASOSv4(IStrategy):
 
     # SMAOffset
     base_nb_candles_buy = IntParameter(
-        2, 20, default=buy_params['base_nb_candles_buy'], space='buy', optimize=False
+        2, 20, default=buy_params["base_nb_candles_buy"], space="buy", optimize=False
     )
     base_nb_candles_sell = IntParameter(
-        2, 25, default=sell_params['base_nb_candles_sell'], space='sell', optimize=False
+        2, 25, default=sell_params["base_nb_candles_sell"], space="sell", optimize=False
     )
     low_offset = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset'], space='buy', optimize=True
+        0.9, 0.99, default=buy_params["low_offset"], space="buy", optimize=True
     )
     low_offset_2 = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset_2'], space='buy', optimize=True
+        0.9, 0.99, default=buy_params["low_offset_2"], space="buy", optimize=True
     )
     high_offset = DecimalParameter(
-        0.95, 1.1, default=sell_params['high_offset'], space='sell', optimize=True
+        0.95, 1.1, default=sell_params["high_offset"], space="sell", optimize=True
     )
     high_offset_2 = DecimalParameter(
-        0.99, 1.5, default=sell_params['high_offset_2'], space='sell', optimize=True
+        0.99, 1.5, default=sell_params["high_offset_2"], space="sell", optimize=True
     )
 
     # Protection
@@ -100,26 +101,26 @@ class NASOSv4(IStrategy):
     slow_ewo = 200
 
     lookback_candles = IntParameter(
-        1, 24, default=buy_params['lookback_candles'], space='buy', optimize=True
+        1, 24, default=buy_params["lookback_candles"], space="buy", optimize=True
     )
 
     profit_threshold = DecimalParameter(
-        1.0, 1.03, default=buy_params['profit_threshold'], space='buy', optimize=True
+        1.0, 1.03, default=buy_params["profit_threshold"], space="buy", optimize=True
     )
 
     ewo_low = DecimalParameter(
-        -20.0, -8.0, default=buy_params['ewo_low'], space='buy', optimize=True
+        -20.0, -8.0, default=buy_params["ewo_low"], space="buy", optimize=True
     )
     ewo_high = DecimalParameter(
-        2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
+        2.0, 12.0, default=buy_params["ewo_high"], space="buy", optimize=True
     )
 
     ewo_high_2 = DecimalParameter(
-        -6.0, 12.0, default=buy_params['ewo_high_2'], space='buy', optimize=True
+        -6.0, 12.0, default=buy_params["ewo_high_2"], space="buy", optimize=True
     )
 
     rsi_buy = IntParameter(
-        50, 100, default=buy_params['rsi_buy'], space='buy', optimize=True
+        50, 100, default=buy_params["rsi_buy"], space="buy", optimize=True
     )
 
     # trailing stoploss hyperopt parameters
@@ -129,24 +130,24 @@ class NASOSv4(IStrategy):
         -0.040,
         default=-0.15,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=True,
         load=True,
     )
     # profit threshold 1, trigger point, SL_1 is used
     pPF_1 = DecimalParameter(
-        0.008, 0.020, default=0.016, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.016, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_1 = DecimalParameter(
-        0.008, 0.020, default=0.014, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.014, decimals=3, space="sell", optimize=True, load=True
     )
 
     # profit threshold 2, SL_2 is used
     pPF_2 = DecimalParameter(
-        0.040, 0.100, default=0.024, decimals=3, space='sell', optimize=True, load=True
+        0.040, 0.100, default=0.024, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_2 = DecimalParameter(
-        0.020, 0.070, default=0.022, decimals=3, space='sell', optimize=True, load=True
+        0.020, 0.070, default=0.022, decimals=3, space="sell", optimize=True, load=True
     )
 
     # Trailing stop:
@@ -156,37 +157,37 @@ class NASOSv4(IStrategy):
     trailing_only_offset_is_reached = True
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = False
 
     # Optional order time in force.
-    order_time_in_force = {'buy': 'gtc', 'sell': 'ioc'}
+    order_time_in_force = {"buy": "gtc", "sell": "ioc"}
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
-    inf_1h = '1h'
+    timeframe = "5m"
+    inf_1h = "1h"
 
     process_only_new_candles = True
     startup_candle_count = 200
     use_custom_stoploss = True
 
     plot_config = {
-        'main_plot': {
-            'ma_buy': {'color': 'orange'},
-            'ma_sell': {'color': 'orange'},
+        "main_plot": {
+            "ma_buy": {"color": "orange"},
+            "ma_sell": {"color": "orange"},
         },
     }
 
-    slippage_protection = {'retries': 3, 'max_slippage': -0.02}
+    slippage_protection = {"retries": 3, "max_slippage": -0.02}
 
     # Custom Trailing Stoploss by Perkmeister
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -233,24 +234,24 @@ class NASOSv4(IStrategy):
         last_candle = dataframe.iloc[-1]
 
         if last_candle is not None:
-            if sell_reason in ['sell_signal']:
-                if (last_candle['hma_50'] * 1.149 > last_candle['ema_100']) and (
-                    last_candle['close'] < last_candle['ema_100'] * 0.951
+            if sell_reason in ["sell_signal"]:
+                if (last_candle["hma_50"] * 1.149 > last_candle["ema_100"]) and (
+                    last_candle["close"] < last_candle["ema_100"] * 0.951
                 ):  # *1.2
                     return False
 
         # slippage
         try:
-            state = self.slippage_protection['__pair_retries']
+            state = self.slippage_protection["__pair_retries"]
         except KeyError:
-            state = self.slippage_protection['__pair_retries'] = {}
+            state = self.slippage_protection["__pair_retries"] = {}
 
         candle = dataframe.iloc[-1].squeeze()
 
-        slippage = (rate / candle['close']) - 1
-        if slippage < self.slippage_protection['max_slippage']:
+        slippage = (rate / candle["close"]) - 1
+        if slippage < self.slippage_protection["max_slippage"]:
             pair_retries = state.get(pair, 0)
-            if pair_retries < self.slippage_protection['retries']:
+            if pair_retries < self.slippage_protection["retries"]:
                 state[pair] = pair_retries + 1
                 return False
 
@@ -260,7 +261,7 @@ class NASOSv4(IStrategy):
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()
-        informative_pairs = [(pair, '1h') for pair in pairs]
+        informative_pairs = [(pair, "1h") for pair in pairs]
         return informative_pairs
 
     def informative_1h_indicators(
@@ -269,7 +270,7 @@ class NASOSv4(IStrategy):
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
         informative_1h = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_1h
+            pair=metadata["pair"], timeframe=self.inf_1h
         )
         # EMA
         # informative_1h['ema_50'] = ta.EMA(informative_1h, timeperiod=50)
@@ -288,23 +289,23 @@ class NASOSv4(IStrategy):
 
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
-            dataframe[f'ma_buy_{val}'] = TA.EMA(dataframe, period=val)
+            dataframe[f"ma_buy_{val}"] = TA.EMA(dataframe, period=val)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f'ma_sell_{val}'] = TA.EMA(dataframe, period=val)
+            dataframe[f"ma_sell_{val}"] = TA.EMA(dataframe, period=val)
 
-        dataframe['hma_50'] = qtpylib.hull_moving_average(dataframe['close'], window=50)
-        dataframe['ema_100'] = TA.EMA(dataframe, period=100)
+        dataframe["hma_50"] = qtpylib.hull_moving_average(dataframe["close"], window=50)
+        dataframe["ema_100"] = TA.EMA(dataframe, period=100)
 
-        dataframe['sma_9'] = TA.SMA(dataframe, period=9)
+        dataframe["sma_9"] = TA.SMA(dataframe, period=9)
         # Elliot
-        dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
+        dataframe["EWO"] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
         # RSI
-        dataframe['rsi'] = TA.RSI(dataframe, period=14)
-        dataframe['rsi_fast'] = TA.RSI(dataframe, period=4)
-        dataframe['rsi_slow'] = TA.RSI(dataframe, period=20)
+        dataframe["rsi"] = TA.RSI(dataframe, period=14)
+        dataframe["rsi_fast"] = TA.RSI(dataframe, period=4)
+        dataframe["rsi_slow"] = TA.RSI(dataframe, period=20)
 
         return dataframe
 
@@ -327,87 +328,87 @@ class NASOSv4(IStrategy):
             (
                 # don't buy if there isn't 3% profit to be made
                 (
-                    dataframe['close_1h'].rolling(self.lookback_candles.value).max()
-                    < (dataframe['close'] * self.profit_threshold.value)
+                    dataframe["close_1h"].rolling(self.lookback_candles.value).max()
+                    < (dataframe["close"] * self.profit_threshold.value)
                 )
             )
         )
 
         dataframe.loc[
             (
-                (dataframe['rsi_fast'] < 35)
+                (dataframe["rsi_fast"] < 35)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_buy_{self.base_nb_candles_buy.value}']
+                        dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
                         * self.low_offset.value
                     )
                 )
-                & (dataframe['EWO'] > self.ewo_high.value)
-                & (dataframe['rsi'] < self.rsi_buy.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] > self.ewo_high.value)
+                & (dataframe["rsi"] < self.rsi_buy.value)
+                & (dataframe["volume"] > 0)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
             ),
-            ['buy', 'buy_tag'],
-        ] = (1, 'ewo1')
+            ["buy", "buy_tag"],
+        ] = (1, "ewo1")
 
         dataframe.loc[
             (
-                (dataframe['rsi_fast'] < 35)
+                (dataframe["rsi_fast"] < 35)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_buy_{self.base_nb_candles_buy.value}']
+                        dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
                         * self.low_offset_2.value
                     )
                 )
-                & (dataframe['EWO'] > self.ewo_high_2.value)
-                & (dataframe['rsi'] < self.rsi_buy.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] > self.ewo_high_2.value)
+                & (dataframe["rsi"] < self.rsi_buy.value)
+                & (dataframe["volume"] > 0)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
-                & (dataframe['rsi'] < 25)
+                & (dataframe["rsi"] < 25)
             ),
-            ['buy', 'buy_tag'],
-        ] = (1, 'ewo2')
+            ["buy", "buy_tag"],
+        ] = (1, "ewo2")
 
         dataframe.loc[
             (
-                (dataframe['rsi_fast'] < 35)
+                (dataframe["rsi_fast"] < 35)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_buy_{self.base_nb_candles_buy.value}']
+                        dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
                         * self.low_offset.value
                     )
                 )
-                & (dataframe['EWO'] < self.ewo_low.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] < self.ewo_low.value)
+                & (dataframe["volume"] > 0)
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
             ),
-            ['buy', 'buy_tag'],
-        ] = (1, 'ewolow')
+            ["buy", "buy_tag"],
+        ] = (1, "ewolow")
 
         if dont_buy_conditions:
             for condition in dont_buy_conditions:
-                dataframe.loc[condition, 'buy'] = 0
+                dataframe.loc[condition, "buy"] = 0
 
         return dataframe
 
@@ -416,33 +417,33 @@ class NASOSv4(IStrategy):
 
         conditions.append(
             (
-                (dataframe['close'] > dataframe['sma_9'])
+                (dataframe["close"] > dataframe["sma_9"])
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     > (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset_2.value
                     )
                 )
-                & (dataframe['rsi'] > 50)
-                & (dataframe['volume'] > 0)
-                & (dataframe['rsi_fast'] > dataframe['rsi_slow'])
+                & (dataframe["rsi"] > 50)
+                & (dataframe["volume"] > 0)
+                & (dataframe["rsi_fast"] > dataframe["rsi_slow"])
             )
             | (
-                (dataframe['close'] < dataframe['hma_50'])
+                (dataframe["close"] < dataframe["hma_50"])
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     > (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
-                & (dataframe['volume'] > 0)
-                & (dataframe['rsi_fast'] > dataframe['rsi_slow'])
+                & (dataframe["volume"] > 0)
+                & (dataframe["rsi_fast"] > dataframe["rsi_slow"])
             )
         )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
 
         return dataframe

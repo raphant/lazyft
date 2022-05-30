@@ -9,17 +9,25 @@ from typing import Optional
 import pandas as pd
 import rapidjson
 import sh
-from rich.live import Live
-from rich.table import Table
-from sqlmodel import Session
-
-from lazyft import logger, paths, hyperopt, runner, regex, downloader, strategy, parameter_tools
+from lazyft import (
+    downloader,
+    hyperopt,
+    logger,
+    parameter_tools,
+    paths,
+    regex,
+    runner,
+    strategy,
+)
 from lazyft.database import engine
 from lazyft.models import HyperoptReport
 from lazyft.notify import notify_pb, notify_telegram
 from lazyft.reports import get_hyperopt_repo
 from lazyft.space_handler import SpaceHandler
-from lazyft.util import get_last_hyperopt_file_path
+from lazyft.util import get_last_hyperopt_file_name
+from rich.live import Live
+from rich.table import Table
+from sqlmodel import Session
 
 logger_exec = logger.bind(type='hyperopt')
 columns = [
@@ -174,12 +182,15 @@ class HyperoptRunner(runner.Runner):
         """
         if HyperoptRunner.lock:
             raise RuntimeError('Hyperopt is already running')
-        logger.info(f'Preparing to run {self.strategy}')
+        logger.info(f'Preparing to hyperopt {self.strategy}')
         self.reset()
         if self.params.download_data:
-            downloader.download_missing_historical_data(self.strategy, self.config, self.params)
+            downloader.download_data_for_strategy(self.strategy, self.config, self.params)
         # set or remove parameter file in strategy directory
         if self.command.hyperopt_id:
+            assert (
+                get_hyperopt_repo().get(self.command.hyperopt_id).strategy == self.strategy
+            ), f'Hyperopt id {self.command.id} does not match strategy {self.strategy}'
             parameter_tools.set_params_file(self.command.hyperopt_id)
         else:
             parameter_tools.remove_params_file(self.strategy, self.command.config.path)
@@ -236,7 +247,9 @@ class HyperoptRunner(runner.Runner):
         except AttributeError:
             pass
         except Exception as e:
-            logger.error(self.output)
+            logger.error(self.output[-200:])
+            if not background:
+                raise e
             self.exception = e
             self.error = True
 
@@ -279,7 +292,9 @@ class HyperoptRunner(runner.Runner):
                 self.error = True
                 logger.error(self.output)
                 if self.notify:
-                    notify_telegram('Hyperopt Runner - Hyperopt Failed', 'Hyperopt finished with errors')
+                    notify_telegram(
+                        'Hyperopt Runner - Hyperopt Failed', 'Hyperopt finished with errors'
+                    )
 
             else:
                 logger.success("Finished successfully.")
@@ -351,7 +366,8 @@ class HyperoptRunner(runner.Runner):
     def generate_report(self):
         """Creates a report that can saved later on."""
         self._report = HyperoptReport.from_hyperopt_result(
-            get_last_hyperopt_file_path(), exchange=self.config['exchange']['name']
+            paths.HYPEROPT_RESULTS_DIR / get_last_hyperopt_file_name(),
+            exchange=self.config['exchange']['name'],
         )
         self._report.epoch = self._report.get_best_epoch()
         self._report.strategy_hash = self.strategy_hash
@@ -379,10 +395,13 @@ class HyperoptRunner(runner.Runner):
         sh = SpaceHandler(self.params.strategy_path / strategy.get_file_name(self.strategy))
         sh.reset()
         if self.params.custom_spaces == 'all':
+            logger.debug('Enabling all custom spaces')
             sh.set_all_enabled()
         for space in self.params.custom_spaces.split():
+            logger.debug(f'Enabling space: {space}')
             sh.add_space(space)
         for s, v in self.params.custom_settings.items():
+            logger.debug(f'Setting space-setting: {s} to {v}')
             sh.add_setting(s, v)
         sh.save()
 

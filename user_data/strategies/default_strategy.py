@@ -4,32 +4,32 @@
 # --- Do not remove these libs ---
 from datetime import datetime
 
+import pandas_ta
+from finta import TA as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
-from finta import TA as ta
-import pandas_ta
 
 
 class DefaultStrategy(IStrategy):
     # Stoploss:
-    stoploss = -99
+    stoploss = -1
 
     # ROI table:
     minimal_roi = {"0": 100}
 
     # endregion
     startup_candle_count = 1
-    ticker_interval = '5m'
+    ticker_interval = "5m"
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['test'] = 1
+        dataframe["test"] = 1
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['buy'] = 1
+        dataframe["buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['sell'] = 0
+        dataframe["sell"] = 0
         return dataframe

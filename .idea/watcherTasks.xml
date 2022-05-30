@@ -22,6 +22,7 @@
       <envs />
     </TaskOptions>
     <enabled-global>
+      <option value="Isort" />
       <option value="Black" />
     </enabled-global>
   </component>

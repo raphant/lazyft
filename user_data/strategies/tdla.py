@@ -7,16 +7,13 @@ import pathlib
 from datetime import datetime, timedelta
 from functools import reduce
 
-import rapidjson
-import talib.abstract as ta
-from pandas import DataFrame
-
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from freqtrade.strategy import RealParameter, IntParameter, CategoricalParameter
-from freqtrade.strategy.interface import IStrategy
+import talib.abstract as ta
 from freqtrade.persistence import Trade
+from freqtrade.strategy import CategoricalParameter, IntParameter, RealParameter
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
 from rich import print
-
 
 # noinspection DuplicatedCode
 
@@ -29,15 +26,15 @@ class Tdla(IStrategy):
     """
 
     # region Buy Hyperopt
-    buy_bb_lower = RealParameter(-3.0, 5.0, default=-0.94662, space='buy')
-    buy_bbdelta_close = RealParameter(0.001, 0.015, default=0.00315, space='buy')
-    buy_closedelta_close = RealParameter(0.001, 0.03, default=0.02977, space='buy')
-    buy_tail_bbdelta = RealParameter(0.01, 0.5, default=0.10643, space='buy')
+    buy_bb_lower = RealParameter(-3.0, 5.0, default=-0.94662, space="buy")
+    buy_bbdelta_close = RealParameter(0.001, 0.015, default=0.00315, space="buy")
+    buy_closedelta_close = RealParameter(0.001, 0.03, default=0.02977, space="buy")
+    buy_tail_bbdelta = RealParameter(0.01, 0.5, default=0.10643, space="buy")
     # endregion
 
     # region Sell Hyperopt
-    sell_mfi = IntParameter(70, 100, default=100, space='sell')
-    sell_mfi_enabled = CategoricalParameter([True, False], default=True, space='sell')
+    sell_mfi = IntParameter(70, 100, default=100, space="sell")
+    sell_mfi_enabled = CategoricalParameter([True, False], default=True, space="sell")
     # endregion
 
     # region Params
@@ -54,24 +51,24 @@ class Tdla(IStrategy):
     # ROI table:
     minimal_roi = {"0": 0.175, "21": 0.053, "75": 0.013, "118": 0}
 
-    from pathlib import Path
     import sys
+    from pathlib import Path
 
     # endregion
 
-    ticker_interval = '5m'
+    ticker_interval = "5m"
 
     use_custom_stoploss = True
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -88,27 +85,27 @@ class Tdla(IStrategy):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Replace NaN with zero and infinity with large finite numbers
         # https://numpy.org/doc/stable/reference/generated/numpy.nan_to_num.html
-        dataframe['mfi'] = ta.MFI(dataframe)
+        dataframe["mfi"] = ta.MFI(dataframe)
 
         macd = ta.MACD(dataframe)
-        dataframe['macd'] = macd['macd']
-        dataframe['macdsignal'] = macd['macdsignal']
-        dataframe['macdhist'] = macd['macdhist']
+        dataframe["macd"] = macd["macd"]
+        dataframe["macdsignal"] = macd["macdsignal"]
+        dataframe["macdhist"] = macd["macdhist"]
 
         bollinger = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0)
 
-        dataframe['bb_middleband'] = bollinger['middleband']
-        dataframe['bb_lowerband'] = bollinger['lowerband']
-        dataframe['bb_upperband'] = bollinger['upperband']
+        dataframe["bb_middleband"] = bollinger["middleband"]
+        dataframe["bb_lowerband"] = bollinger["lowerband"]
+        dataframe["bb_upperband"] = bollinger["upperband"]
         # Delta = bb_middleband - bb_lowerband
-        dataframe['bbdelta'] = (
-            dataframe['bb_middleband'] - dataframe['bb_lowerband']
+        dataframe["bbdelta"] = (
+            dataframe["bb_middleband"] - dataframe["bb_lowerband"]
         ).abs()
-        dataframe['pricedelta'] = (dataframe['open'] - dataframe['close']).abs()
-        dataframe['closedelta'] = (
-            dataframe['close'] - dataframe['close'].shift()
+        dataframe["pricedelta"] = (dataframe["open"] - dataframe["close"]).abs()
+        dataframe["closedelta"] = (
+            dataframe["close"] - dataframe["close"].shift()
         ).abs()
-        dataframe['tail'] = (dataframe['close'] - dataframe['low']).abs()
+        dataframe["tail"] = (dataframe["close"] - dataframe["low"]).abs()
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -118,25 +115,25 @@ class Tdla(IStrategy):
 
         if self.buy_bb_lower.value:
             conditions.append(
-                dataframe['bb_lowerband'].shift().gt(self.buy_bb_lower.value)
+                dataframe["bb_lowerband"].shift().gt(self.buy_bb_lower.value)
             )
         if self.buy_bbdelta_close.value:
             conditions.append(
-                dataframe['bbdelta'].gt(
-                    dataframe['close'] * self.buy_bbdelta_close.value
+                dataframe["bbdelta"].gt(
+                    dataframe["close"] * self.buy_bbdelta_close.value
                 )
             )
         if self.buy_closedelta_close.value:
             conditions.append(
-                dataframe['closedelta'].gt(
-                    dataframe['close'] * self.buy_closedelta_close.value
+                dataframe["closedelta"].gt(
+                    dataframe["close"] * self.buy_closedelta_close.value
                 )
             )
         if self.buy_tail_bbdelta:
             conditions.append(
-                dataframe['tail']
+                dataframe["tail"]
                 .shift()
-                .lt(dataframe['bbdelta'] * self.buy_tail_bbdelta.value)
+                .lt(dataframe["bbdelta"] * self.buy_tail_bbdelta.value)
             )
 
         # # TRIGGERS
@@ -150,10 +147,10 @@ class Tdla(IStrategy):
         #         ))
 
         # Check that the candle had volume
-        conditions.append(dataframe['volume'] > 0)
+        conditions.append(dataframe["volume"] > 0)
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
 
         return dataframe
 
@@ -165,17 +162,17 @@ class Tdla(IStrategy):
 
         # GUARDS AND TRENDS
         if self.sell_mfi_enabled.value:
-            conditions.append(dataframe['mfi'] > self.sell_mfi.value)
+            conditions.append(dataframe["mfi"] > self.sell_mfi.value)
 
         # TRIGGERS
         conditions.append(
-            qtpylib.crossed_above(dataframe['macdsignal'], dataframe['macd'])
+            qtpylib.crossed_above(dataframe["macdsignal"], dataframe["macd"])
         )
 
         # Check that the candle had volume
-        conditions.append(dataframe['volume'] > 0)
+        conditions.append(dataframe["volume"] > 0)
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "sell"] = 1
 
         return dataframe

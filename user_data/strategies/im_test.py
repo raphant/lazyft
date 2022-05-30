@@ -82,7 +82,7 @@
 #     use_custom_stoploss = False
 #
 #     # Recommended
-#     use_sell_signal = True
+#     exit_sell_signal = True
 #     sell_profit_only = False
 #     ignore_roi_if_buy_signal = True
 #     startup_candle_count = 200
@@ -179,7 +179,7 @@
 #     use_custom_stoploss = False
 #
 #     # Recommended
-#     use_sell_signal = True
+#     exit_sell_signal = True
 #     sell_profit_only = False
 #     ignore_roi_if_buy_signal = True
 #     startup_candle_count = 200

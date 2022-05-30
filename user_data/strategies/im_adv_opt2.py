@@ -8,7 +8,7 @@ from indicatormix.strategy.advanced import IMBaseAdvancedOptimizerStrategy
 
 logger = logging.getLogger(__name__)
 
-temp = 'supertrend_cross', 'crossed'
+temp = "supertrend_cross", "crossed"
 temp2 = temp
 # temp2 = 'psar2', 'sar'
 
@@ -22,15 +22,15 @@ class IndicatorMixAdvancedOpt2(IMBaseAdvancedOptimizerStrategy):
     if __name__ == __qualname__:
         # region Comparisons
         buy_params_normal = [
-            f'{temp[0]}__{temp[1]} none none',
+            f"{temp[0]}__{temp[1]} none none",
         ]
         sell_params_normal = [
-            f'{temp2[0]}__{temp2[1]} none none',
+            f"{temp2[0]}__{temp2[1]} none none",
         ]
         # endregion
         ao = AdvancedOptimizer(
-            misc.reverse_format_parameters(buy_params_normal, 'buy'),
-            misc.reverse_format_parameters(sell_params_normal, 'sell'),
+            misc.reverse_format_parameters(buy_params_normal, "buy"),
+            misc.reverse_format_parameters(sell_params_normal, "sell"),
             should_optimize_func_kwargs=True,
             should_optimize_values=False,
             should_optimize_offsets=False,
@@ -39,8 +39,14 @@ class IndicatorMixAdvancedOpt2(IMBaseAdvancedOptimizerStrategy):
         )
         use_custom_stoploss = True
         locals().update(ao.create_parameters())
-        logger.info('IndicatorMixAdvancedOpt: buy comparisons:\n%s', '\n'.join(buy_params_normal))
-        logger.info('IndicatorMixAdvancedOpt: sell comparisons:\n%s', '\n'.join(sell_params_normal))
+        logger.info(
+            "IndicatorMixAdvancedOpt: buy comparisons:\n%s",
+            "\n".join(buy_params_normal),
+        )
+        logger.info(
+            "IndicatorMixAdvancedOpt: sell comparisons:\n%s",
+            "\n".join(sell_params_normal),
+        )
 
     # endregion
     # region Default Params
@@ -82,10 +88,10 @@ class IndicatorMixAdvancedOpt2(IMBaseAdvancedOptimizerStrategy):
     # }
     minimal_roi = {"0": 0.201, "12": 0.041, "31": 0.012, "109": 0}
     stoploss = -0.20
-    timeframe = '5m'
+    timeframe = "5m"
     # endregion
     # region Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
     startup_candle_count = 200

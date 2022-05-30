@@ -6,12 +6,12 @@ from functools import reduce
 from pathlib import Path
 from typing import Optional, Union
 
+import pandas_ta as pta
 import talib.abstract as ta
 from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
-import pandas_ta as pta
 from technical import qtpylib
 
 sys.path.append(str(Path(__file__).parent))
@@ -29,10 +29,10 @@ class ScalpingStrategy(IStrategy):
     minimal_roi = {"0": 0.01}
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
     use_custom_stoploss = False
@@ -42,25 +42,25 @@ class ScalpingStrategy(IStrategy):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         ohlc = cta.heiken_ashi(dataframe)
         dataframe = dataframe.assign(**ohlc)
-        dataframe['atr'] = ta.ATR(dataframe, timeperiod=5)
-        dataframe['atr_ts1'] = dataframe['close'] - (3 * dataframe['atr'])
-        dataframe['atr_ts2'] = dataframe['atr_ts1'].cummax()
+        dataframe["atr"] = ta.ATR(dataframe, timeperiod=5)
+        dataframe["atr_ts1"] = dataframe["close"] - (3 * dataframe["atr"])
+        dataframe["atr_ts2"] = dataframe["atr_ts1"].cummax()
         dataframe = dataframe.join(cta.supertrend(dataframe, multiplier=3, period=5))
-        dataframe['color'] = cta.chop_zone(dataframe, 30)
+        dataframe["color"] = cta.chop_zone(dataframe, 30)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
 
-        conditions.append((dataframe['supertrend_crossed_up']))
-        conditions.append(dataframe['close'] > dataframe['atr_ts1'])
+        conditions.append((dataframe["supertrend_crossed_up"]))
+        conditions.append(dataframe["close"] > dataframe["atr_ts1"])
         conditions.append(
-            dataframe['color'].str.contains('turquoise|dark_green|pale_green')
+            dataframe["color"].str.contains("turquoise|dark_green|pale_green")
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -72,7 +72,7 @@ class ScalpingStrategy(IStrategy):
         # )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "sell"] = 1
         return dataframe
 
     # def min_roi_reached(

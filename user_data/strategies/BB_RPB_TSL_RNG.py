@@ -1,21 +1,21 @@
 # --- Do not remove these libs ---
+from datetime import datetime, timedelta
+from functools import reduce
+
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy as np
-import talib.abstract as ta
 import pandas_ta as pta
-
+import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame, Series, DatetimeIndex, merge
-from datetime import datetime, timedelta
 from freqtrade.strategy import (
-    merge_informative_pair,
     CategoricalParameter,
     DecimalParameter,
     IntParameter,
+    merge_informative_pair,
     stoploss_from_open,
 )
-from functools import reduce
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame, DatetimeIndex, Series, merge
 from technical.indicators import RMI, zema
 
 # --------------------------------
@@ -26,7 +26,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
     ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['low'] * 100
+    emadif = (ema1 - ema2) / df["low"] * 100
     return emadif
 
 
@@ -51,14 +51,14 @@ def williams_r(dataframe: DataFrame, period: int = 14) -> Series:
 
 
 class BB_RPB_TSL_RNG(IStrategy):
-    '''
+    """
     BB_RPB_TSL
     @author jilv220
     Simple bollinger brand strategy inspired by this blog  ( https://hacks-for-life.blogspot.com/2020/12/freqtrade-notes.html )
     RPB, which stands for Real Pull Back, taken from ( https://github.com/GeorgeMurAlkh/freqtrade-stuff/blob/main/user_data/strategies/TheRealPullbackV2.py )
     The trailing custom stoploss taken from BigZ04_TSL from Perkmeister ( modded by ilya )
     I modified it to better suit my taste and added Hyperopt for this strategy.
-    '''
+    """
 
     ##########################################################################
 
@@ -114,15 +114,15 @@ class BB_RPB_TSL_RNG(IStrategy):
     }
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
-    inf_1h = '1h'
+    timeframe = "5m"
+    inf_1h = "1h"
 
     # Disabled
     stoploss = -0.99
 
     # Custom stoploss
     use_custom_stoploss = True
-    use_sell_signal = True
+    exit_sell_signal = True
 
     process_only_new_candles = True
 
@@ -139,12 +139,18 @@ class BB_RPB_TSL_RNG(IStrategy):
 
     is_optimize_break = False
     buy_bb_width = DecimalParameter(0.05, 0.2, default=0.15, optimize=is_optimize_break)
-    buy_bb_delta = DecimalParameter(0.025, 0.08, default=0.04, optimize=is_optimize_break)
+    buy_bb_delta = DecimalParameter(
+        0.025, 0.08, default=0.04, optimize=is_optimize_break
+    )
 
     is_optimize_local_dip = False
-    buy_ema_diff = DecimalParameter(0.022, 0.027, default=0.025, optimize=is_optimize_local_dip)
+    buy_ema_diff = DecimalParameter(
+        0.022, 0.027, default=0.025, optimize=is_optimize_local_dip
+    )
     buy_bb_factor = DecimalParameter(0.990, 0.999, default=0.995, optimize=False)
-    buy_closedelta = DecimalParameter(12.0, 18.0, default=15.0, optimize=is_optimize_local_dip)
+    buy_closedelta = DecimalParameter(
+        12.0, 18.0, default=15.0, optimize=is_optimize_local_dip
+    )
 
     is_optimize_ewo = False
     buy_rsi_fast = IntParameter(35, 50, default=45, optimize=False)
@@ -154,8 +160,12 @@ class BB_RPB_TSL_RNG(IStrategy):
     buy_ema_high = DecimalParameter(0.95, 1.2, default=1.084, optimize=is_optimize_ewo)
 
     is_optimize_ewo_2 = False
-    buy_ema_low_2 = DecimalParameter(0.96, 0.978, default=0.96, optimize=is_optimize_ewo_2)
-    buy_ema_high_2 = DecimalParameter(1.05, 1.2, default=1.09, optimize=is_optimize_ewo_2)
+    buy_ema_low_2 = DecimalParameter(
+        0.96, 0.978, default=0.96, optimize=is_optimize_ewo_2
+    )
+    buy_ema_high_2 = DecimalParameter(
+        1.05, 1.2, default=1.09, optimize=is_optimize_ewo_2
+    )
 
     is_optimize_cofi = False
     buy_ema_cofi = DecimalParameter(0.96, 0.98, default=0.97, optimize=is_optimize_cofi)
@@ -166,40 +176,54 @@ class BB_RPB_TSL_RNG(IStrategy):
 
     is_optimize_btc_safe = False
     buy_btc_safe = IntParameter(-300, 50, default=-200, optimize=is_optimize_btc_safe)
-    buy_btc_safe_1d = DecimalParameter(-0.075, -0.025, default=-0.05, optimize=is_optimize_btc_safe)
-    buy_threshold = DecimalParameter(0.003, 0.012, default=0.008, optimize=is_optimize_btc_safe)
+    buy_btc_safe_1d = DecimalParameter(
+        -0.075, -0.025, default=-0.05, optimize=is_optimize_btc_safe
+    )
+    buy_threshold = DecimalParameter(
+        0.003, 0.012, default=0.008, optimize=is_optimize_btc_safe
+    )
 
     # Buy params toggle
     buy_is_dip_enabled = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space="buy", optimize=False, load=True
     )
     buy_is_break_enabled = CategoricalParameter(
-        [True, False], default=True, space='buy', optimize=False, load=True
+        [True, False], default=True, space="buy", optimize=False, load=True
     )
 
     ## Sell params
     sell_btc_safe = IntParameter(-400, -300, default=-365, optimize=True)
     base_nb_candles_sell = IntParameter(
-        5, 80, default=sell_params['base_nb_candles_sell'], space='sell', optimize=True
+        5, 80, default=sell_params["base_nb_candles_sell"], space="sell", optimize=True
     )
     high_offset = DecimalParameter(
-        0.95, 1.1, default=sell_params['high_offset'], space='sell', optimize=True
+        0.95, 1.1, default=sell_params["high_offset"], space="sell", optimize=True
     )
     high_offset_2 = DecimalParameter(
-        0.99, 1.5, default=sell_params['high_offset_2'], space='sell', optimize=True
+        0.99, 1.5, default=sell_params["high_offset_2"], space="sell", optimize=True
     )
 
     ## Trailing params
 
     # hard stoploss profit
-    pHSL = DecimalParameter(-0.200, -0.040, default=-0.08, decimals=3, space='sell', load=True)
+    pHSL = DecimalParameter(
+        -0.200, -0.040, default=-0.08, decimals=3, space="sell", load=True
+    )
     # profit threshold 1, trigger point, SL_1 is used
-    pPF_1 = DecimalParameter(0.008, 0.020, default=0.016, decimals=3, space='sell', load=True)
-    pSL_1 = DecimalParameter(0.008, 0.020, default=0.011, decimals=3, space='sell', load=True)
+    pPF_1 = DecimalParameter(
+        0.008, 0.020, default=0.016, decimals=3, space="sell", load=True
+    )
+    pSL_1 = DecimalParameter(
+        0.008, 0.020, default=0.011, decimals=3, space="sell", load=True
+    )
 
     # profit threshold 2, SL_2 is used
-    pPF_2 = DecimalParameter(0.040, 0.100, default=0.080, decimals=3, space='sell', load=True)
-    pSL_2 = DecimalParameter(0.020, 0.070, default=0.040, decimals=3, space='sell', load=True)
+    pPF_2 = DecimalParameter(
+        0.040, 0.100, default=0.080, decimals=3, space="sell", load=True
+    )
+    pSL_2 = DecimalParameter(
+        0.020, 0.070, default=0.040, decimals=3, space="sell", load=True
+    )
 
     ############################################################################
 
@@ -215,7 +239,7 @@ class BB_RPB_TSL_RNG(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -253,137 +277,151 @@ class BB_RPB_TSL_RNG(IStrategy):
         assert self.dp, "DataProvider is required for multiple timeframes."
 
         # Bollinger bands (hyperopt hard to implement)
-        bollinger2 = qtpylib.bollinger_bands(qtpylib.typical_price(dataframe), window=20, stds=2)
-        dataframe['bb_lowerband2'] = bollinger2['lower']
-        dataframe['bb_middleband2'] = bollinger2['mid']
-        dataframe['bb_upperband2'] = bollinger2['upper']
+        bollinger2 = qtpylib.bollinger_bands(
+            qtpylib.typical_price(dataframe), window=20, stds=2
+        )
+        dataframe["bb_lowerband2"] = bollinger2["lower"]
+        dataframe["bb_middleband2"] = bollinger2["mid"]
+        dataframe["bb_upperband2"] = bollinger2["upper"]
 
-        bollinger3 = qtpylib.bollinger_bands(qtpylib.typical_price(dataframe), window=20, stds=3)
-        dataframe['bb_lowerband3'] = bollinger3['lower']
-        dataframe['bb_middleband3'] = bollinger3['mid']
-        dataframe['bb_upperband3'] = bollinger3['upper']
+        bollinger3 = qtpylib.bollinger_bands(
+            qtpylib.typical_price(dataframe), window=20, stds=3
+        )
+        dataframe["bb_lowerband3"] = bollinger3["lower"]
+        dataframe["bb_middleband3"] = bollinger3["mid"]
+        dataframe["bb_upperband3"] = bollinger3["upper"]
 
         ### BTC protection
 
         # BTC info
-        inf_tf = '5m'
-        informative = self.dp.get_pair_dataframe('BTC/USDT', timeframe=inf_tf)
+        inf_tf = "5m"
+        informative = self.dp.get_pair_dataframe("BTC/USDT", timeframe=inf_tf)
         informative_past = informative.copy().shift(1)  # Get recent BTC info
 
         # BTC 5m dump protection
         informative_past_source = (
-            informative_past['open']
-            + informative_past['close']
-            + informative_past['high']
-            + informative_past['low']
+            informative_past["open"]
+            + informative_past["close"]
+            + informative_past["high"]
+            + informative_past["low"]
         ) / 4  # Get BTC price
         informative_threshold = (
             informative_past_source * self.buy_threshold.value
         )  # BTC dump n% in 5 min
         informative_past_delta = (
-            informative_past['close'].shift(1) - informative_past['close']
+            informative_past["close"].shift(1) - informative_past["close"]
         )  # should be positive if dump
-        informative_diff = informative_threshold - informative_past_delta  # Need be larger than 0
-        dataframe['btc_threshold'] = informative_threshold
-        dataframe['btc_diff'] = informative_diff
+        informative_diff = (
+            informative_threshold - informative_past_delta
+        )  # Need be larger than 0
+        dataframe["btc_threshold"] = informative_threshold
+        dataframe["btc_diff"] = informative_diff
 
         # BTC 1d dump protection
         informative_past_1d = informative.copy().shift(288)
         informative_past_source_1d = (
-            informative_past_1d['open']
-            + informative_past_1d['close']
-            + informative_past_1d['high']
-            + informative_past_1d['low']
+            informative_past_1d["open"]
+            + informative_past_1d["close"]
+            + informative_past_1d["high"]
+            + informative_past_1d["low"]
         ) / 4
-        dataframe['btc_5m'] = informative_past_source
-        dataframe['btc_1d'] = informative_past_source_1d
+        dataframe["btc_5m"] = informative_past_source
+        dataframe["btc_1d"] = informative_past_source_1d
 
         ### Other checks
 
-        dataframe['bb_width'] = (
-            dataframe['bb_upperband2'] - dataframe['bb_lowerband2']
-        ) / dataframe['bb_middleband2']
-        dataframe['bb_delta'] = (
-            dataframe['bb_lowerband2'] - dataframe['bb_lowerband3']
-        ) / dataframe['bb_lowerband2']
-        dataframe['bb_bottom_cross'] = qtpylib.crossed_below(
-            dataframe['close'], dataframe['bb_lowerband3']
-        ).astype('int')
+        dataframe["bb_width"] = (
+            dataframe["bb_upperband2"] - dataframe["bb_lowerband2"]
+        ) / dataframe["bb_middleband2"]
+        dataframe["bb_delta"] = (
+            dataframe["bb_lowerband2"] - dataframe["bb_lowerband3"]
+        ) / dataframe["bb_lowerband2"]
+        dataframe["bb_bottom_cross"] = qtpylib.crossed_below(
+            dataframe["close"], dataframe["bb_lowerband3"]
+        ).astype("int")
 
         # CCI hyperopt
         for val in self.buy_cci_length.range:
-            dataframe[f'cci_length_{val}'] = ta.CCI(dataframe, val)
+            dataframe[f"cci_length_{val}"] = ta.CCI(dataframe, val)
 
-        dataframe['cci'] = ta.CCI(dataframe, 26)
-        dataframe['cci_long'] = ta.CCI(dataframe, 170)
+        dataframe["cci"] = ta.CCI(dataframe, 26)
+        dataframe["cci_long"] = ta.CCI(dataframe, 170)
 
         # RMI hyperopt
         for val in self.buy_rmi_length.range:
-            dataframe[f'rmi_length_{val}'] = RMI(dataframe, length=val, mom=4)
+            dataframe[f"rmi_length_{val}"] = RMI(dataframe, length=val, mom=4)
         # dataframe['rmi'] = RMI(dataframe, length=8, mom=4)
 
         # SRSI hyperopt ?
         stoch = ta.STOCHRSI(dataframe, 15, 20, 2, 2)
-        dataframe['srsi_fk'] = stoch['fastk']
-        dataframe['srsi_fd'] = stoch['fastd']
+        dataframe["srsi_fk"] = stoch["fastk"]
+        dataframe["srsi_fd"] = stoch["fastd"]
 
         # BinH
-        dataframe['closedelta'] = (dataframe['close'] - dataframe['close'].shift()).abs()
+        dataframe["closedelta"] = (
+            dataframe["close"] - dataframe["close"].shift()
+        ).abs()
 
         # SMA
-        dataframe['sma_15'] = ta.SMA(dataframe, timeperiod=15)
-        dataframe['sma_30'] = ta.SMA(dataframe, timeperiod=30)
+        dataframe["sma_15"] = ta.SMA(dataframe, timeperiod=15)
+        dataframe["sma_30"] = ta.SMA(dataframe, timeperiod=30)
 
         # CTI
-        dataframe['cti'] = pta.cti(dataframe["close"], length=20)
+        dataframe["cti"] = pta.cti(dataframe["close"], length=20)
 
         # EMA
-        dataframe['ema_8'] = ta.EMA(dataframe, timeperiod=8)
-        dataframe['ema_12'] = ta.EMA(dataframe, timeperiod=12)
-        dataframe['ema_13'] = ta.EMA(dataframe, timeperiod=13)
-        dataframe['ema_16'] = ta.EMA(dataframe, timeperiod=16)
-        dataframe['ema_26'] = ta.EMA(dataframe, timeperiod=26)
-        dataframe['hma_50'] = qtpylib.hull_moving_average(dataframe['close'], window=50)
-        dataframe['ema_100'] = ta.EMA(dataframe, timeperiod=100)
-        dataframe['sma_9'] = ta.SMA(dataframe, timeperiod=9)
+        dataframe["ema_8"] = ta.EMA(dataframe, timeperiod=8)
+        dataframe["ema_12"] = ta.EMA(dataframe, timeperiod=12)
+        dataframe["ema_13"] = ta.EMA(dataframe, timeperiod=13)
+        dataframe["ema_16"] = ta.EMA(dataframe, timeperiod=16)
+        dataframe["ema_26"] = ta.EMA(dataframe, timeperiod=26)
+        dataframe["hma_50"] = qtpylib.hull_moving_average(dataframe["close"], window=50)
+        dataframe["ema_100"] = ta.EMA(dataframe, timeperiod=100)
+        dataframe["sma_9"] = ta.SMA(dataframe, timeperiod=9)
 
         # RSI
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
-        dataframe['rsi_fast'] = ta.RSI(dataframe, timeperiod=4)
-        dataframe['rsi_slow'] = ta.RSI(dataframe, timeperiod=20)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi_fast"] = ta.RSI(dataframe, timeperiod=4)
+        dataframe["rsi_slow"] = ta.RSI(dataframe, timeperiod=20)
 
         # Elliot
-        dataframe['EWO'] = EWO(dataframe, 50, 200)
+        dataframe["EWO"] = EWO(dataframe, 50, 200)
 
         # Cofi
         stoch_fast = ta.STOCHF(dataframe, 5, 3, 0, 3, 0)
-        dataframe['fastd'] = stoch_fast['fastd']
-        dataframe['fastk'] = stoch_fast['fastk']
-        dataframe['adx'] = ta.ADX(dataframe)
+        dataframe["fastd"] = stoch_fast["fastd"]
+        dataframe["fastk"] = stoch_fast["fastk"]
+        dataframe["adx"] = ta.ADX(dataframe)
 
         # Williams %R
-        dataframe['r_14'] = williams_r(dataframe, period=14)
+        dataframe["r_14"] = williams_r(dataframe, period=14)
 
         # Volume
-        dataframe['volume_mean_4'] = dataframe['volume'].rolling(4).mean().shift(1)
+        dataframe["volume_mean_4"] = dataframe["volume"].rolling(4).mean().shift(1)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f'ma_sell_{val}'] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_sell_{val}"] = ta.EMA(dataframe, timeperiod=val)
 
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
         conditions = []
-        dataframe.loc[:, 'buy_tag'] = ''
+        dataframe.loc[:, "buy_tag"] = ""
 
         if self.buy_is_dip_enabled.value:
 
             is_dip = (
-                (dataframe[f'rmi_length_{self.buy_rmi_length.value}'] < self.buy_rmi.value)
-                & (dataframe[f'cci_length_{self.buy_cci_length.value}'] <= self.buy_cci.value)
-                & (dataframe['srsi_fk'] < self.buy_srsi_fk.value)
+                (
+                    dataframe[f"rmi_length_{self.buy_rmi_length.value}"]
+                    < self.buy_rmi.value
+                )
+                & (
+                    dataframe[f"cci_length_{self.buy_cci_length.value}"]
+                    <= self.buy_cci.value
+                )
+                & (dataframe["srsi_fk"] < self.buy_srsi_fk.value)
             )
 
             # conditions.append(is_dip)
@@ -392,71 +430,86 @@ class BB_RPB_TSL_RNG(IStrategy):
 
             is_break = (
                 (
-                    (dataframe['bb_delta'] > self.buy_bb_delta.value)  # "buy_bb_delta": 0.025 0.036
+                    (
+                        dataframe["bb_delta"] > self.buy_bb_delta.value
+                    )  # "buy_bb_delta": 0.025 0.036
                     & (  # "buy_bb_width": 0.095 0.133
-                        dataframe['bb_width'] > self.buy_bb_width.value
+                        dataframe["bb_width"] > self.buy_bb_width.value
                     )
                 )
-                & (dataframe['closedelta'] > dataframe['close'] * self.buy_closedelta.value / 1000)
+                & (
+                    dataframe["closedelta"]
+                    > dataframe["close"] * self.buy_closedelta.value / 1000
+                )
                 & (  # from BinH
-                    dataframe['close'] < dataframe['bb_lowerband3'] * self.buy_bb_factor.value
+                    dataframe["close"]
+                    < dataframe["bb_lowerband3"] * self.buy_bb_factor.value
                 )
             )
             # conditions.append(is_break)
 
         is_local_uptrend = (  # from NFI next gen
-            (dataframe['ema_26'] > dataframe['ema_12'])
+            (dataframe["ema_26"] > dataframe["ema_12"])
             & (
-                dataframe['ema_26'] - dataframe['ema_12']
-                > dataframe['open'] * self.buy_ema_diff.value
+                dataframe["ema_26"] - dataframe["ema_12"]
+                > dataframe["open"] * self.buy_ema_diff.value
             )
-            & (dataframe['ema_26'].shift() - dataframe['ema_12'].shift() > dataframe['open'] / 100)
-            & (dataframe['close'] < dataframe['bb_lowerband2'] * self.buy_bb_factor.value)
-            & (dataframe['closedelta'] > dataframe['close'] * self.buy_closedelta.value / 1000)
+            & (
+                dataframe["ema_26"].shift() - dataframe["ema_12"].shift()
+                > dataframe["open"] / 100
+            )
+            & (
+                dataframe["close"]
+                < dataframe["bb_lowerband2"] * self.buy_bb_factor.value
+            )
+            & (
+                dataframe["closedelta"]
+                > dataframe["close"] * self.buy_closedelta.value / 1000
+            )
         )
 
         is_ewo = (  # from SMA offset
-            (dataframe['rsi_fast'] < self.buy_rsi_fast.value)
-            & (dataframe['close'] < dataframe['ema_8'] * self.buy_ema_low.value)
-            & (dataframe['EWO'] > self.buy_ewo.value)
-            & (dataframe['close'] < dataframe['ema_16'] * self.buy_ema_high.value)
-            & (dataframe['rsi'] < self.buy_rsi.value)
+            (dataframe["rsi_fast"] < self.buy_rsi_fast.value)
+            & (dataframe["close"] < dataframe["ema_8"] * self.buy_ema_low.value)
+            & (dataframe["EWO"] > self.buy_ewo.value)
+            & (dataframe["close"] < dataframe["ema_16"] * self.buy_ema_high.value)
+            & (dataframe["rsi"] < self.buy_rsi.value)
         )
 
         is_ewo_2 = (
-            (dataframe['rsi_fast'] < self.buy_rsi_fast.value)
-            & (dataframe['close'] < dataframe['ema_8'] * self.buy_ema_low_2.value)
-            & (dataframe['EWO'] > self.buy_ewo_high.value)
-            & (dataframe['close'] < dataframe['ema_16'] * self.buy_ema_high_2.value)
-            & (dataframe['rsi'] < self.buy_rsi.value)
+            (dataframe["rsi_fast"] < self.buy_rsi_fast.value)
+            & (dataframe["close"] < dataframe["ema_8"] * self.buy_ema_low_2.value)
+            & (dataframe["EWO"] > self.buy_ewo_high.value)
+            & (dataframe["close"] < dataframe["ema_16"] * self.buy_ema_high_2.value)
+            & (dataframe["rsi"] < self.buy_rsi.value)
         )
 
         is_cofi = (
-            (dataframe['open'] < dataframe['ema_8'] * self.buy_ema_cofi.value)
-            & (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-            & (dataframe['fastk'] < self.buy_fastk.value)
-            & (dataframe['fastd'] < self.buy_fastd.value)
-            & (dataframe['adx'] > self.buy_adx.value)
-            & (dataframe['EWO'] > self.buy_ewo_high.value)
+            (dataframe["open"] < dataframe["ema_8"] * self.buy_ema_cofi.value)
+            & (qtpylib.crossed_above(dataframe["fastk"], dataframe["fastd"]))
+            & (dataframe["fastk"] < self.buy_fastk.value)
+            & (dataframe["fastd"] < self.buy_fastd.value)
+            & (dataframe["adx"] > self.buy_adx.value)
+            & (dataframe["EWO"] > self.buy_ewo_high.value)
         )
 
         # NFI quick mode
 
         is_nfi_32 = (
-            (dataframe['rsi_slow'] < dataframe['rsi_slow'].shift(1))
-            & (dataframe['rsi_fast'] < 46)
-            & (dataframe['rsi'] > 19)
-            & (dataframe['close'] < dataframe['sma_15'] * 0.942)
-            & (dataframe['cti'] < -0.86)
+            (dataframe["rsi_slow"] < dataframe["rsi_slow"].shift(1))
+            & (dataframe["rsi_fast"] < 46)
+            & (dataframe["rsi"] > 19)
+            & (dataframe["close"] < dataframe["sma_15"] * 0.942)
+            & (dataframe["cti"] < -0.86)
         )
 
         is_nfi_33 = (
-            (dataframe['close'] < (dataframe['ema_13'] * 0.978))
-            & (dataframe['EWO'] > 8)
-            & (dataframe['cti'] < -0.88)
-            & (dataframe['rsi'] < 32)
-            & (dataframe['r_14'] < -98.0)
-            & (dataframe['volume'] < (dataframe['volume_mean_4'] * 2.5))
+            (dataframe["close"] < (dataframe["ema_13"] * 0.978))
+            & (dataframe["EWO"] > 8)
+            & (dataframe["cti"] < -0.88)
+            & (dataframe["rsi"] < 32)
+            & (dataframe["r_14"] < -98.0)
+            & (dataframe["volume"] < (dataframe["volume_mean_4"] * 2.5))
         )
 
         # is_btc_safe = (
@@ -476,28 +529,28 @@ class BB_RPB_TSL_RNG(IStrategy):
 
         ## condition append
         conditions.append(is_BB_checked)  # ~1.7 89%
-        dataframe.loc[is_BB_checked, 'buy_tag'] += 'bb '
+        dataframe.loc[is_BB_checked, "buy_tag"] += "bb "
 
         conditions.append(is_local_uptrend)  # ~3.84 90.2%
-        dataframe.loc[is_local_uptrend, 'buy_tag'] += 'local uptrend '
+        dataframe.loc[is_local_uptrend, "buy_tag"] += "local uptrend "
 
         conditions.append(is_ewo)  # ~2.26 93.5%
-        dataframe.loc[is_ewo, 'buy_tag'] += 'ewo '
+        dataframe.loc[is_ewo, "buy_tag"] += "ewo "
 
         conditions.append(is_ewo_2)  # ~3.68 90.3%
-        dataframe.loc[is_ewo_2, 'buy_tag'] += 'ewo2 '
+        dataframe.loc[is_ewo_2, "buy_tag"] += "ewo2 "
 
         conditions.append(is_cofi)  # ~3.21 90.8%
-        dataframe.loc[is_cofi, 'buy_tag'] += 'cofi '
+        dataframe.loc[is_cofi, "buy_tag"] += "cofi "
 
         conditions.append(is_nfi_32)  # ~2.43 91.3%
-        dataframe.loc[is_nfi_32, 'buy_tag'] += 'nfi 32 '
+        dataframe.loc[is_nfi_32, "buy_tag"] += "nfi 32 "
 
         conditions.append(is_nfi_33)  # ~0.11 100%
-        dataframe.loc[is_nfi_33, 'buy_tag'] += 'nfi 33 '
+        dataframe.loc[is_nfi_33, "buy_tag"] += "nfi 33 "
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "buy"] = 1
 
         return dataframe
 
@@ -506,41 +559,44 @@ class BB_RPB_TSL_RNG(IStrategy):
 
         conditions.append(
             (
-                (dataframe['close'] > dataframe['sma_9'])
+                (dataframe["close"] > dataframe["sma_9"])
                 & (
-                    dataframe['close']
+                    dataframe["close"]
                     > (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset_2.value
                     )
                 )
-                & (dataframe['rsi'] > 50)
-                & (dataframe['volume'] > 0)
-                & (dataframe['rsi_fast'] > dataframe['rsi_slow'])
+                & (dataframe["rsi"] > 50)
+                & (dataframe["volume"] > 0)
+                & (dataframe["rsi_fast"] > dataframe["rsi_slow"])
             )
             | (
                 (
-                    dataframe['sma_9']
-                    > (dataframe['sma_9'].shift(1) + dataframe['sma_9'].shift(1) * 0.005)
-                )
-                & (dataframe['close'] < dataframe['hma_50'])
-                & (
-                    dataframe['close']
+                    dataframe["sma_9"]
                     > (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe["sma_9"].shift(1)
+                        + dataframe["sma_9"].shift(1) * 0.005
+                    )
+                )
+                & (dataframe["close"] < dataframe["hma_50"])
+                & (
+                    dataframe["close"]
+                    > (
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
-                & (dataframe['volume'] > 0)
-                & (dataframe['rsi_fast'] > dataframe['rsi_slow'])
+                & (dataframe["volume"] > 0)
+                & (dataframe["rsi_fast"] > dataframe["rsi_slow"])
             )
         )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
 
         return dataframe
 
 
 class BB_RPB_TSL_RNG_Rest(BB_RPB_TSL_RNG, BaseRestStrategy):
-    rest_strategy_name = 'BB_RPB_TSL_RNG'
+    rest_strategy_name = "BB_RPB_TSL_RNG"

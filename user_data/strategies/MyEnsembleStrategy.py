@@ -5,7 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import pandas as pd
 import rapidjson
@@ -13,13 +13,13 @@ from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
-    IStrategy,
-    IntParameter,
-    DecimalParameter,
-    stoploss_from_open,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    IStrategy,
+    stoploss_from_open,
 )
-from freqtrade.strategy.interface import SellCheckTuple
+from freqtrade.strategy.interface import ExitCheckTuple
 from pandas import DataFrame
 
 # warnings.filterwarnings(
@@ -57,7 +57,7 @@ class MyEnsembleStrategy(IStrategy):
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
-    use_sell_signal = True
+    exit_sell_signal = True
     ignore_roi_if_buy_signal = True
     sell_profit_only = False
 
@@ -93,7 +93,9 @@ class MyEnsembleStrategy(IStrategy):
         }
     }
 
-    use_custom_stoploss_opt = CategoricalParameter([True, False], default=False, space="buy")
+    use_custom_stoploss_opt = CategoricalParameter(
+        [True, False], default=False, space="buy"
+    )
     # region trailing stoploss hyperopt parameters
     # hard stoploss profit
     pHSL = DecimalParameter(
@@ -264,7 +266,9 @@ class MyEnsembleStrategy(IStrategy):
             # _x or _y gets added to the inf columns that already exist
             inf_frames.append(dataframe.filter(regex=r"\w+_\d{1,2}[mhd]"))
             dataframe = dataframe[
-                dataframe.columns.drop(list(dataframe.filter(regex=r"\w+_\d{1,2}[mhd]")))
+                dataframe.columns.drop(
+                    list(dataframe.filter(regex=r"\w+_\d{1,2}[mhd]"))
+                )
             ]
 
         # add informative data back to dataframe
@@ -292,12 +296,16 @@ class MyEnsembleStrategy(IStrategy):
             strategy_indicators.loc[:, "new_buy_tag"] = ""
             # On every candle that a buy signal is found, strategy_name
             # name will be added to its 'strategy' column
-            strategy_indicators.loc[strategy_indicators.buy == 1, "new_buy_tag"] = strategy_name
+            strategy_indicators.loc[
+                strategy_indicators.buy == 1, "new_buy_tag"
+            ] = strategy_name
             # get the strategies that already exist for the row in the original dataframe
             strategy_indicators.loc[:, "existing_buy_tag"] = dataframe["buy_tag"]
             # join the strategies found in the original dataframe's row with the new strategy
             strategy_indicators.loc[:, "buy_tag"] = strategy_indicators.apply(
-                lambda x: ",".join((x["new_buy_tag"], x["existing_buy_tag"])).strip(","),
+                lambda x: ",".join((x["new_buy_tag"], x["existing_buy_tag"])).strip(
+                    ","
+                ),
                 axis=1,
             )
             # update the original dataframe with the new strategies buy signals
@@ -385,7 +393,10 @@ class MyEnsembleStrategy(IStrategy):
                 continue
             # strategy = self.get_strategy(strategy_name)
             # regular sell signal. this does not cover custom_sells
-            if strategy_name in trade_candle["sell_tag"] and strategy_name in trade.buy_tag:
+            if (
+                strategy_name in trade_candle["sell_tag"]
+                and strategy_name in trade.buy_tag
+            ):
                 return "sell_signal"
             #
             # buy_tag = trade_candle['buy_tag']
@@ -414,8 +425,10 @@ class MyEnsembleStrategy(IStrategy):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
-        should_sell = super().should_sell(trade, rate, date, buy, sell, low, high, force_stoploss)
+    ) -> ExitCheckTuple:
+        should_sell = super().should_sell(
+            trade, rate, date, buy, sell, low, high, force_stoploss
+        )
         if should_sell.sell_flag:
             should_sell.sell_reason = trade.buy_tag + "-" + should_sell.sell_reason
         return should_sell
@@ -482,7 +495,7 @@ class MyEnsembleStrategy(IStrategy):
 #     force_stoploss: float,
 #     low: float = None,
 #     high: float = None,
-# ) -> SellCheckTuple:
+# ) -> ExitCheckTuple:
 #     """
 #     Based on current profit of the trade and configured (trailing) stoploss,
 #     decides to sell or not
@@ -554,6 +567,6 @@ class MyEnsembleStrategy(IStrategy):
 #                 f"{trade.stop_loss - trade.initial_stop_loss:.6f}"
 #             )
 #
-#         return SellCheckTuple(sell_type=sell_type)
+#         return ExitCheckTuple(sell_type=sell_type)
 #
-#     return SellCheckTuple(sell_type=SellType.NONE)
+#     return ExitCheckTuple(sell_type=SellType.NONE)

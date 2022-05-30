@@ -8,10 +8,10 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IntParameter,
-    DecimalParameter,
-    merge_informative_pair,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
 )
 from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame
@@ -42,22 +42,22 @@ class BbandRsi3(IStrategy):
     # endregion
 
     # Optimal timeframe for the strategy
-    inf_timeframe = '1h'
-    timeframe = '5m'
+    inf_timeframe = "1h"
+    timeframe = "5m"
     use_custom_stoploss = True
 
     custom_fiat = "USD"  # Only relevant if stake is BTC or ETH
     custom_btc_inf = False  # Don't change this.
 
     # Recommended
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = True
     ignore_roi_if_buy_signal = True
 
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -108,21 +108,21 @@ class BbandRsi3(IStrategy):
     #     return informative_pairs
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         # region macd
         macd = ta.MACD(dataframe)
-        dataframe['macd'] = macd['macd']
-        dataframe['macdsignal'] = macd['macdsignal']
-        dataframe['macdhist'] = macd['macdhist']
+        dataframe["macd"] = macd["macd"]
+        dataframe["macdsignal"] = macd["macdsignal"]
+        dataframe["macdhist"] = macd["macdhist"]
         # endregion
 
         # region Bollinger bands
         bollinger = qtpylib.bollinger_bands(
             qtpylib.typical_price(dataframe), window=20, stds=2
         )
-        dataframe['bb_lowerband'] = bollinger['lower']
-        dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe["bb_lowerband"] = bollinger["lower"]
+        dataframe["bb_middleband"] = bollinger["mid"]
+        dataframe["bb_upperband"] = bollinger["upper"]
         # endregion
         return dataframe
 
@@ -131,14 +131,14 @@ class BbandRsi3(IStrategy):
 
         conditions.append(
             (
-                (dataframe['rsi'] < self.buy_rsi.value)
-                & (dataframe['close'] < dataframe['bb_lowerband'])
+                (dataframe["rsi"] < self.buy_rsi.value)
+                & (dataframe["close"] < dataframe["bb_lowerband"])
             )
         )
-        conditions.append(dataframe['volume'].gt(0))
+        conditions.append(dataframe["volume"].gt(0))
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -146,10 +146,10 @@ class BbandRsi3(IStrategy):
 
         # GUARDS AND TRENDS
         if self.sell_use_macd.value:
-            conditions.append(dataframe['macd'] < dataframe['macdsignal'])
+            conditions.append(dataframe["macd"] < dataframe["macdsignal"])
 
-        conditions.append(dataframe['rsi'] > self.sell_rsi.value)
+        conditions.append(dataframe["rsi"] > self.sell_rsi.value)
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x & y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x & y, conditions), "buy"] = 1
         return dataframe

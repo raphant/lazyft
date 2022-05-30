@@ -7,7 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import pandas as pd
 import rapidjson
@@ -15,12 +15,12 @@ from freqtrade.exchange import timeframe_to_prev_date
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
-    IStrategy,
-    DecimalParameter,
-    stoploss_from_open,
     CategoricalParameter,
+    DecimalParameter,
+    IStrategy,
+    stoploss_from_open,
 )
-from freqtrade.strategy.interface import SellCheckTuple
+from freqtrade.strategy.interface import ExitCheckTuple
 from pandas import DataFrame
 
 # warnings.filterwarnings(
@@ -62,7 +62,7 @@ class ConductorStrategy(IStrategy):
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
-    use_sell_signal = True
+    exit_sell_signal = True
     ignore_roi_if_buy_signal = True
     sell_profit_only = False
 
@@ -388,7 +388,7 @@ class ConductorStrategy(IStrategy):
         # In dry/live runs trade open date will not match candle open date therefore it must be
         # rounded.
         last_candle = dataframe.iloc[-1].squeeze()
-        if not last_candle['sell_tag']:
+        if not last_candle["sell_tag"]:
             return
         # check to see if any candle has a sell signal
         for strategy_name in STRATEGIES:
@@ -428,7 +428,7 @@ class ConductorStrategy(IStrategy):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
+    ) -> ExitCheckTuple:
         should_sell = super().should_sell(
             trade, rate, date, buy, sell, low, high, force_stoploss
         )
@@ -498,7 +498,7 @@ class ConductorStrategy(IStrategy):
 #     force_stoploss: float,
 #     low: float = None,
 #     high: float = None,
-# ) -> SellCheckTuple:
+# ) -> ExitCheckTuple:
 #     """
 #     Based on current profit of the trade and configured (trailing) stoploss,
 #     decides to sell or not
@@ -570,6 +570,6 @@ class ConductorStrategy(IStrategy):
 #                 f"{trade.stop_loss - trade.initial_stop_loss:.6f}"
 #             )
 #
-#         return SellCheckTuple(sell_type=sell_type)
+#         return ExitCheckTuple(sell_type=sell_type)
 #
-#     return SellCheckTuple(sell_type=SellType.NONE)
+#     return ExitCheckTuple(sell_type=SellType.NONE)

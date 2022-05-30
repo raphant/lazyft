@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import timedelta, datetime
+import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Tuple, Any
+from typing import Any, Tuple, Union
 
+import rapidjson
+from diskcache import Index
 from freqtrade.commands import Arguments
 from freqtrade.configuration import setup_utils_configuration
 from freqtrade.constants import LAST_BT_RESULT_FN
@@ -48,17 +51,40 @@ def hhmmss_to_seconds(timestamp: str):
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-def get_last_hyperopt_file_path():
+def get_last_hyperopt_file_name() -> str:
+    """
+    It reads the last hyperopt results file and returns the name of the latest hyperopt file
+    :return: A string of the name of the latest hyperopt file.
+    """
     from lazyft.paths import LAST_HYPEROPT_RESULTS_FILE
-    import rapidjson
 
-    return (
+    return Path(
         LAST_HYPEROPT_RESULTS_FILE.parent
         / rapidjson.loads(LAST_HYPEROPT_RESULTS_FILE.read_text())['latest_hyperopt']
-    )
+    ).name
+
+
+def get_latest_backtest_filename() -> str:
+    """
+    Get the latest backtest filename
+    :return: The filename of the latest backtest
+    """
+    from lazyft.paths import LAST_BACKTEST_RESULTS_FILE
+
+    return Path(
+        LAST_BACKTEST_RESULTS_FILE.parent
+        / rapidjson.loads(LAST_BACKTEST_RESULTS_FILE.read_text())['latest_backtest']
+    ).name
 
 
 def duration_string_to_timedelta(delta_string: str):
+    """
+    Convert a string of the form "X days, HH:MM:SS" into a timedelta object
+
+    :param delta_string: The string that you want to convert to a timedelta
+    :type delta_string: str
+    :return: A timedelta object.
+    """
     # turn "2 days, HH:MM:SS" into a time delta
     if 'day' in delta_string:
         delta = timedelta(
@@ -155,14 +181,37 @@ def get_timerange(days: int) -> Tuple[str, str]:
 def dict_to_telegram_string(d: dict[str, Any]) -> str:
     """
     Converts a dictionary to a readable string
+
     :param d: The dictionary to convert
     :return: The string representation of the dictionary
     """
+    new_dict = {}
     for k, v in d.items():
+        # replace _ with spaces
+        new_key = k.replace('_', ' ')
         if isinstance(v, datetime):
-            d[k] = v.strftime('%Y-%m-%d %H:%M:%S')
+            new_val = v.strftime('%Y-%m-%d %H:%M:%S')
         elif isinstance(v, float):
-            d[k] = f'{v:.3f}'
-    if 'seed' in d:
-        del d['seed']
-    return '\n'.join([f'*{k.capitalize()}:* `{v}`' for k, v in d.items()])
+            new_val = f'{v:.3f}'
+        else:
+            new_val = v
+        new_dict[new_key] = new_val
+    if 'seed' in new_dict:
+        del new_dict['seed']
+    return '\n'.join([f'*{k.capitalize()}:* `{v}`' for k, v in new_dict.items()])
+
+
+def calculate_win_ratio(wins, losses, draws):
+    return int(wins) / (max(int(wins) + int(draws) + int(losses), 1))
+
+
+def remove_cache(cache: Union[str, Path]) -> None:
+    """
+    Removes the given cache directory
+    """
+    if isinstance(cache, str):
+        cache = Path(cache)
+    if cache.is_dir():
+        shutil.rmtree(cache)
+
+

@@ -239,3 +239,6 @@ lazyft_pkg/lazyft/api/*
 /buildfiles/
 *cache*
 /lazyft_pkg/tradesv3.Gumbo3.sqlite
+.vscode
+/user_data/plot/
+*.sh.json

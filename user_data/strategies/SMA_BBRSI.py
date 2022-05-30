@@ -1,29 +1,29 @@
 # --- Do not remove these libs ---
-from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
+import datetime
+import math
+from datetime import datetime, timedelta
 from functools import reduce
+from typing import Dict, List
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import numpy as np
+import pandas_ta as pta
+import talib.abstract as ta
+import technical.indicators as ftt
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
+    stoploss_from_open,
+)
+from freqtrade.strategy.interface import IStrategy
 from pandas import DataFrame, Series
+from technical.util import resample_to_interval, resampled_merge
 
 # --------------------------------
 
-import talib.abstract as ta
-import numpy as np
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import datetime
-from technical.util import resample_to_interval, resampled_merge
-from datetime import datetime, timedelta
-from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    stoploss_from_open,
-    merge_informative_pair,
-    DecimalParameter,
-    IntParameter,
-    CategoricalParameter,
-)
-import technical.indicators as ftt
-
-import math
-import pandas_ta as pta
 
 ######################################## Warning ########################################
 # You won't get a lot of benefits by simply changing to this strategy                   #
@@ -66,9 +66,9 @@ sell_params = {
 def vwma(dataframe: DataFrame, length: int = 10):
     """Indicator: Volume Weighted Moving Average (VWMA)"""
     # Calculate Result
-    pv = dataframe['close'] * dataframe['volume']
+    pv = dataframe["close"] * dataframe["volume"]
     vwma = Series(
-        ta.SMA(pv, timeperiod=length) / ta.SMA(dataframe['volume'], timeperiod=length)
+        ta.SMA(pv, timeperiod=length) / ta.SMA(dataframe["volume"], timeperiod=length)
     )
     return vwma
 
@@ -85,7 +85,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
     df = dataframe.copy()
     ema1 = ta.EMA(df, timeperiod=ema_length)
     ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['close'] * 100
+    emadif = (ema1 - ema2) / df["close"] * 100
     return emadif
 
 
@@ -100,34 +100,34 @@ class SMA_BBRSI(IStrategy):
     stoploss = -0.5
 
     antipump_threshold = DecimalParameter(
-        0, 0.4, default=0.25, space='buy', optimize=True
+        0, 0.4, default=0.25, space="buy", optimize=True
     )
 
     # SMAOffset
     base_nb_candles_buy = IntParameter(
-        5, 80, default=buy_params['base_nb_candles_buy'], space='buy', optimize=True
+        5, 80, default=buy_params["base_nb_candles_buy"], space="buy", optimize=True
     )
     base_nb_candles_sell = IntParameter(
-        5, 80, default=sell_params['base_nb_candles_sell'], space='sell', optimize=True
+        5, 80, default=sell_params["base_nb_candles_sell"], space="sell", optimize=True
     )
     low_offset = DecimalParameter(
-        0.9, 0.99, default=buy_params['low_offset'], space='buy', optimize=True
+        0.9, 0.99, default=buy_params["low_offset"], space="buy", optimize=True
     )
     high_offset = DecimalParameter(
-        0.99, 1.1, default=sell_params['high_offset'], space='sell', optimize=True
+        0.99, 1.1, default=sell_params["high_offset"], space="sell", optimize=True
     )
 
     # Protection
     fast_ewo = 50
     slow_ewo = 200
     ewo_low = DecimalParameter(
-        -20.0, -8.0, default=buy_params['ewo_low'], space='buy', optimize=True
+        -20.0, -8.0, default=buy_params["ewo_low"], space="buy", optimize=True
     )
     ewo_high = DecimalParameter(
-        2.0, 12.0, default=buy_params['ewo_high'], space='buy', optimize=True
+        2.0, 12.0, default=buy_params["ewo_high"], space="buy", optimize=True
     )
     rsi_buy = IntParameter(
-        30, 70, default=buy_params['rsi_buy'], space='buy', optimize=True
+        30, 70, default=buy_params["rsi_buy"], space="buy", optimize=True
     )
 
     # Trailing stop:
@@ -137,24 +137,24 @@ class SMA_BBRSI(IStrategy):
     trailing_only_offset_is_reached = True
 
     # Sell signal
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     sell_profit_offset = 0.01
     ignore_roi_if_buy_signal = False
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
-    informative_timeframe = '1h'
+    timeframe = "5m"
+    informative_timeframe = "1h"
 
     process_only_new_candles = True
     startup_candle_count: int = 200
 
     plot_config = {
-        'main_plot': {
-            'ma_buy_16': {'color': 'orange'},
-            'ma_sell_20': {'color': 'purple'},
+        "main_plot": {
+            "ma_buy_16": {"color": "orange"},
+            "ma_sell_20": {"color": "purple"},
         },
-        'pump_strength': {'pump_strength': {'color': 'yellow'}},
+        "pump_strength": {"pump_strength": {"color": "yellow"}},
     }
 
     protections = [
@@ -189,22 +189,22 @@ class SMA_BBRSI(IStrategy):
     ]
 
     ewo_high_bb = DecimalParameter(
-        0, 7.0, default=buy_params['ewo_high_bb'], space='buy', optimize=True
+        0, 7.0, default=buy_params["ewo_high_bb"], space="buy", optimize=True
     )
     for_sigma = DecimalParameter(
-        0, 10.0, default=buy_params['for_sigma'], space='buy', optimize=True
+        0, 10.0, default=buy_params["for_sigma"], space="buy", optimize=True
     )
     for_sigma_sell = DecimalParameter(
-        0, 10.0, default=sell_params['for_sigma_sell'], space='sell', optimize=True
+        0, 10.0, default=sell_params["for_sigma_sell"], space="sell", optimize=True
     )
     rsi_high = IntParameter(
-        60, 100, default=sell_params['rsi_high'], space='sell', optimize=True
+        60, 100, default=sell_params["rsi_high"], space="sell", optimize=True
     )
     for_ma_length = IntParameter(
-        5, 80, default=buy_params['for_ma_length'], space='buy', optimize=True
+        5, 80, default=buy_params["for_ma_length"], space="buy", optimize=True
     )
     for_ma_length_sell = IntParameter(
-        5, 80, default=sell_params['for_ma_length_sell'], space='sell', optimize=True
+        5, 80, default=sell_params["for_ma_length_sell"], space="sell", optimize=True
     )
 
     is_optimize_trailing = True
@@ -213,7 +213,7 @@ class SMA_BBRSI(IStrategy):
         -0.040,
         default=-0.08,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=is_optimize_trailing,
         load=True,
     )
@@ -223,7 +223,7 @@ class SMA_BBRSI(IStrategy):
         0.020,
         default=0.016,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=is_optimize_trailing,
         load=True,
     )
@@ -232,7 +232,7 @@ class SMA_BBRSI(IStrategy):
         0.020,
         default=0.011,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=is_optimize_trailing,
         load=True,
     )
@@ -243,7 +243,7 @@ class SMA_BBRSI(IStrategy):
         0.100,
         default=0.080,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=is_optimize_trailing,
         load=True,
     )
@@ -252,7 +252,7 @@ class SMA_BBRSI(IStrategy):
         0.070,
         default=0.040,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=is_optimize_trailing,
         load=True,
     )
@@ -262,7 +262,7 @@ class SMA_BBRSI(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -303,7 +303,7 @@ class SMA_BBRSI(IStrategy):
     def get_informative_indicators(self, metadata: dict):
 
         dataframe = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.informative_timeframe
+            pair=metadata["pair"], timeframe=self.informative_timeframe
         )
 
         return dataframe
@@ -314,7 +314,7 @@ class SMA_BBRSI(IStrategy):
         #
         # // Инициализация параметров
         # src = input(title="Source", type=source, defval=close) // Устанавливаем тип цены для расчетов
-        src = 'close'
+        src = "close"
         # for_rsi = input(title="RSI_period", type=integer, defval=14) // Период для RSI
         for_rsi = 14
         # for_ma = input(title="Basis_BB", type=integer, defval=20) // Период для MA внутри BB
@@ -326,14 +326,14 @@ class SMA_BBRSI(IStrategy):
         #
         # // Условия работы скрипта
         # current_rsi = rsi(src, for_rsi) // Текущее положение индикатора RSI
-        dataframe['rsi'] = ta.RSI(dataframe[src], for_rsi)
-        dataframe['rsi_4'] = ta.RSI(dataframe[src], 4)
-        if self.config['runmode'].value == 'hyperopt':
+        dataframe["rsi"] = ta.RSI(dataframe[src], for_rsi)
+        dataframe["rsi_4"] = ta.RSI(dataframe[src], 4)
+        if self.config["runmode"].value == "hyperopt":
             for for_ma in range(5, 81):
                 # basis = ema(current_rsi, for_ma)
-                dataframe[f'basis_{for_ma}'] = ta.EMA(dataframe['rsi'], for_ma)
+                dataframe[f"basis_{for_ma}"] = ta.EMA(dataframe["rsi"], for_ma)
                 # dev = for_mult * stdev(current_rsi, for_ma)
-                dataframe[f'dev_{for_ma}'] = ta.STDDEV(dataframe['rsi'], for_ma)
+                dataframe[f"dev_{for_ma}"] = ta.STDDEV(dataframe["rsi"], for_ma)
                 # upper = basis + dev
                 # dataframe[f'upper_{for_ma}'] = (dataframe[f'basis_{for_ma}'] + (dataframe[f'dev_{for_ma}'] * for_mult))
                 # lower = basis - dev
@@ -344,18 +344,18 @@ class SMA_BBRSI(IStrategy):
                 # dataframe[f'disp_down_{for_ma}'] = dataframe[f'basis_{for_ma}'] - ((dataframe[f'upper_{for_ma}'] - dataframe[f'lower_{for_ma}']) * for_sigma)
                 # color_rsi = current_rsi >= disp_up ? lime : current_rsi <= disp_down ? red : #ffea00 // Текущий цвет RSI, в зависимости от его местоположения внутри BB
         else:
-            dataframe[f'basis_{self.for_ma_length.value}'] = ta.EMA(
-                dataframe['rsi'], self.for_ma_length.value
+            dataframe[f"basis_{self.for_ma_length.value}"] = ta.EMA(
+                dataframe["rsi"], self.for_ma_length.value
             )
-            dataframe[f'basis_{self.for_ma_length_sell.value}'] = ta.EMA(
-                dataframe['rsi'], self.for_ma_length_sell.value
+            dataframe[f"basis_{self.for_ma_length_sell.value}"] = ta.EMA(
+                dataframe["rsi"], self.for_ma_length_sell.value
             )
             # dev = for_mult * stdev(current_rsi, for_ma)
-            dataframe[f'dev_{self.for_ma_length.value}'] = ta.STDDEV(
-                dataframe['rsi'], self.for_ma_length.value
+            dataframe[f"dev_{self.for_ma_length.value}"] = ta.STDDEV(
+                dataframe["rsi"], self.for_ma_length.value
             )
-            dataframe[f'dev_{self.for_ma_length_sell.value}'] = ta.STDDEV(
-                dataframe['rsi'], self.for_ma_length_sell.value
+            dataframe[f"dev_{self.for_ma_length_sell.value}"] = ta.STDDEV(
+                dataframe["rsi"], self.for_ma_length_sell.value
             )
 
         #
@@ -388,11 +388,11 @@ class SMA_BBRSI(IStrategy):
         # plot(current_rsi, color=color_rsi, linewidth=2)
 
         # ATR
-        dataframe['atr'] = ta.ATR(dataframe, timeperiod=14)
-        dataframe['atr_high'] = (
-            (dataframe['high'] - (dataframe['atr'] * 3.5)).rolling(2).max()
+        dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
+        dataframe["atr_high"] = (
+            (dataframe["high"] - (dataframe["atr"] * 3.5)).rolling(2).max()
         )
-        dataframe['ema_atr'] = ta.EMA(dataframe['atr'], timeperiod=14)
+        dataframe["ema_atr"] = ta.EMA(dataframe["atr"], timeperiod=14)
 
         #        #HLC3
         #        dataframe['hlc3'] = (dataframe['high'] + dataframe['low'] + dataframe['close']) / 3
@@ -411,45 +411,45 @@ class SMA_BBRSI(IStrategy):
         #        dataframe['zlema_4_std'] = ta.EMA(dataframe['ema_data_4_std'], timeperiod = 4)
 
         # Modified Elder Ray Index
-        dataframe['moderi_96'] = moderi(dataframe, 96)
+        dataframe["moderi_96"] = moderi(dataframe, 96)
 
         # CTI
-        dataframe['cti'] = pta.cti(dataframe["close"], length=20)
+        dataframe["cti"] = pta.cti(dataframe["close"], length=20)
 
         # CCI
-        dataframe['cci_slow'] = pta.cci(
-            high=dataframe['high'],
-            low=dataframe['low'],
-            close=dataframe['close'],
+        dataframe["cci_slow"] = pta.cci(
+            high=dataframe["high"],
+            low=dataframe["low"],
+            close=dataframe["close"],
             length=240,
         )
-        dataframe['cci_fast'] = pta.cci(
-            high=dataframe['high'],
-            low=dataframe['low'],
-            close=dataframe['close'],
+        dataframe["cci_fast"] = pta.cci(
+            high=dataframe["high"],
+            low=dataframe["low"],
+            close=dataframe["close"],
             length=20,
         )
 
         # Calculate all ma_buy values
         for val in self.base_nb_candles_buy.range:
-            dataframe[f'ma_buy_{val}'] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_buy_{val}"] = ta.EMA(dataframe, timeperiod=val)
 
         # Calculate all ma_sell values
         for val in self.base_nb_candles_sell.range:
-            dataframe[f'ma_sell_{val}'] = ta.EMA(dataframe, timeperiod=val)
+            dataframe[f"ma_sell_{val}"] = ta.EMA(dataframe, timeperiod=val)
 
         # Elliot
-        dataframe['EWO'] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
+        dataframe["EWO"] = EWO(dataframe, self.fast_ewo, self.slow_ewo)
 
         # pump stregth
-        dataframe['zema_30'] = ftt.zema(dataframe, period=30)
-        dataframe['zema_200'] = ftt.zema(dataframe, period=200)
-        dataframe['pump_strength'] = (
-            dataframe['zema_30'] - dataframe['zema_200']
-        ) / dataframe['zema_30']
+        dataframe["zema_30"] = ftt.zema(dataframe, period=30)
+        dataframe["zema_200"] = ftt.zema(dataframe, period=200)
+        dataframe["pump_strength"] = (
+            dataframe["zema_30"] - dataframe["zema_200"]
+        ) / dataframe["zema_30"]
 
         # RSI
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
         return dataframe
 
@@ -458,74 +458,74 @@ class SMA_BBRSI(IStrategy):
         dont_buy_conditions = []
 
         dont_buy_conditions.append(
-            (dataframe['pump_strength'] > self.antipump_threshold.value)
+            (dataframe["pump_strength"] > self.antipump_threshold.value)
         )
 
         conditions.append(
             (
                 (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_buy_{self.base_nb_candles_buy.value}']
+                        dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
                         * self.low_offset.value
                     )
                 )
-                & (dataframe['EWO'] > self.ewo_high.value)
-                & (dataframe['rsi'] < self.rsi_buy.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] > self.ewo_high.value)
+                & (dataframe["rsi"] < self.rsi_buy.value)
+                & (dataframe["volume"] > 0)
             )
         )
 
         conditions.append(
             (
                 (
-                    dataframe['close']
+                    dataframe["close"]
                     < (
-                        dataframe[f'ma_buy_{self.base_nb_candles_buy.value}']
+                        dataframe[f"ma_buy_{self.base_nb_candles_buy.value}"]
                         * self.low_offset.value
                     )
                 )
-                & (dataframe['EWO'] < self.ewo_low.value)
-                & (dataframe['volume'] > 0)
+                & (dataframe["EWO"] < self.ewo_low.value)
+                & (dataframe["volume"] > 0)
             )
         )
 
         conditions.append(
             (
                 (
-                    dataframe['rsi']
+                    dataframe["rsi"]
                     < (
-                        dataframe[f'basis_{self.for_ma_length.value}']
+                        dataframe[f"basis_{self.for_ma_length.value}"]
                         - (
-                            dataframe[f'dev_{self.for_ma_length.value}']
+                            dataframe[f"dev_{self.for_ma_length.value}"]
                             * self.for_sigma.value
                         )
                     )
                 )
                 & (
                     (
-                        (dataframe['EWO'] > self.ewo_high_bb.value)
-                        & (dataframe['EWO'] < 10)
+                        (dataframe["EWO"] > self.ewo_high_bb.value)
+                        & (dataframe["EWO"] < 10)
                     )
-                    | ((dataframe['EWO'] >= 10) & (dataframe['rsi'] < 40))
+                    | ((dataframe["EWO"] >= 10) & (dataframe["rsi"] < 40))
                 )
-                & (dataframe['rsi_4'] < 25)
-                & (dataframe['volume'] > 0)
-                & (dataframe['cci_fast'] < 100)
+                & (dataframe["rsi_4"] < 25)
+                & (dataframe["volume"] > 0)
+                & (dataframe["cci_fast"] < 100)
                 #                &
                 #                (qtpylib.crossed_above(dataframe['hlc3OTF'], dataframe['zlema_4']))
                 # &
                 # (dataframe["roc_bbwidth_max"] < 70)
             )
-            & (dataframe['moderi_96'] == True)
+            & (dataframe["moderi_96"] == True)
         )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "buy"] = 1
 
         if dont_buy_conditions:
             for condition in dont_buy_conditions:
-                dataframe.loc[condition, 'buy'] = 0
+                dataframe.loc[condition, "buy"] = 0
 
         return dataframe
 
@@ -535,13 +535,13 @@ class SMA_BBRSI(IStrategy):
         conditions.append(
             (
                 (
-                    dataframe['close']
+                    dataframe["close"]
                     > (
-                        dataframe[f'ma_sell_{self.base_nb_candles_sell.value}']
+                        dataframe[f"ma_sell_{self.base_nb_candles_sell.value}"]
                         * self.high_offset.value
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
         )
 
@@ -550,40 +550,40 @@ class SMA_BBRSI(IStrategy):
                 (
                     (
                         (
-                            (dataframe['rsi'] > self.rsi_high.value)
+                            (dataframe["rsi"] > self.rsi_high.value)
                             |
                             # upper = basis + dev
                             # lower = basis - dev
                             # disp_down = basis - ((upper - lower) * for_sigma) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (снизу)
                             # disp_down = basis - ((2* dev * for_sigma) // Минимально-допустимый порог в области мувинга, который должен преодолеть RSI (снизу)
                             (
-                                dataframe['rsi']
-                                > dataframe[f'basis_{self.for_ma_length_sell.value}']
+                                dataframe["rsi"]
+                                > dataframe[f"basis_{self.for_ma_length_sell.value}"]
                                 + (
                                     (
                                         dataframe[
-                                            f'dev_{self.for_ma_length_sell.value}'
+                                            f"dev_{self.for_ma_length_sell.value}"
                                         ]
                                         * self.for_sigma_sell.value
                                     )
                                 )
                             )
                         )
-                        & (dataframe['moderi_96'] == True)
+                        & (dataframe["moderi_96"] == True)
                     )
                     | (
                         (
                             qtpylib.crossed_below(
-                                dataframe['close'], dataframe['atr_high']
+                                dataframe["close"], dataframe["atr_high"]
                             )
                         )
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
         )
 
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
 
         return dataframe

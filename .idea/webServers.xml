@@ -10,21 +10,28 @@
         </fileTransfer>
       </webServer>
       <webServer id="4df55987-9306-4930-a531-5ba70ef178ed" name="pi4-bot3">
-        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot3" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot3" accessType="SFTP" host="192.168.1.29" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@192.168.1.29:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>
       <webServer id="a6ad7d32-6b9d-424f-9e42-afd3e329538a" name="pi4-bot4">
-        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot4/" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot4/" accessType="SFTP" host="192.168.1.29" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@192.168.1.29:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>
       <webServer id="fe042a92-994d-4c1f-ae26-be21bb5b2486" name="pi4-bot2">
-        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot2" accessType="SFTP" host="pi4.local" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@pi4.local:22 key" keyPair="true">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot2" accessType="SFTP" host="192.168.1.29" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@192.168.1.29:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="bd109837-0e49-4396-bc0e-900b75cae55f" name="pi4-bot1">
+        <fileTransfer rootFolder="/home/pi/freqtrade/freqtrade-bot1" accessType="SFTP" host="192.168.1.29" port="22" sshConfigId="7b27eeb3-bf10-4abb-9010-f2954445eac1" sshConfig="pi@192.168.1.29:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

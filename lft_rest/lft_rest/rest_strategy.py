@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from json import JSONDecodeError
 from pathlib import Path
 from threading import Thread
-from typing import List, Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import rapidjson
 import requests
@@ -16,16 +16,15 @@ from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import IStrategy
-from freqtrade.strategy.interface import SellCheckTuple
+from freqtrade.strategy.interface import ExitCheckTuple
+from lazyft import paths
 from pandas import DataFrame
 from tenacity import retry, stop_after_attempt, wait_fixed
-
-from lazyft import paths
 
 logger = logging.getLogger(__name__)
 cached_strategies = {}
 
-ip = os.getenv('LFT_REST_IP', 'sage-server1.local')
+ip = os.getenv("LFT_REST_IP", "sage-server1.local")
 
 
 class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
@@ -49,9 +48,9 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
     wait_pending_duration = timedelta(minutes=5)
 
     # rest_strategy_name = ''
-    base_rest_url = f'http://{ip}:8000'
-    backtest_url = f'{base_rest_url}/pair/backtest'
-    hyperopt_url = f'{base_rest_url}/pair/hyperopt'
+    base_rest_url = f"http://{ip}:8000"
+    backtest_url = f"{base_rest_url}/pair/backtest"
+    hyperopt_url = f"{base_rest_url}/pair/hyperopt"
 
     _backtest_list = set()
     _hyperopt_list = set()
@@ -70,6 +69,10 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         return self.config["runmode"].value in ("live", "dry_run")
 
     @property
+    def is_plotting(self):
+        return self.config["runmode"].value == "plot"
+
+    @property
     def rest_strategy_name(self):
         return self.__class__.__mro__[2].__name__
 
@@ -77,7 +80,10 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         if self.is_live_or_dry:
             trades = Trade.get_open_trades()
             for pair in [t.pair for t in trades]:
-                if pair not in self._pair_custom_whitelist and pair not in self._backtest_list:
+                if (
+                    pair not in self._pair_custom_whitelist
+                    and pair not in self._backtest_list
+                ):
                     self.init_pair(pair)
                     self._backtest_list.add(pair)
             # if last_refresh_date is older than allotted days, clear pair_custom_whitelist
@@ -102,7 +108,7 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                 self._last_validation_time = datetime.now()
         except KeyboardInterrupt:
             # request /shutdown
-            requests.get(f'{self.base_rest_url}/shutdown')
+            requests.get(f"{self.base_rest_url}/shutdown")
         super().analyze(pairs)
 
     def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
@@ -110,7 +116,7 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
             self.validate_all_pairs(list(data.keys()))
         except KeyboardInterrupt:
             # request /shutdown
-            requests.get(f'{self.base_rest_url}/shutdown')
+            requests.get(f"{self.base_rest_url}/shutdown")
         return super().advise_all_indicators(data)
 
     def validate_all_pairs(self, pairs):
@@ -121,7 +127,9 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                 self._backtest_list.add(pair)
         # for trade in Trade.get_open_trades():
         #     self.init_pair(trade.pair)
-        while any(self._backtest_list) or (not self.is_live_or_dry and any(self._hyperopt_list)):
+        while any(self._backtest_list) or (
+            not self.is_live_or_dry and any(self._hyperopt_list)
+        ):
             if any(self._backtest_list):
                 pairs_backtest = self.request_backtest_info(self._backtest_list)
                 for pair, info in pairs_backtest.items():
@@ -130,9 +138,15 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                 pairs_hyperopt = self.request_hyperopt_info(self._hyperopt_list)
                 for pair, info in pairs_hyperopt.items():
                     self.hyperopt_validation(pair, info)
-            if any(self._backtest_list) or (not self.is_live_or_dry and any(self._hyperopt_list)):
+            if any(self._backtest_list) or (
+                not self.is_live_or_dry and any(self._hyperopt_list)
+            ):
                 time.sleep(10)
-        if not self.hyperopt_worker_running and self.is_live_or_dry and any(self._hyperopt_list):
+        if (
+            not self.hyperopt_worker_running
+            and self.is_live_or_dry
+            and any(self._hyperopt_list)
+        ):
             Thread(target=self.hyperopt_worker, daemon=True).start()
 
     def confirm_trade_entry(
@@ -145,21 +159,29 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         current_time: datetime,
         **kwargs,
     ) -> bool:
-        if self._pair_custom_whitelist[pair].get('valid') == 0:
-            if self.is_live_or_dry:
-                self.lock_pair(pair, until=current_time + self.disable_duration, reason='disabled')
-                logger.info(f'{pair} is invalid, disabling pair for {self.disable_duration}')
-            return False
-        if self._pair_custom_whitelist[pair].get('valid') == -1:
+        if self._pair_custom_whitelist[pair].get("valid") == 0:
             if self.is_live_or_dry:
                 self.lock_pair(
-                    pair, until=current_time + self.wait_pending_duration, reason='pending'
+                    pair, until=current_time + self.disable_duration, reason="disabled"
                 )
-                logger.info(f'{pair} is pending, disabling pair for {self.wait_pending_duration}')
+                logger.info(
+                    f"{pair} is invalid, disabling pair for {self.disable_duration}"
+                )
+            return False
+        if self._pair_custom_whitelist[pair].get("valid") == -1:
+            if self.is_live_or_dry:
+                self.lock_pair(
+                    pair,
+                    until=current_time + self.wait_pending_duration,
+                    reason="pending",
+                )
+                logger.info(
+                    f"{pair} is pending, disabling pair for {self.wait_pending_duration}"
+                )
             return False
         # if pair has a valid hyperopt, call it's confirm_trade_entry
-        if self._pair_custom_whitelist[pair].get('hyperopt') == 1:
-            return self._pair_custom_whitelist[pair]['strategy'].confirm_trade_entry(
+        if self._pair_custom_whitelist[pair].get("hyperopt") == 1:
+            return self._pair_custom_whitelist[pair]["strategy"].confirm_trade_entry(
                 pair,
                 order_type,
                 amount,
@@ -168,7 +190,7 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                 current_time,
                 **kwargs,
             )
-        if self._pair_custom_whitelist[pair].get('valid') == 1:
+        if self._pair_custom_whitelist[pair].get("valid") == 1:
             return True
 
         return False
@@ -181,20 +203,23 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         :param backtest_result: result of backtest
         :return: True if the pair is valid, False otherwise
         """
-        if pair in self._pair_custom_whitelist and self._pair_custom_whitelist[pair]['valid'] != -1:
-            return 1 if self._pair_custom_whitelist[pair].get('backtest') == 1 else 0
+        if (
+            pair in self._pair_custom_whitelist
+            and self._pair_custom_whitelist[pair]["valid"] != -1
+        ):
+            return 1 if self._pair_custom_whitelist[pair].get("backtest") == 1 else 0
         # request a backtest for pair
-        status = backtest_result['status']
+        status = backtest_result["status"]
         ret = -1
         # check to see if the backtest has been queued, is pending, or is done
-        if status == 'queued':
+        if status == "queued":
             self._pending_pair_confirmations.add(pair)
-        elif status == 'pending':
+        elif status == "pending":
             # we wait
             pass
         else:
             # we have a result
-            self._pair_custom_whitelist[pair]['backtest'] = 1 if status is True else 0
+            self._pair_custom_whitelist[pair]["backtest"] = 1 if status is True else 0
             if pair in self._pending_pair_confirmations:
                 self._pending_pair_confirmations.remove(pair)
             if status is False:
@@ -203,66 +228,69 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                     # we prepare the pair for hyperopt
                     self._hyperopt_list.add(pair)
                     logger.debug(
-                        f'{pair} failed backtest validation. Adding to hyperopt list.'
-                        f'({len(self._backtest_list) - 1} pairs left to backtest.)'
+                        f"{pair} failed backtest validation. Adding to hyperopt list."
+                        f"({len(self._backtest_list) - 1} pairs left to backtest.)"
                     )
                 else:
                     # lock pair for self.invalid_lock_duration days
                     self.lock_pair(
                         pair,
                         datetime.now() + self.invalid_lock_duration,
-                        'Failed validation',
+                        "Failed validation",
                     )
                     logger.debug(
                         f'Locking "{pair}" due to failed backtest validation.'
-                        f'({len(self._backtest_list) - 1} pairs left to backtest.)'
+                        f"({len(self._backtest_list) - 1} pairs left to backtest.)"
                     )
             else:
                 # success
                 logger.info(
                     f'{pair} validated. Info: {backtest_result.get("info")} '
-                    f'({len(self._backtest_list) - 1} pairs left to backtest.)'
+                    f"({len(self._backtest_list) - 1} pairs left to backtest.)"
                 )
-                self._pair_custom_whitelist[pair]['valid'] = 1
+                self._pair_custom_whitelist[pair]["valid"] = 1
                 ret = 1
             self._backtest_list.remove(pair)
 
         return ret
 
     def hyperopt_validation(self, pair: str, result: dict[str, dict]) -> int:
-        if pair in self._pair_custom_whitelist and self._pair_custom_whitelist[pair]['valid'] != -1:
-            return self._pair_custom_whitelist[pair].get('valid') == 1
+        if (
+            pair in self._pair_custom_whitelist
+            and self._pair_custom_whitelist[pair]["valid"] != -1
+        ):
+            return self._pair_custom_whitelist[pair].get("valid") == 1
         # request a backtest for pair
-        status = result['status']
+        status = result["status"]
         ret = -1
         # check to see if the backtest has been queued, is pending, or is done
-        if status == 'queued':
+        if status == "queued":
             # init the pair
             self._pending_pair_confirmations.add(pair)
-            self._pair_custom_whitelist[pair]['hyperopt_count'] += 1
+            self._pair_custom_whitelist[pair]["hyperopt_count"] += 1
             # self.init_pair(pair)
             return ret
-        elif status == 'pending':
+        elif status == "pending":
             # we wait
             return ret
         else:
             # we have a result
             ret = 1 if status is True else 0
-            self._pair_custom_whitelist[pair]['hyperopt'] = ret
+            self._pair_custom_whitelist[pair]["hyperopt"] = ret
             if pair in self._pending_pair_confirmations:
                 self._pending_pair_confirmations.remove(pair)
             if status is False:
                 logger.info(
-                    f'{pair} failed hyperopt validation {result}. Disabling pair. '
-                    f'({len(self._hyperopt_list) - 1} hyperopts left)'
+                    f"{pair} failed hyperopt validation {result}. Disabling pair. "
+                    f"({len(self._hyperopt_list) - 1} hyperopts left)"
                 )
                 ret = 0
             else:
                 logger.info(
                     f'{pair} hyperopt validated. Info: {result.get("info")} '
-                    f'({len(self._hyperopt_list) - 1} hyperopts left)'
+                    f"({len(self._hyperopt_list) - 1} hyperopts left)"
                 )
-                self._pair_custom_whitelist[pair]['params'] = result['info']['params']
+                self._pair_custom_whitelist[pair]["params"] = result["info"]["params"]
                 if not self.is_live_or_dry:
                     self.finalize_hyperopt(pair)
                 ret = 1
@@ -277,17 +305,17 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         res = requests.get(
             self.backtest_url,
             params={
-                'pair': pair,
-                'strategy': self.rest_strategy_name,
-                'exchange': self.config['exchange']['name'],
+                "pair": pair,
+                "strategy": self.rest_strategy_name,
+                "exchange": self.config["exchange"]["name"],
                 # 'inf_intervals': intervals,
-                'min_avg_profit': self.min_avg_profit,
-                'min_win_ratio': self.min_win_ratio,
-                'days': self.backtest_days,
-                'timeframe': self.timeframe,
+                "min_avg_profit": self.min_avg_profit,
+                "min_win_ratio": self.min_win_ratio,
+                "days": self.backtest_days,
+                "timeframe": self.timeframe,
             },
         )
-        logger.debug(f'{pair} {res.json()}')
+        logger.debug(f"{pair} {res.json()}")
         return res.json()
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(10))
@@ -301,27 +329,27 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         for pair in pairs.copy():
             if (
                 pair in self._pair_custom_whitelist
-                and self._pair_custom_whitelist[pair]['valid'] != -1
+                and self._pair_custom_whitelist[pair]["valid"] != -1
             ):
                 pairs.remove(pair)
-        csv_pairs = ','.join(pairs)
+        csv_pairs = ",".join(pairs)
         res = requests.get(
             self.backtest_url,
             params={
-                'pairs': csv_pairs,
-                'strategy': self.rest_strategy_name,
-                'exchange': self.config['exchange']['name'],
-                'min_avg_profit': self.min_avg_profit,
-                'min_win_ratio': self.min_win_ratio,
-                'days': self.backtest_days,
-                'timeframe': self.timeframe,
-                'timeframe_detail': self.timeframe_detail,
+                "pairs": csv_pairs,
+                "strategy": self.rest_strategy_name,
+                "exchange": self.config["exchange"]["name"],
+                "min_avg_profit": self.min_avg_profit,
+                "min_win_ratio": self.min_win_ratio,
+                "days": self.backtest_days,
+                "timeframe": self.timeframe,
+                "timeframe_detail": self.timeframe_detail,
             },
         )
         try:
             return res.json()
         except JSONDecodeError as e:
-            raise Exception(f'{res.text} {res.status_code} {res.url}') from e
+            raise Exception(f"{res.text} {res.status_code} {res.url}") from e
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(10))
     def request_hyperopt_info(self, pairs: set[str]) -> dict[str, dict]:
@@ -334,34 +362,34 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         for pair in pairs.copy():
             assert (
                 pair in self._pair_custom_whitelist
-                and self._pair_custom_whitelist[pair]['valid'] == -1
-            ), f'{pair} does should not be in hyperopt list'
+                and self._pair_custom_whitelist[pair]["valid"] == -1
+            ), f"{pair} does should not be in hyperopt list"
 
-        csv_pairs = ','.join(pairs)
+        csv_pairs = ",".join(pairs)
         res = requests.get(
             self.hyperopt_url,
             params={
-                'pairs': csv_pairs,
-                'strategy': self.rest_strategy_name,
-                'exchange': self.config['exchange']['name'],
-                'min_avg_profit': self.min_avg_profit,
-                'days': self.hyperopt_days,
-                'timeframe': self.timeframe,
-                'epochs': self.hyperopt_epochs,
-                'min_trades': self.min_hyperopt_trades,
-                'timeframe_detail': self.timeframe_detail,
+                "pairs": csv_pairs,
+                "strategy": self.rest_strategy_name,
+                "exchange": self.config["exchange"]["name"],
+                "min_avg_profit": self.min_avg_profit,
+                "days": self.hyperopt_days,
+                "timeframe": self.timeframe,
+                "epochs": self.hyperopt_epochs,
+                "min_trades": self.min_hyperopt_trades,
+                "timeframe_detail": self.timeframe_detail,
             },
         )
         return res.json()
 
     def init_pair(self, pair):
         self._pair_custom_whitelist[pair] = {
-            'valid': -1,
-            'backtest': -1,
-            'hyperopt': -1,
-            'strategy': None,
-            'params': {},
-            'hyperopt_count': 0,
+            "valid": -1,
+            "backtest": -1,
+            "hyperopt": -1,
+            "strategy": None,
+            "params": {},
+            "hyperopt_count": 0,
         }
 
     def hyperopt_worker(self):
@@ -375,32 +403,32 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
                         self.finalize_hyperopt(pair)
                 except Exception as e:
                     logger.exception(
-                        f'Error validating {pair}'
-                        f' Disabling for {self.disable_duration} minutes',
+                        f"Error validating {pair}"
+                        f" Disabling for {self.disable_duration} minutes",
                         e,
                     )
                     self.lock_pair(
                         pair,
                         until=datetime.utcnow() + self.disable_duration,
-                        reason='hyperopt validation error',
+                        reason="hyperopt validation error",
                     )
             time.sleep(self.validation_interval.total_seconds())
         self.hyperopt_worker_running = False
 
     def finalize_hyperopt(self, pair):
-        logger.info(f'Finalizing hyperopt for {pair}')
+        logger.info(f"Finalizing hyperopt for {pair}")
         strategy = DynamicStrategy(
             strategy_name=self.rest_strategy_name,
             pair=pair,
-            params=self._pair_custom_whitelist[pair]['params'],
+            params=self._pair_custom_whitelist[pair]["params"],
             config=self.config,
         )
         self.load_strategy(strategy)
-        self._pair_custom_whitelist[pair]['valid'] = 1
+        self._pair_custom_whitelist[pair]["valid"] = 1
 
     def load_strategy(
         self,
-        dynamic_strategy: 'DynamicStrategy',
+        dynamic_strategy: "DynamicStrategy",
     ) -> IStrategy:
         #
         if dynamic_strategy.joined_name in cached_strategies:
@@ -413,9 +441,9 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         dynamic_strategy.copy_params()
         strategy_dir = dynamic_strategy.tmp_path
         config = self.config
-        config['strategy_path'] = strategy_dir
-        config['user_data_dir'] = strategy_dir
-        config['data_dir'] = paths.USER_DATA_DIR / 'data'
+        config["strategy_path"] = strategy_dir
+        config["user_data_dir"] = strategy_dir
+        config["data_dir"] = paths.USER_DATA_DIR / "data"
         config = config.copy()
         config["strategy"] = dynamic_strategy.strategy_name
         # for k in keys_to_delete:
@@ -425,32 +453,45 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         #         pass
         strategy = StrategyResolver.load_strategy(config)
         strategy.dp = self.dp
-        self.startup_candle_count = max(self.startup_candle_count, strategy.startup_candle_count)
+        self.startup_candle_count = max(
+            self.startup_candle_count, strategy.startup_candle_count
+        )
 
         strategy.dp = self.dp
         strategy.wallets = self.wallets
         cached_strategies[dynamic_strategy.joined_name] = strategy
-        self._pair_custom_whitelist[dynamic_strategy.pair]['strategy'] = strategy
+        self._pair_custom_whitelist[dynamic_strategy.pair]["strategy"] = strategy
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        pair = metadata['pair']
-        if self._pair_custom_whitelist[pair].get('strategy') is None:
+        pair = metadata["pair"]
+        if (
+            self.is_plotting
+            or self._pair_custom_whitelist[pair].get("strategy") is None
+        ):
             return super().populate_indicators(dataframe, metadata)
-        return self._pair_custom_whitelist[pair]['strategy'].populate_indicators(
+        return self._pair_custom_whitelist[pair]["strategy"].populate_indicators(
             dataframe, metadata
         )
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        pair = metadata['pair']
-        if self._pair_custom_whitelist[pair].get('strategy') is None:
+        pair = metadata["pair"]
+        if (
+            self.is_plotting
+            or self._pair_custom_whitelist[pair].get("strategy") is None
+        ):
             return super().populate_buy_trend(dataframe, metadata)
-        return self._pair_custom_whitelist[pair]['strategy'].populate_buy_trend(dataframe, metadata)
+        return self._pair_custom_whitelist[pair]["strategy"].populate_buy_trend(
+            dataframe, metadata
+        )
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        pair = metadata['pair']
-        if self._pair_custom_whitelist[pair].get('strategy') is None:
+        pair = metadata["pair"]
+        if (
+            self.is_plotting
+            or self._pair_custom_whitelist[pair].get("strategy") is None
+        ):
             return super().populate_sell_trend(dataframe, metadata)
-        return self._pair_custom_whitelist[pair]['strategy'].populate_sell_trend(
+        return self._pair_custom_whitelist[pair]["strategy"].populate_sell_trend(
             dataframe, metadata
         )
 
@@ -464,15 +505,17 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
+    ) -> ExitCheckTuple:
         if (
             trade.pair in self._pair_custom_whitelist
-            and self._pair_custom_whitelist[trade.pair]['hyperopt'] == 1
+            and self._pair_custom_whitelist[trade.pair]["hyperopt"] == 1
         ):
-            return self._pair_custom_whitelist[trade.pair]['strategy'].should_sell(
+            return self._pair_custom_whitelist[trade.pair]["strategy"].should_sell(
                 trade, rate, date, buy, sell, low, high, force_stoploss
             )
-        return super().should_sell(trade, rate, date, buy, sell, low, high, force_stoploss)
+        return super().should_sell(
+            trade, rate, date, buy, sell, low, high, force_stoploss
+        )
 
     def custom_stoploss(
         self,
@@ -480,8 +523,8 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         *args,
         **kwargs,
     ) -> float:
-        if self._pair_custom_whitelist[pair].get('hyperopt') == 1:
-            return self._pair_custom_whitelist[pair]['strategy'].custom_stoploss(
+        if self._pair_custom_whitelist[pair].get("hyperopt") == 1:
+            return self._pair_custom_whitelist[pair]["strategy"].custom_stoploss(
                 pair, *args, **kwargs
             )
         return super().custom_stoploss(pair, *args, **kwargs)
@@ -498,8 +541,8 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         current_time: datetime,
         **kwargs,
     ) -> bool:
-        if self._pair_custom_whitelist[pair].get('hyperopt') == 1:
-            return self._pair_custom_whitelist[pair]['strategy'].confirm_trade_exit(
+        if self._pair_custom_whitelist[pair].get("hyperopt") == 1:
+            return self._pair_custom_whitelist[pair]["strategy"].confirm_trade_exit(
                 pair,
                 trade,
                 order_type,
@@ -528,8 +571,10 @@ class BaseRestStrategy(IStrategy, metaclass=ABCMeta):
         *args,
         **kwargs,
     ) -> Optional[Union[str, bool]]:
-        if self._pair_custom_whitelist[pair].get('hyperopt') == 1:
-            return self._pair_custom_whitelist[pair]['strategy'].custom_sell(pair, *args, **kwargs)
+        if self._pair_custom_whitelist[pair].get("hyperopt") == 1:
+            return self._pair_custom_whitelist[pair]["strategy"].custom_sell(
+                pair, *args, **kwargs
+            )
         return super().custom_sell(pair, *args, **kwargs)
 
 
@@ -554,7 +599,7 @@ class DynamicStrategy:
         self.tmp_path.mkdir(exist_ok=True)
 
     def copy_params(self):
-        param_filename = self.strategy_file_name.with_suffix('.json')
+        param_filename = self.strategy_file_name.with_suffix(".json")
 
         # copy the params to the temporary directory as a json file
         path = self.tmp_path / f"{param_filename}"
@@ -570,7 +615,9 @@ class DynamicStrategy:
         """copy the strategy to the temporary directory"""
         strategy_path = paths.STRATEGY_DIR / self.strategy_file_name
         self.create_tmp_dir()
-        Path(self.tmp_path, f"{strategy_path.name}").write_text(strategy_path.read_text())
+        Path(self.tmp_path, f"{strategy_path.name}").write_text(
+            strategy_path.read_text()
+        )
 
     @property
     def strategy_file_name(self):

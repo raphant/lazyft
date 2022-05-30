@@ -1,11 +1,10 @@
 import pathlib
 
 import rapidjson
-
-from lazyft import logger, regex, paths
+from lazyft import logger, paths, regex
 from lazyft.config import Config
 from lazyft.models import HyperoptPerformance, HyperoptReport
-from lazyft.strategy import create_strategy_params_filepath, get_strategy_param_path
+from lazyft.strategy import get_strategy_param_path
 
 
 class HyperoptReportExporter:

@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import pandas as pd
 import rapidjson
@@ -16,16 +16,16 @@ from freqtrade.optimize.space import SKDecimal
 from freqtrade.persistence import Trade
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import (
-    IStrategy,
-    IntParameter,
-    DecimalParameter,
-    stoploss_from_open,
     CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    IStrategy,
+    stoploss_from_open,
 )
-from freqtrade.strategy.interface import SellCheckTuple
+from freqtrade.strategy.interface import ExitCheckTuple
 from pandas import DataFrame
 from scipy.interpolate import interp1d
-from skopt.space import Dimension, Integer, Categorical
+from skopt.space import Categorical, Dimension, Integer
 
 # warnings.filterwarnings(
 #     'ignore',
@@ -37,7 +37,7 @@ sys.path.append(str(Path(__file__).parent))
 
 logger = logging.getLogger(__name__)
 
-ensemble_path = Path('user_data/strategies/ensemble.json')
+ensemble_path = Path("user_data/strategies/ensemble.json")
 
 STRATEGIES = []
 if ensemble_path.exists():
@@ -54,12 +54,12 @@ class MyEnsembleStrategy2(IStrategy):
     loaded_strategies = {}
 
     stoploss = -0.31
-    minimal_roi = {'0': 0.1669, '19': 0.049, '61': 0.023, '152': 0}
+    minimal_roi = {"0": 0.1669, "19": 0.049, "61": 0.023, "152": 0}
 
     # sell_profit_offset = (
     #     0.001  # it doesn't meant anything, just to guarantee there is a minimal profit.
     # )
-    use_sell_signal = True
+    exit_sell_signal = True
     ignore_roi_if_buy_signal = True
     sell_profit_only = False
 
@@ -93,7 +93,7 @@ class MyEnsembleStrategy2(IStrategy):
     # endregion
 
     plot_config = {
-        'main_plot': {
+        "main_plot": {
             "buy_sell": {
                 "sell_tag": {"color": "red"},
                 "buy_tag": {"color": "blue"},
@@ -101,7 +101,7 @@ class MyEnsembleStrategy2(IStrategy):
         }
     }
 
-    combo_sell_signal = IntParameter(1, len(STRATEGIES) + 1, default=2, space='buy')
+    combo_sell_signal = IntParameter(1, len(STRATEGIES) + 1, default=2, space="buy")
     # protections = [
     #     {"method": "CooldownPeriod", "stop_duration_candles": 2},
     #     {
@@ -113,7 +113,7 @@ class MyEnsembleStrategy2(IStrategy):
     #     },
     # ]
     use_custom_stoploss_opt = CategoricalParameter(
-        [True, False], default=False, space='buy'
+        [True, False], default=False, space="buy"
     )
     # region trailing stoploss hyperopt parameters
     # hard stoploss profit
@@ -122,27 +122,27 @@ class MyEnsembleStrategy2(IStrategy):
         -0.040,
         default=-0.15,
         decimals=3,
-        space='sell',
+        space="sell",
         optimize=True,
         load=True,
     )
     # profit threshold 1, trigger point, SL_1 is used
     pPF_1 = DecimalParameter(
-        0.008, 0.020, default=0.016, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.016, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_1 = DecimalParameter(
-        0.008, 0.020, default=0.014, decimals=3, space='sell', optimize=True, load=True
+        0.008, 0.020, default=0.014, decimals=3, space="sell", optimize=True, load=True
     )
 
     # profit threshold 2, SL_2 is used
     pPF_2 = DecimalParameter(
-        0.040, 0.100, default=0.024, decimals=3, space='sell', optimize=True, load=True
+        0.040, 0.100, default=0.024, decimals=3, space="sell", optimize=True, load=True
     )
     pSL_2 = DecimalParameter(
-        0.020, 0.070, default=0.022, decimals=3, space='sell', optimize=True, load=True
+        0.020, 0.070, default=0.022, decimals=3, space="sell", optimize=True, load=True
     )
     # endregion
-    slippage_protection = {'retries': 3, 'max_slippage': -0.02}
+    slippage_protection = {"retries": 3, "max_slippage": -0.02}
 
     def __init__(self, config: dict) -> None:
         super().__init__(config)
@@ -163,7 +163,7 @@ class MyEnsembleStrategy2(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -235,14 +235,14 @@ class MyEnsembleStrategy2(IStrategy):
                 futures.append(executor.submit(self.analyze_pair, pair))
             for future in concurrent.futures.as_completed(futures):
                 future.result()
-        logger.info('Analyzed everything in %f seconds', time.time() - t1)
+        logger.info("Analyzed everything in %f seconds", time.time() - t1)
         # super().analyze(pairs)
 
     def advise_all_indicators(self, data: Dict[str, DataFrame]) -> Dict[str, DataFrame]:
         """only used in backtesting"""
         for s in STRATEGIES:
             self.get_strategy(s)
-        logger.info('Loaded all strategies')
+        logger.info("Loaded all strategies")
 
         # def worker(data_: DataFrame, metadata: dict):
         #     return {
@@ -262,7 +262,7 @@ class MyEnsembleStrategy2(IStrategy):
         #         result = future.result()
         #         new_data[result['pair']] = result['data']
         indicators = super().advise_all_indicators(data)
-        logger.info('Advise all elapsed: %s', time.time() - t1)
+        logger.info("Advise all elapsed: %s", time.time() - t1)
         return indicators
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -282,7 +282,7 @@ class MyEnsembleStrategy2(IStrategy):
                 temp = future.result()
                 # temp.set_index('date', inplace=True)
                 indicators.append(
-                    temp.drop(['open', 'high', 'low', 'close', 'volume'], axis=1)
+                    temp.drop(["open", "high", "low", "close", "volume"], axis=1)
                 )
         # for strategy_name in STRATEGIES:
         #     # logger.info('Populating %s', strategy_name)
@@ -315,51 +315,51 @@ class MyEnsembleStrategy2(IStrategy):
         #         dataframe[col] = series
         for df in indicators:
             cols_to_use = df.columns.difference(dataframe.columns).to_list()
-            cols_to_use.append('date')
+            cols_to_use.append("date")
             # dataframe = pd.concat([dataframe, df], axis=1)
-            dataframe = pd.merge(dataframe, df[cols_to_use], on='date')
+            dataframe = pd.merge(dataframe, df[cols_to_use], on="date")
         # logger.info('Populating %s took %s seconds', metadata['pair'], time.time() - t1)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         strategies = STRATEGIES.copy()
-        dataframe.loc[:, 'ensemble_buy'] = ''
-        dataframe.loc[:, 'buy_tag'] = ''
-        dataframe.loc[:, 'buy'] = 0
+        dataframe.loc[:, "ensemble_buy"] = ""
+        dataframe.loc[:, "buy_tag"] = ""
+        dataframe.loc[:, "buy"] = 0
         for strategy_name in strategies:
             strategy = self.get_strategy(strategy_name)
             strategy_indicators = strategy.advise_buy(dataframe.copy(), metadata)
-            strategy_indicators.loc[:, 'strategy'] = ''
+            strategy_indicators.loc[:, "strategy"] = ""
             strategy_indicators.loc[
-                strategy_indicators.buy == 1, 'strategy'
+                strategy_indicators.buy == 1, "strategy"
             ] = strategy_name
 
-            strategy_indicators.loc[:, 'existing_buy'] = dataframe['ensemble_buy']
-            strategy_indicators.loc[:, 'ensemble_buy'] = strategy_indicators.apply(
-                lambda x: ','.join((x['strategy'], x['existing_buy'])).strip(','),
+            strategy_indicators.loc[:, "existing_buy"] = dataframe["ensemble_buy"]
+            strategy_indicators.loc[:, "ensemble_buy"] = strategy_indicators.apply(
+                lambda x: ",".join((x["strategy"], x["existing_buy"])).strip(","),
                 axis=1,
             )
-            dataframe.loc[:, 'ensemble_buy'] = strategy_indicators['ensemble_buy']
+            dataframe.loc[:, "ensemble_buy"] = strategy_indicators["ensemble_buy"]
 
-        dataframe.loc[dataframe.ensemble_buy != '', 'buy'] = 1
-        dataframe.loc[dataframe.buy == 1, 'buy_tag'] = dataframe['ensemble_buy']
+        dataframe.loc[dataframe.ensemble_buy != "", "buy"] = 1
+        dataframe.loc[dataframe.buy == 1, "buy_tag"] = dataframe["ensemble_buy"]
 
         dataframe.drop(
-            ['ensemble_buy', 'existing_buy', 'strategy', 'buy_copy'],
+            ["ensemble_buy", "existing_buy", "strategy", "buy_copy"],
             axis=1,
             inplace=True,
-            errors='ignore',
+            errors="ignore",
         )
         return dataframe
 
     @property
     def is_live_or_dry(self):
-        return self.config['runmode'].value in ('live', 'dry_run')
+        return self.config["runmode"].value in ("live", "dry_run")
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # logger.info('Populating sell_trend for %s', metadata['pair'])
-        dataframe.loc[:, 'ensemble_sell'] = ''
-        dataframe.loc[:, 'sell_tag'] = ''
+        dataframe.loc[:, "ensemble_sell"] = ""
+        dataframe.loc[:, "sell_tag"] = ""
 
         strategies = STRATEGIES.copy()
         # only populate strategies with open trades
@@ -367,34 +367,34 @@ class MyEnsembleStrategy2(IStrategy):
             strategies_in_trades = set()
             trades: list[Trade] = Trade.get_open_trades()
             for t in trades:
-                strategies_in_trades.update(t.buy_tag.split(','))
+                strategies_in_trades.update(t.buy_tag.split(","))
             strategies = strategies_in_trades
         for strategy_name in strategies:
             self.get_sell_trend_of_strategy(dataframe, metadata, strategy_name)
 
-        dataframe.loc[dataframe.ensemble_sell != '', 'sell'] = 1
-        dataframe.loc[dataframe.sell == 1, 'sell_tag'] = dataframe['ensemble_sell']
-        dataframe.loc[:, 'sell'] = 0
+        dataframe.loc[dataframe.ensemble_sell != "", "sell"] = 1
+        dataframe.loc[dataframe.sell == 1, "sell_tag"] = dataframe["ensemble_sell"]
+        dataframe.loc[:, "sell"] = 0
         dataframe.drop(
-            ['ensemble_sell', 'existing_sell', 'strategy'],
+            ["ensemble_sell", "existing_sell", "strategy"],
             axis=1,
             inplace=True,
-            errors='ignore',
+            errors="ignore",
         )
         return dataframe
 
     def get_sell_trend_of_strategy(self, dataframe, metadata, strategy_name):
         strategy = self.get_strategy(strategy_name)
         strategy_indicators = strategy.advise_sell(dataframe.copy(), metadata)
-        strategy_indicators.loc[:, 'strategy'] = ''
+        strategy_indicators.loc[:, "strategy"] = ""
         strategy_indicators.loc[
-            strategy_indicators.sell == 1, 'strategy'
+            strategy_indicators.sell == 1, "strategy"
         ] = strategy_name
-        strategy_indicators.loc[:, 'existing_sell'] = dataframe['ensemble_sell']
-        strategy_indicators.loc[:, 'ensemble_sell'] = strategy_indicators.apply(
-            lambda x: ','.join((x['strategy'], x['existing_sell'])).strip(','), axis=1
+        strategy_indicators.loc[:, "existing_sell"] = dataframe["ensemble_sell"]
+        strategy_indicators.loc[:, "ensemble_sell"] = strategy_indicators.apply(
+            lambda x: ",".join((x["strategy"], x["existing_sell"])).strip(","), axis=1
         )
-        dataframe.loc[:, 'ensemble_sell'] = strategy_indicators['ensemble_sell']
+        dataframe.loc[:, "ensemble_sell"] = strategy_indicators["ensemble_sell"]
 
     def custom_sell(
         self,
@@ -413,7 +413,7 @@ class MyEnsembleStrategy2(IStrategy):
         # rounded.
         trade_date = timeframe_to_prev_date(self.timeframe, trade.open_date_utc)
         # Look up trade candle.
-        trade_candle = dataframe.loc[dataframe['date'] == trade_date]
+        trade_candle = dataframe.loc[dataframe["date"] == trade_date]
         if trade_candle.empty:
             return
 
@@ -426,10 +426,10 @@ class MyEnsembleStrategy2(IStrategy):
             # strategy = self.get_strategy(strategy_name)
             # regular sell signal. this does not cover custom_sells
             if (
-                strategy_name in trade_candle['sell_tag']
+                strategy_name in trade_candle["sell_tag"]
                 and strategy_name in trade.buy_tag
             ):
-                return 'sell_signal'
+                return "sell_signal"
             #
             # buy_tag = trade_candle['buy_tag']
             # strategy_in_buy_tag = strategy_name in buy_tag
@@ -457,12 +457,12 @@ class MyEnsembleStrategy2(IStrategy):
         low: float = None,
         high: float = None,
         force_stoploss: float = 0,
-    ) -> SellCheckTuple:
+    ) -> ExitCheckTuple:
         should_sell = super().should_sell(
             trade, rate, date, buy, sell, low, high, force_stoploss
         )
         if should_sell.sell_flag:
-            should_sell.sell_reason = trade.buy_tag + '-' + should_sell.sell_reason
+            should_sell.sell_reason = trade.buy_tag + "-" + should_sell.sell_reason
         return should_sell
 
     def confirm_trade_exit(
@@ -478,7 +478,7 @@ class MyEnsembleStrategy2(IStrategy):
         **kwargs,
     ) -> bool:
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-        for strategy_name in trade.buy_tag.split(','):
+        for strategy_name in trade.buy_tag.split(","):
             strategy = self.get_strategy(strategy_name)
             try:
                 trade_exit = strategy.confirm_trade_exit(
@@ -493,7 +493,7 @@ class MyEnsembleStrategy2(IStrategy):
                 )
             except Exception as e:
                 logger.exception(
-                    'Exception from %s in confirm_trade_exit', strategy_name, exc_info=e
+                    "Exception from %s in confirm_trade_exit", strategy_name, exc_info=e
                 )
                 continue
             if not trade_exit:
@@ -501,16 +501,16 @@ class MyEnsembleStrategy2(IStrategy):
 
         # slippage protection from NotAnotherSMAOffsetStrategy
         try:
-            state = self.slippage_protection['__pair_retries']
+            state = self.slippage_protection["__pair_retries"]
         except KeyError:
-            state = self.slippage_protection['__pair_retries'] = {}
+            state = self.slippage_protection["__pair_retries"] = {}
 
         candle = dataframe.iloc[-1].squeeze()
 
-        slippage = (rate / candle['close']) - 1
-        if slippage < self.slippage_protection['max_slippage']:
+        slippage = (rate / candle["close"]) - 1
+        if slippage < self.slippage_protection["max_slippage"]:
             pair_retries = state.get(pair, 0)
-            if pair_retries < self.slippage_protection['retries']:
+            if pair_retries < self.slippage_protection["retries"]:
                 state[pair] = pair_retries + 1
                 return False
 
@@ -529,10 +529,10 @@ class MyEnsembleStrategy2(IStrategy):
             step = MyEnsembleStrategy.roi_table_step_size
 
             minimal_roi = {
-                0: params['roi_p1'] + params['roi_p2'] + params['roi_p3'],
-                params['roi_t3']: params['roi_p1'] + params['roi_p2'],
-                params['roi_t3'] + params['roi_t2']: params['roi_p1'],
-                params['roi_t3'] + params['roi_t2'] + params['roi_t1']: 0,
+                0: params["roi_p1"] + params["roi_p2"] + params["roi_p3"],
+                params["roi_t3"]: params["roi_p1"] + params["roi_p2"],
+                params["roi_t3"] + params["roi_t2"]: params["roi_p1"],
+                params["roi_t3"] + params["roi_t2"] + params["roi_t1"]: 0,
             }
 
             max_value = max(map(int, minimal_roi.keys()))
@@ -568,72 +568,72 @@ class MyEnsembleStrategy2(IStrategy):
             roi_t_scale = timeframe_min
             roi_p_scale = math.log1p(timeframe_min) / math.log1p(5)
             roi_limits = {
-                'roi_t1_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t1_max': int(120 * roi_t_scale * roi_t_alpha),
-                'roi_t2_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t2_max': int(60 * roi_t_scale * roi_t_alpha),
-                'roi_t3_min': int(10 * roi_t_scale * roi_t_alpha),
-                'roi_t3_max': int(40 * roi_t_scale * roi_t_alpha),
-                'roi_p1_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p1_max': 0.04 * roi_p_scale * roi_p_alpha,
-                'roi_p2_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p2_max': 0.07 * roi_p_scale * roi_p_alpha,
-                'roi_p3_min': 0.01 * roi_p_scale * roi_p_alpha,
-                'roi_p3_max': 0.20 * roi_p_scale * roi_p_alpha,
+                "roi_t1_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t1_max": int(120 * roi_t_scale * roi_t_alpha),
+                "roi_t2_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t2_max": int(60 * roi_t_scale * roi_t_alpha),
+                "roi_t3_min": int(10 * roi_t_scale * roi_t_alpha),
+                "roi_t3_max": int(40 * roi_t_scale * roi_t_alpha),
+                "roi_p1_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p1_max": 0.04 * roi_p_scale * roi_p_alpha,
+                "roi_p2_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p2_max": 0.07 * roi_p_scale * roi_p_alpha,
+                "roi_p3_min": 0.01 * roi_p_scale * roi_p_alpha,
+                "roi_p3_max": 0.20 * roi_p_scale * roi_p_alpha,
             }
 
             # Generate MGM's custom long continuous ROI table
-            logger.debug(f'Using ROI space limits: {roi_limits}')
+            logger.debug(f"Using ROI space limits: {roi_limits}")
             p = {
-                'roi_t1': roi_limits['roi_t1_min'],
-                'roi_t2': roi_limits['roi_t2_min'],
-                'roi_t3': roi_limits['roi_t3_min'],
-                'roi_p1': roi_limits['roi_p1_min'],
-                'roi_p2': roi_limits['roi_p2_min'],
-                'roi_p3': roi_limits['roi_p3_min'],
+                "roi_t1": roi_limits["roi_t1_min"],
+                "roi_t2": roi_limits["roi_t2_min"],
+                "roi_t3": roi_limits["roi_t3_min"],
+                "roi_p1": roi_limits["roi_p1_min"],
+                "roi_p2": roi_limits["roi_p2_min"],
+                "roi_p3": roi_limits["roi_p3_min"],
             }
             logger.info(
-                f'Min ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}'
+                f"Min ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}"
             )
             p = {
-                'roi_t1': roi_limits['roi_t1_max'],
-                'roi_t2': roi_limits['roi_t2_max'],
-                'roi_t3': roi_limits['roi_t3_max'],
-                'roi_p1': roi_limits['roi_p1_max'],
-                'roi_p2': roi_limits['roi_p2_max'],
-                'roi_p3': roi_limits['roi_p3_max'],
+                "roi_t1": roi_limits["roi_t1_max"],
+                "roi_t2": roi_limits["roi_t2_max"],
+                "roi_t3": roi_limits["roi_t3_max"],
+                "roi_p1": roi_limits["roi_p1_max"],
+                "roi_p2": roi_limits["roi_p2_max"],
+                "roi_p3": roi_limits["roi_p3_max"],
             }
             logger.info(
-                f'Max ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}'
+                f"Max ROI table: {round_dict(MyEnsembleStrategy.HyperOpt.generate_roi_table(p), 3)}"
             )
 
             return [
                 Integer(
-                    roi_limits['roi_t1_min'], roi_limits['roi_t1_max'], name='roi_t1'
+                    roi_limits["roi_t1_min"], roi_limits["roi_t1_max"], name="roi_t1"
                 ),
                 Integer(
-                    roi_limits['roi_t2_min'], roi_limits['roi_t2_max'], name='roi_t2'
+                    roi_limits["roi_t2_min"], roi_limits["roi_t2_max"], name="roi_t2"
                 ),
                 Integer(
-                    roi_limits['roi_t3_min'], roi_limits['roi_t3_max'], name='roi_t3'
+                    roi_limits["roi_t3_min"], roi_limits["roi_t3_max"], name="roi_t3"
                 ),
                 SKDecimal(
-                    roi_limits['roi_p1_min'],
-                    roi_limits['roi_p1_max'],
+                    roi_limits["roi_p1_min"],
+                    roi_limits["roi_p1_max"],
                     decimals=3,
-                    name='roi_p1',
+                    name="roi_p1",
                 ),
                 SKDecimal(
-                    roi_limits['roi_p2_min'],
-                    roi_limits['roi_p2_max'],
+                    roi_limits["roi_p2_min"],
+                    roi_limits["roi_p2_max"],
                     decimals=3,
-                    name='roi_p2',
+                    name="roi_p2",
                 ),
                 SKDecimal(
-                    roi_limits['roi_p3_min'],
-                    roi_limits['roi_p3_max'],
+                    roi_limits["roi_p3_min"],
+                    roi_limits["roi_p3_max"],
                     decimals=3,
-                    name='roi_p3',
+                    name="roi_p3",
                 ),
             ]
 
@@ -650,7 +650,7 @@ class MyEnsembleStrategy2(IStrategy):
                     MyEnsembleStrategy.stoploss_max_value,
                     MyEnsembleStrategy.stoploss_min_value,
                     decimals=3,
-                    name='stoploss',
+                    name="stoploss",
                 )
             ]
 
@@ -668,12 +668,12 @@ class MyEnsembleStrategy2(IStrategy):
                 # This parameter is included into the hyperspace dimensions rather than assigning
                 # it explicitly in the code in order to have it printed in the results along with
                 # other 'trailing' hyperspace parameters.
-                Categorical([True], name='trailing_stop'),
+                Categorical([True], name="trailing_stop"),
                 SKDecimal(
                     MyEnsembleStrategy.trailing_stop_positive_min_value,
                     MyEnsembleStrategy.trailing_stop_positive_max_value,
                     decimals=3,
-                    name='trailing_stop_positive',
+                    name="trailing_stop_positive",
                 ),
                 # 'trailing_stop_positive_offset' should be greater than 'trailing_stop_positive',
                 # so this intermediate parameter is used as the value of the difference between
@@ -684,9 +684,9 @@ class MyEnsembleStrategy2(IStrategy):
                     MyEnsembleStrategy.trailing_stop_positive_offset_min_value,
                     MyEnsembleStrategy.trailing_stop_positive_offset_max_value,
                     decimals=3,
-                    name='trailing_stop_positive_offset_p1',
+                    name="trailing_stop_positive_offset_p1",
                 ),
-                Categorical([True, False], name='trailing_only_offset_is_reached'),
+                Categorical([True, False], name="trailing_only_offset_is_reached"),
             ]
 
 
@@ -699,7 +699,7 @@ class MyEnsembleStrategy2(IStrategy):
 #     force_stoploss: float,
 #     low: float = None,
 #     high: float = None,
-# ) -> SellCheckTuple:
+# ) -> ExitCheckTuple:
 #     """
 #     Based on current profit of the trade and configured (trailing) stoploss,
 #     decides to sell or not
@@ -771,6 +771,6 @@ class MyEnsembleStrategy2(IStrategy):
 #                 f"{trade.stop_loss - trade.initial_stop_loss:.6f}"
 #             )
 #
-#         return SellCheckTuple(sell_type=sell_type)
+#         return ExitCheckTuple(sell_type=sell_type)
 #
-#     return SellCheckTuple(sell_type=SellType.NONE)
+#     return ExitCheckTuple(sell_type=SellType.NONE)

@@ -4,9 +4,7 @@ import logging
 from enum import Enum
 from typing import Callable, Union
 
-from freqtrade.strategy.hyper import (
-    BaseParameter,
-)
+from freqtrade.strategy.parameters import BaseParameter, DecimalParameter, IntParameter
 from pandas import DataFrame, Series
 
 from indicatormix import ValueFunctionArgs
@@ -14,17 +12,16 @@ from indicatormix import ValueFunctionArgs
 logger = logging.getLogger()
 
 
-class IndicatorType(Enum):
-    VALUE = 'value'
-    SERIES = 'series'
-    SPECIAL = 'special'
-    SPECIFIC = 'specific'
-    SPECIAL_VALUE = 'special_value'
+class IndicatorValueType(Enum):
+    INDEX = "index"
+    OVERLAY = "overlay"
+    SPECIAL_VALUE = "special_value"
+    PATTERN = "pattern"
 
 
 class Indicator:
-    type = ''
-    timeframe = ''
+    type = ""
+    timeframe = ""
 
     def __init__(
         self,
@@ -33,7 +30,8 @@ class Indicator:
         func_columns=None,
         function_kwargs: dict = None,
         inf_timeframes=None,
-        name='',
+        name="",
+        check_trend=False,
         **kwargs,
     ) -> None:
         self.func = func
@@ -47,11 +45,13 @@ class Indicator:
         self.inf_timeframes = inf_timeframes or []
         self.name = name
         self.informative = False
+        self.check_trend = check_trend
+        self.trend_period = IntParameter(2, 10, default=4, space="buy")
         self.__dict__.update(kwargs)
 
     @property
     def formatted_columns(self):
-        return [f'{self.name}__{c}' for c in self.columns]
+        return [f"{self.name}__{c}" for c in self.columns]
 
     @property
     def all_columns(self):
@@ -60,17 +60,17 @@ class Indicator:
     @property
     def parameter_map(self):
         parameters = {**self.function_kwargs}
-        return {f'{self.name}__{k}': v for k, v in parameters.items()}
+        return {f"{self.name}__{k}": v for k, v in parameters.items()}
 
     def __str__(self):
-        return f'{self.__class__.__name__} - {self.name}'
+        return f"{self.__class__.__name__} - {self.name}"
 
     def __repr__(self):
-        return f'{self.__class__.__name__} - {self.name}'
+        return f"{self.__class__.__name__} - {self.name}"
 
 
-class ValueIndicator(Indicator):
-    type = IndicatorType.VALUE
+class IndexIndicator(Indicator):
+    type = IndicatorValueType.INDEX
 
     def __init__(self, values: dict[str, BaseParameter], **kwargs) -> None:
         super().__init__(**kwargs)
@@ -79,56 +79,46 @@ class ValueIndicator(Indicator):
     @property
     def parameter_map(self):
         parameters = {**self.values, **self.function_kwargs}
-        return {f'{self.name}__{k}': v for k, v in parameters.items()}
+        return {f"{self.name}__{k}": v for k, v in parameters.items()}
 
     def get_value(self, buy_or_sell: str):
         return self.values[buy_or_sell]
 
 
-class SeriesIndicator(Indicator):
-    type = IndicatorType.SERIES
-
-
-class SpecialIndicator(Indicator):
-    """These indicators will only be compared to indicators created by its TA function"""
-
-    type = IndicatorType.SPECIAL
-
-    def __init__(self, compare: dict, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.compare = compare
-
-    @property
-    def formatted_compare(self):
-        """
-        Return a dict of the compare dict with the keys formatted to the
-        format of the columns in the dataframe.
-        """
-        return {
-            f'{self.name}__{k}': f'{self.name}__{v}' for k, v in self.compare.items()
-        }
-
-
-class SpecialValueIndicator(Indicator):
-    type = IndicatorType.SPECIAL_VALUE
+class OverlayIndicator(Indicator):
+    type = IndicatorValueType.OVERLAY
 
     def __init__(
         self,
-        value_functions: dict[str, Callable[[ValueFunctionArgs], Union[Series, DataFrame]]],
+        offsets: dict = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.offsets = offsets or {
+            "offset_low": DecimalParameter(
+                0.9, 1, default=1, space="buy", optimize=True
+            ),
+            "offset_high": DecimalParameter(
+                0.95, 1.5, default=1, space="sell", optimize=True
+            ),
+        }
+        self.check_trend = True
+
+
+class SpecialValueIndicator(Indicator):
+    type = IndicatorValueType.SPECIAL_VALUE
+
+    def __init__(
+        self,
+        value_functions: dict[
+            str, Callable[[ValueFunctionArgs], Union[Series, DataFrame]]
+        ],
+        values: dict[str, BaseParameter] = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.value_function = value_functions
-
-
-class SpecificIndicator(Indicator):
-    """These indicators will only be compared to other specified indicators"""
-
-    type = IndicatorType.SPECIFIC
-
-    def __init__(self, compare: dict, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.compare = compare
+        self.values = values or {}
 
 
 class InformativeIndicator(Indicator):
@@ -136,5 +126,16 @@ class InformativeIndicator(Indicator):
         super().__init__(**kwargs)
         self.timeframe = timeframe
         self.type = type
-        self.column_append = '_' + timeframe
+        self.column_append = "_" + timeframe
         self.informative = True
+
+
+class PatternIndicator(Indicator):
+    type = IndicatorValueType.PATTERN
+
+    def __init__(self, buy=None, sell=None, **kwargs) -> None:
+        super().__init__(
+            columns=["value"], func_columns=["open", "high", "low", "close"], **kwargs
+        )
+        self.buy = buy
+        self.sell = sell

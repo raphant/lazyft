@@ -6,8 +6,13 @@ import numpy as np  # noqa
 import pandas as pd  # noqa
 from pandas import DataFrame
 
-from freqtrade.strategy import (BooleanParameter, CategoricalParameter, DecimalParameter,
-                                IStrategy, IntParameter)
+from freqtrade.strategy import (
+    BooleanParameter,
+    CategoricalParameter,
+    DecimalParameter,
+    IStrategy,
+    IntParameter,
+)
 
 # --------------------------------
 # Add your lib to import here
@@ -33,6 +38,7 @@ class BurkoBB1Strategy(IStrategy):
     You should keep:
     - timeframe, minimal_roi, stoploss, trailing_*
     """
+
     # Strategy interface version - allow new iterations of the strategy interface.
     # Check the documentation or the Sample strategy to get the latest version.
     INTERFACE_VERSION = 2
@@ -60,13 +66,13 @@ class BurkoBB1Strategy(IStrategy):
     # sell_rsi = IntParameter(low=50, high=100, default=70, space='sell', optimize=True, load=True)
 
     # Optimal timeframe for the strategy.
-    timeframe = '5m'
+    timeframe = "5m"
 
     # Run "populate_indicators()" only for new candle.
     process_only_new_candles = False
 
     # These values can be overridden in the "ask_strategy" section in the config.
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = False
 
@@ -75,32 +81,29 @@ class BurkoBB1Strategy(IStrategy):
 
     # Optional order type mapping.
     order_types = {
-        'buy': 'limit',
-        'sell': 'limit',
-        'stoploss': 'market',
-        'stoploss_on_exchange': False
+        "buy": "limit",
+        "sell": "limit",
+        "stoploss": "market",
+        "stoploss_on_exchange": False,
     }
 
     # Optional order time in force.
-    order_time_in_force = {
-        'buy': 'gtc',
-        'sell': 'gtc'
-    }
+    order_time_in_force = {"buy": "gtc", "sell": "gtc"}
 
     plot_config = {
-        'main_plot': {
-            'tema': {},
-            'sar': {'color': 'white'},
+        "main_plot": {
+            "tema": {},
+            "sar": {"color": "white"},
         },
-        'subplots': {
+        "subplots": {
             "MACD": {
-                'macd': {'color': 'blue'},
-                'macdsignal': {'color': 'orange'},
+                "macd": {"color": "blue"},
+                "macdsignal": {"color": "orange"},
             },
             "RSI": {
-                'rsi': {'color': 'red'},
-            }
-        }
+                "rsi": {"color": "red"},
+            },
+        },
     }
 
     def informative_pairs(self):
@@ -214,10 +217,11 @@ class BurkoBB1Strategy(IStrategy):
 
         # Bollinger Bands
         bollinger = qtpylib.bollinger_bands(
-            qtpylib.typical_price(dataframe), window=20, stds=2)
-        dataframe['bb_lowerband'] = bollinger['lower']
+            qtpylib.typical_price(dataframe), window=20, stds=2
+        )
+        dataframe["bb_lowerband"] = bollinger["lower"]
         # dataframe['bb_middleband'] = bollinger['mid']
-        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe["bb_upperband"] = bollinger["upper"]
         # dataframe["bb_percent"] = (
         #     (dataframe["close"] - dataframe["bb_lowerband"]) /
         #     (dataframe["bb_upperband"] - dataframe["bb_lowerband"])
@@ -253,7 +257,7 @@ class BurkoBB1Strategy(IStrategy):
         # # SMA - Simple Moving Average
         # dataframe['sma3'] = ta.SMA(dataframe, timeperiod=3)
         # dataframe['sma5'] = ta.SMA(dataframe, timeperiod=5)
-        dataframe['sma10'] = ta.SMA(dataframe, timeperiod=10)
+        dataframe["sma10"] = ta.SMA(dataframe, timeperiod=10)
         # dataframe['sma21'] = ta.SMA(dataframe, timeperiod=21)
         # dataframe['sma50'] = ta.SMA(dataframe, timeperiod=50)
         # dataframe['sma100'] = ta.SMA(dataframe, timeperiod=100)
@@ -348,11 +352,15 @@ class BurkoBB1Strategy(IStrategy):
         dataframe.loc[
             (
                 # Signal: Bollinger Band Squeeze Breakout
-                (dataframe['close'] > dataframe['bb_upperband']) &
-                 (dataframe['kc_upperband'] < dataframe['bb_upperband']) &
-                 (dataframe['kc_upperband'].shift(3) > dataframe['bb_upperband'].shift(3))
+                (dataframe["close"] > dataframe["bb_upperband"])
+                & (dataframe["kc_upperband"] < dataframe["bb_upperband"])
+                & (
+                    dataframe["kc_upperband"].shift(3)
+                    > dataframe["bb_upperband"].shift(3)
+                )
             ),
-            'buy'] = 1
+            "buy",
+        ] = 1
 
         return dataframe
 
@@ -366,8 +374,10 @@ class BurkoBB1Strategy(IStrategy):
         dataframe.loc[
             (
                 # Signal: SMA 10 Crossed Down
-                (dataframe['close'] < dataframe['sma10'])
-                (dataframe['volume'] > 0)  # Make sure Volume is not 0
+                (dataframe["close"] < dataframe["sma10"])(
+                    dataframe["volume"] > 0
+                )  # Make sure Volume is not 0
             ),
-            'sell'] = 1
+            "sell",
+        ] = 1
         return dataframe

@@ -1,20 +1,20 @@
 # --- Do not remove these libs ---
-from freqtrade.strategy.interface import IStrategy
-from typing import Dict, List
 from functools import reduce
-from pandas import DataFrame, Series, concat
+from typing import Dict, List
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import numpy as np
+import talib.abstract as ta
 
 # --------------------------------
 from freqtrade.strategy import (
-    merge_informative_pair,
+    CategoricalParameter,
     DecimalParameter,
     IntParameter,
-    CategoricalParameter,
+    merge_informative_pair,
 )
-import numpy as np
-
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame, Series, concat
 
 
 class TTF(IStrategy):
@@ -32,8 +32,8 @@ class TTF(IStrategy):
     stoploss = -0.9
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
-    inf_1h = '1h'
+    timeframe = "5m"
+    inf_1h = "1h"
 
     # trailing stoploss
     trailing_stop = False
@@ -45,7 +45,7 @@ class TTF(IStrategy):
     process_only_new_candles = True
 
     # Experimental settings (configuration will overide these if set)
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
     ignore_roi_if_buy_signal = True
 
@@ -55,10 +55,10 @@ class TTF(IStrategy):
 
     # Optional order type mapping
     order_types = {
-        'buy': 'limit',
-        'sell': 'limit',
-        'stoploss': 'market',
-        'stoploss_on_exchange': False,
+        "buy": "limit",
+        "sell": "limit",
+        "stoploss": "market",
+        "stoploss_on_exchange": False,
     }
 
     def get_ticker_indicator(self):
@@ -68,7 +68,7 @@ class TTF(IStrategy):
         # get access to all pairs available in whitelist.
         pairs = self.dp.current_whitelist()
         # Assign tf to each pair so they can be downloaded and cached for strategy.
-        informative_pairs = [(pair, '1h') for pair in pairs]
+        informative_pairs = [(pair, "1h") for pair in pairs]
         return informative_pairs
 
     def informative_1h_indicators(
@@ -77,11 +77,11 @@ class TTF(IStrategy):
         assert self.dp, "DataProvider is required for multiple timeframes."
         # Get the informative pair
         informative_1h = self.dp.get_pair_dataframe(
-            pair=metadata['pair'], timeframe=self.inf_1h
+            pair=metadata["pair"], timeframe=self.inf_1h
         )
 
         # Heikin Ashi Smoothed V4
-        informative_1h['ttf'] = ttf(informative_1h, int(self.ttf_length.value))
+        informative_1h["ttf"] = ttf(informative_1h, int(self.ttf_length.value))
 
         return informative_1h
 
@@ -99,14 +99,14 @@ class TTF(IStrategy):
             (
                 (
                     qtpylib.crossed_above(
-                        dataframe['ttf_1h'], self.ttf_lowerTrigger.value
+                        dataframe["ttf_1h"], self.ttf_lowerTrigger.value
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
         )
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'buy'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "buy"] = 1
 
         return dataframe
 
@@ -116,20 +116,20 @@ class TTF(IStrategy):
             (
                 (
                     qtpylib.crossed_below(
-                        dataframe['ttf_1h'], self.ttf_upperTrigger.value
+                        dataframe["ttf_1h"], self.ttf_upperTrigger.value
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             )
         )
         if conditions:
-            dataframe.loc[reduce(lambda x, y: x | y, conditions), 'sell'] = 1
+            dataframe.loc[reduce(lambda x, y: x | y, conditions), "sell"] = 1
         return dataframe
 
 
 def ttf(df, ttf_length):
     df = df.copy()
-    high, low = df['high'], df['low']
+    high, low = df["high"], df["low"]
     buyPower = (
         high.rolling(ttf_length).max()
         - low.shift(ttf_length).fillna(99999).rolling(ttf_length).min()
@@ -140,4 +140,4 @@ def ttf(df, ttf_length):
     )
 
     ttf = 200 * (buyPower - sellPower) / (buyPower + sellPower)
-    return Series(ttf, name='ttf')
+    return Series(ttf, name="ttf")

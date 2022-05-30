@@ -2,26 +2,26 @@
 import inspect
 import json
 import sys
+from datetime import datetime, timedelta
+from functools import reduce
+from typing import Dict, List
 
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+import pandas as pd
 import rapidjson
+import talib.abstract as ta
+from freqtrade.persistence import Trade
 from freqtrade.strategy import (
-    IStrategy,
-    merge_informative_pair,
+    CategoricalParameter,
     DecimalParameter,
     IntParameter,
-    CategoricalParameter,
+    IStrategy,
+    merge_informative_pair,
 )
-from typing import Dict, List
-from functools import reduce
 from pandas import DataFrame
 
 # --------------------------------
 
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-from datetime import datetime, timedelta
-from freqtrade.persistence import Trade
-import pandas as pd
 
 # inspired by @tirail SMAOffset
 
@@ -47,43 +47,43 @@ sell_params = {
 class MADisplaceV3(IStrategy):
 
     buy_ma_lower_length = IntParameter(
-        15, 25, default=buy_params['ma_lower_length'], space='buy'
+        15, 25, default=buy_params["ma_lower_length"], space="buy"
     )
     buy_ma_lower_offset = DecimalParameter(
-        0.95, 0.97, default=buy_params['ma_lower_offset'], space='buy'
+        0.95, 0.97, default=buy_params["ma_lower_offset"], space="buy"
     )
 
     dbuy_informative_fast_length = IntParameter(
-        15, 35, default=buy_params['informative_fast_length'], space='disable'
+        15, 35, default=buy_params["informative_fast_length"], space="disable"
     )
     dbuy_informative_slow_length = IntParameter(
-        20, 40, default=buy_params['informative_slow_length'], space='disable'
+        20, 40, default=buy_params["informative_slow_length"], space="disable"
     )
 
     dbuy_rsi_fast_length = IntParameter(
-        2, 8, default=buy_params['rsi_fast_length'], space='disable'
+        2, 8, default=buy_params["rsi_fast_length"], space="disable"
     )
     dbuy_rsi_fast_threshold = IntParameter(
-        5, 35, default=buy_params['rsi_fast_threshold'], space='disable'
+        5, 35, default=buy_params["rsi_fast_threshold"], space="disable"
     )
     dbuy_rsi_slow_length = IntParameter(
-        10, 45, default=buy_params['rsi_slow_length'], space='disable'
+        10, 45, default=buy_params["rsi_slow_length"], space="disable"
     )
     dbuy_rsi_slow_confirmation = IntParameter(
-        1, 5, default=buy_params['rsi_slow_confirmation'], space='disable'
+        1, 5, default=buy_params["rsi_slow_confirmation"], space="disable"
     )
 
     sell_ma_middle_1_length = IntParameter(
-        15, 35, default=sell_params['ma_middle_1_length'], space='sell'
+        15, 35, default=sell_params["ma_middle_1_length"], space="sell"
     )
     sell_ma_middle_1_offset = DecimalParameter(
-        0.93, 1.005, default=sell_params['ma_middle_1_offset'], space='sell'
+        0.93, 1.005, default=sell_params["ma_middle_1_offset"], space="sell"
     )
     sell_ma_upper_length = IntParameter(
-        15, 25, default=sell_params['ma_upper_length'], space='sell'
+        15, 25, default=sell_params["ma_upper_length"], space="sell"
     )
     sell_ma_upper_offset = DecimalParameter(
-        1.005, 1.025, default=sell_params['ma_upper_offset'], space='sell'
+        1.005, 1.025, default=sell_params["ma_upper_offset"], space="sell"
     )
 
     minimal_roi = {"0": 1}
@@ -95,25 +95,25 @@ class MADisplaceV3(IStrategy):
     trailing_stop_positive_offset = 0.025
     trailing_only_offset_is_reached = True
 
-    timeframe = '5m'
+    timeframe = "5m"
 
-    use_sell_signal = True
+    exit_sell_signal = True
     sell_profit_only = False
 
     process_only_new_candles = True
 
     plot_config = {
-        'main_plot': {
-            'ma_lower': {'color': 'red'},
-            'ma_middle_1': {'color': 'green'},
-            'ma_upper': {'color': 'pink'},
+        "main_plot": {
+            "ma_lower": {"color": "red"},
+            "ma_middle_1": {"color": "green"},
+            "ma_upper": {"color": "pink"},
         },
     }
 
     use_custom_stoploss = True
     startup_candle_count = 200
 
-    informative_timeframe = '1h'
+    informative_timeframe = "1h"
 
     def informative_pairs(self):
 
@@ -124,22 +124,22 @@ class MADisplaceV3(IStrategy):
 
     def get_informative_indicators(self, metadata: dict):
 
-        if self.config['runmode'].value == 'hyperopt':
+        if self.config["runmode"].value == "hyperopt":
             dataframe = self.informative_dataframe.copy()
         else:
             dataframe = self.dp.get_pair_dataframe(
-                pair=metadata['pair'], timeframe=self.informative_timeframe
+                pair=metadata["pair"], timeframe=self.informative_timeframe
             )
 
-        dataframe['ema_fast'] = ta.EMA(
+        dataframe["ema_fast"] = ta.EMA(
             dataframe, timeperiod=int(self.dbuy_informative_fast_length.value)
         )
-        dataframe['ema_slow'] = ta.EMA(
+        dataframe["ema_slow"] = ta.EMA(
             dataframe, timeperiod=int(self.dbuy_informative_slow_length.value)
         )
 
-        dataframe['uptrend'] = ((dataframe['ema_fast'] > dataframe['ema_slow'])).astype(
-            'int'
+        dataframe["uptrend"] = ((dataframe["ema_fast"] > dataframe["ema_slow"])).astype(
+            "int"
         )
 
         return dataframe
@@ -147,7 +147,7 @@ class MADisplaceV3(IStrategy):
     def custom_stoploss(
         self,
         pair: str,
-        trade: 'Trade',
+        trade: "Trade",
         current_time: datetime,
         current_rate: float,
         current_profit: float,
@@ -164,44 +164,44 @@ class MADisplaceV3(IStrategy):
 
     def get_main_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
-        dataframe['rsi_fast'] = ta.RSI(
+        dataframe["rsi_fast"] = ta.RSI(
             dataframe, timeperiod=int(self.dbuy_rsi_fast_length.value)
         )
-        dataframe['rsi_slow'] = ta.RSI(
+        dataframe["rsi_slow"] = ta.RSI(
             dataframe, timeperiod=int(self.dbuy_rsi_slow_length.value)
         )
-        dataframe['rsi_slow_descending'] = (
-            dataframe['rsi_slow'] < dataframe['rsi_slow'].shift()
-        ).astype('int')
+        dataframe["rsi_slow_descending"] = (
+            dataframe["rsi_slow"] < dataframe["rsi_slow"].shift()
+        ).astype("int")
 
-        dataframe['ma_lower'] = (
+        dataframe["ma_lower"] = (
             ta.SMA(dataframe, timeperiod=int(self.buy_ma_lower_length.value))
             * self.buy_ma_lower_offset.value
         )
-        dataframe['ma_middle_1'] = (
+        dataframe["ma_middle_1"] = (
             ta.SMA(dataframe, timeperiod=int(self.sell_ma_middle_1_length.value))
             * self.sell_ma_middle_1_offset.value
         )
-        dataframe['ma_upper'] = (
+        dataframe["ma_upper"] = (
             ta.SMA(dataframe, timeperiod=int(self.sell_ma_upper_length.value))
             * self.sell_ma_upper_offset.value
         )
 
         # drop NAN in hyperopt to fix "'<' not supported between instances of 'str' and 'int' error
-        if self.config['runmode'].value == 'hyperopt':
+        if self.config["runmode"].value == "hyperopt":
             dataframe = dataframe.dropna()
 
         return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
-        if self.config['runmode'].value == 'hyperopt':
+        if self.config["runmode"].value == "hyperopt":
 
             self.informative_dataframe = self.dp.get_pair_dataframe(
-                pair=metadata['pair'], timeframe=self.informative_timeframe
+                pair=metadata["pair"], timeframe=self.informative_timeframe
             )
 
-        if self.config['runmode'].value != 'hyperopt':
+        if self.config["runmode"].value != "hyperopt":
 
             informative = self.get_informative_indicators(metadata)
             dataframe = self.merge_informative(informative, dataframe)
@@ -215,7 +215,7 @@ class MADisplaceV3(IStrategy):
         # it's calling multiple times and dataframe overrides same columns
         # so check if any calculated column already exist
 
-        if self.config['runmode'].value == 'hyperopt' and 'uptrend' not in dataframe:
+        if self.config["runmode"].value == "hyperopt" and "uptrend" not in dataframe:
             informative = self.get_informative_indicators(metadata)
             dataframe = self.merge_informative(informative, dataframe)
             dataframe = self.get_main_indicators(dataframe, metadata)
@@ -224,24 +224,24 @@ class MADisplaceV3(IStrategy):
         dataframe.loc[
             (
                 (
-                    dataframe['rsi_slow_descending']
+                    dataframe["rsi_slow_descending"]
                     .rolling(self.dbuy_rsi_slow_confirmation.value)
                     .sum()
                     == self.dbuy_rsi_slow_confirmation.value
                 )
-                & (dataframe['rsi_fast'] < self.dbuy_rsi_fast_threshold.value)
-                & (dataframe['uptrend'] > 0)
-                & (dataframe['close'] < dataframe['ma_lower'])
-                & (dataframe['volume'] > 0)
+                & (dataframe["rsi_fast"] < self.dbuy_rsi_fast_threshold.value)
+                & (dataframe["uptrend"] > 0)
+                & (dataframe["close"] < dataframe["ma_lower"])
+                & (dataframe["volume"] > 0)
             ),
-            'buy',
+            "buy",
         ] = 1
 
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
-        if self.config['runmode'].value == 'hyperopt' and 'uptrend' not in dataframe:
+        if self.config["runmode"].value == "hyperopt" and "uptrend" not in dataframe:
             informative = self.get_informative_indicators(metadata)
             dataframe = self.merge_informative(informative, dataframe)
             dataframe = self.get_main_indicators(dataframe, metadata)
@@ -250,17 +250,17 @@ class MADisplaceV3(IStrategy):
         dataframe.loc[
             (
                 (
-                    (dataframe['uptrend'] == 0)
-                    | (dataframe['close'] > dataframe['ma_upper'])
+                    (dataframe["uptrend"] == 0)
+                    | (dataframe["close"] > dataframe["ma_upper"])
                     | (
                         qtpylib.crossed_below(
-                            dataframe['close'], dataframe['ma_middle_1']
+                            dataframe["close"], dataframe["ma_middle_1"]
                         )
                     )
                 )
-                & (dataframe['volume'] > 0)
+                & (dataframe["volume"] > 0)
             ),
-            'sell',
+            "sell",
         ] = 1
 
         return dataframe
@@ -280,7 +280,7 @@ class MADisplaceV3(IStrategy):
         # don't overwrite the base dataframe's HLCV information
         skip_columns = [
             (s + "_" + self.informative_timeframe)
-            for s in ['date', 'open', 'high', 'low', 'close', 'volume']
+            for s in ["date", "open", "high", "low", "close", "volume"]
         ]
         dataframe.rename(
             columns=lambda s: s.replace("_{}".format(self.informative_timeframe), "")

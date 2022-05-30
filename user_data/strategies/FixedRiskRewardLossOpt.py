@@ -3,6 +3,7 @@
 # --- Do not remove these libs ---
 import numpy as np  # noqa
 import pandas as pd  # noqa
+from freqtrade.exchange import timeframe_to_prev_date
 from pandas import DataFrame
 from freqtrade.strategy.interface import IStrategy
 from freqtrade.strategy import (
@@ -12,10 +13,11 @@ from freqtrade.strategy import (
     IntParameter,
     CategoricalParameter,
 )
+import diskcache
 
 # --------------------------------
 # Add your lib to import here
-import talib.abstract as ta
+import talib as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 from datetime import datetime
 from freqtrade.persistence import Trade
@@ -63,6 +65,16 @@ class FixedRiskRewardLossOpt(IStrategy):
     minimal_roi = {"0": 1000}
     timeframe = '1h'
 
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        if self.is_live_or_dry:
+            self.persistence = diskcache.Index(f'{self.__class__.__name__}_persistence')
+        else:
+            self.persistence = {}
+
+    def is_live_or_dry(self):
+        return self.config["runmode"].value in ("live", "dry_run")
+
     def custom_stoploss(
         self,
         pair: str,
@@ -77,23 +89,11 @@ class FixedRiskRewardLossOpt(IStrategy):
         """
 
         result = break_even_sl = takeprofit_sl = -1
-        custom_info_pair = self.custom_info.get(pair)
+        custom_info_pair = self.persistence.get(pair)
         if custom_info_pair is not None:
-            # using current_time/open_date directly via custom_info_pair[trade.open_daten]
-            # would only work in backtesting/hyperopt.
-            # in live/dry-run, we have to search for nearest row before it
-            open_date_mask = custom_info_pair.index.unique().get_loc(
-                trade.open_date_utc, method='ffill'
-            )
-            open_df = custom_info_pair.iloc[open_date_mask]
-
-            # trade might be open too long for us to find opening candle
-            if len(open_df) != 1:
-                return -1  # won't update current stoploss
-
             # need to select the correct column using hyperoptable parameter
             # initial_sl_abs = open_df['stoploss_rate']
-            initial_sl_abs = open_df[f'stoploss_rate_{self.ATR_multiplier.value}']
+            initial_sl_abs = custom_info_pair['stoploss']
 
             # calculate initial stoploss at open_date
             initial_sl = initial_sl_abs / current_rate - 1
@@ -133,6 +133,23 @@ class FixedRiskRewardLossOpt(IStrategy):
 
         return result
 
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = dataframe.iloc[-1].squeeze()
+        self.persistence[pair] = {
+            'stoploss': last_candle[f'stoploss_rate_{self.ATR_multiplier.value}']
+        }
+        return True
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe['atr'] = ta.ATR(dataframe)
 
@@ -141,17 +158,6 @@ class FixedRiskRewardLossOpt(IStrategy):
         # dataframe['stoploss_rate'] = dataframe['close']-(dataframe['atr']*2)
         for i in self.ATR_multiplier.range:
             dataframe[f'stoploss_rate_{i}'] = dataframe['close'] - (dataframe['atr'] * i)
-
-        # self.custom_info[metadata['pair']] = dataframe[['date', 'stoploss_rate']].copy().set_index('date')
-        # this creates a copy of the dataframe with only the 'date' and 'stoploss_rate' columns, but with
-        # the index column set as the date so custom_stoploss() can index into it by date
-        # what we need is entries for all the 'stoploss_rate_{i} columns created above, the easiest way is
-        # just to copy the whole dataframe. There'll be some unused columns in it but that's fine
-        self.custom_info[metadata['pair']] = dataframe.copy().set_index('date')
-
-        # all "normal" indicators:
-        # e.g.
-        # dataframe['rsi'] = ta.RSI(dataframe)
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

@@ -1,12 +1,34 @@
-FROM freqtradeorg/freqtrade:develop as ftworkdir
+FROM freqtradeorg/freqtrade:develop as lazyft_base
 
-COPY --chown=ftuser:ftuser . /ftworkdir
-WORKDIR /ftworkdir
 USER root
-RUN apt install rsync -y
+RUN apt install rsync ssh nodejs npm -y
 #RUN bash build.sh
 #RUN chown -R ftuser:ftuser /usr/local/lib/python3.9/site-packages/
 USER ftuser
-RUN pip install --user --no-cache-dir --no-build-isolation -e lazyft_pkg -e indicatormix -e coin_based_strategy -e lft_rest jupyter
-#RUN cd buildfiles && pip install -r requirements.txt
 WORKDIR /ftworkdir
+COPY --chown=ftuser:ftuser . /ftworkdir
+RUN pip install --user --no-cache-dir --no-build-isolation -r requirements.txt
+
+COPY .env .env
+COPY ./docker_scripts/entrypoint.sh .
+# RUN bash -c 'source ./.env'
+#RUN . ./.env
+ENTRYPOINT ["/ftworkdir/entrypoint.sh"]
+
+COPY --chown=ftuser:ftuser ./lazyft_pkg ./lazyft_pkg
+COPY --chown=ftuser:ftuser ./lft_rest ./lft_rest
+
+# copy local ssh keys to remote host
+# Authorize SSH Host
+RUN mkdir -p /home/ftuser/.ssh && \
+    chmod 0700 /home/ftuser/.ssh
+
+SHELL ["/bin/bash", "-c"]
+# Add the keys and set permissions
+RUN source .env && echo "$SSH_PRV_KEY" > /home/ftuser/.ssh/id_rsa && \
+    echo "$SSH_PUB_KEY" > /home/ftuser/.ssh/id_rsa.pub && \
+    chmod 600 /home/ftuser/.ssh/id_rsa && \
+    chmod 600 /home/ftuser/.ssh/id_rsa.pub && unset SSH_PUB_KEY && unset SSH_PRV_KEY
+ENTRYPOINT ["freqtrade"]
+
+

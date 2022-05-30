@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from queue import Queue, Empty
+from queue import Empty, Queue
 from threading import Thread
-from typing import Union, Optional
+from typing import Optional, Union
 
+import alive_progress
 import dateutil.parser
 import pytz
 import sh
 from freqtrade.data.history import load_pair_history
-from pydantic import BaseModel
-
-from lazyft import paths, logger
+from lazyft import logger, paths
 from lazyft.command_parameters import BacktestParameters, HyperoptParameters
 from lazyft.config import Config
 from lazyft.paths import USER_DATA_DIR
-from lazyft.strategy import (
-    load_intervals_from_strategy,
-    load_informative_intervals_and_pairs_from_strategy,
-)
+from lazyft.strategy import load_informative_intervals_and_pairs_from_strategy
+from pydantic import BaseModel
 
 if not paths.PAIR_DATA_DIR.exists():
     paths.PAIR_DATA_DIR.mkdir(parents=True)
@@ -28,6 +25,10 @@ exec_log = logger.bind(type='general')
 
 
 class DownloadRecord(BaseModel):
+    """
+    The DownloadRecord class is a model that defines the data to be stored in the database
+    """
+
     requested_start_date: datetime
     actual_start_date: datetime
     end_date: datetime
@@ -43,6 +44,10 @@ class DownloadRecord(BaseModel):
 
 
 class History(BaseModel):
+    """
+    A convenience class to for storing/retrieving the history of a pair.
+    """
+
     history: dict[str, DownloadRecord] = {}
 
 
@@ -61,6 +66,18 @@ def load_history(exchange: str, interval: str) -> History:
 
 
 def save_record(pair: str, record: DownloadRecord, exchange: str, interval: str):
+    """
+    It takes a pair, a record, an exchange, and an interval, and saves the record to the history file
+
+    :param pair: The pair to save the record for
+    :type pair: str
+    :param record: The DownloadRecord object that was created by the download function
+    :type record: DownloadRecord
+    :param exchange: The name of the exchange
+    :type exchange: str
+    :param interval: The interval of the data
+    :type interval: str
+    """
     history = load_history(exchange, interval)
     history.history[pair] = record
     history_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{interval}.json')
@@ -82,12 +99,25 @@ def delete_record(pair: str, exchange: str, interval: str):
 
 
 def get_pair_time_range(pair: str, interval: str, exchange: str):
+    """
+    It loads the data for the specified pair and interval from the specified exchange
+
+    :param pair: The pair to get the time range for
+    :type pair: str
+    :param interval: The time interval between each data point
+    :type interval: str
+    :param exchange: The exchange to get the historical data for
+    :type exchange: str
+    :return: A tuple of two datetime objects.
+    """
+    logger.debug(f'Getting time range for {pair} on {exchange}')
     df = load_pair_history(
         pair,
         interval,
         paths.USER_DATA_DIR.joinpath('data', exchange),
     )
     if df.empty:
+        logger.debug(f'No data found for {pair} on {exchange}')
         return None, None
     start_date: datetime = df.iloc[0]['date'].to_pydatetime().replace(tzinfo=utc)
     end_date: datetime = df.iloc[-1]['date'].to_pydatetime().replace(tzinfo=utc)
@@ -125,7 +155,7 @@ def update_download_history(
                 end_date=end_date,
             )
             save_record(pair, record, exchange, interval)
-    logger.info(f'Download history updated for {" ".join(pairs)} @ {intervals}')
+    logger.debug(f'Download history updated for {" ".join(pairs)} @ {intervals}')
 
 
 def remove_pair_record(
@@ -138,7 +168,9 @@ def remove_pair_record(
     :param strategy: strategy to remove
     :param params: HyperoptParameters or BacktestParameters
     """
-    intervals, _ = load_informative_intervals_and_pairs_from_strategy(strategy, params)
+    intervals, _ = load_informative_intervals_and_pairs_from_strategy(
+        params.to_config_dict(strategy), params.pairs, params.timeframe_detail
+    )
     for interval in intervals:
         delete_record(pair, params.config.exchange, interval)
 
@@ -197,12 +229,66 @@ def check_if_download_is_needed(
     return need_pair_file or needs_beginning_candles or needs_end_candles
 
 
-def download_missing_historical_data(
+def download_data_for_strategy(
     strategy: str,
     config: Config,
     parameters: Union[BacktestParameters, HyperoptParameters],
 ):
-    timerange: str = parameters.timerange
+    """
+    It downloads the data for the given strategy, if it's not already downloaded
+
+    :param strategy: The strategy to download data for
+    :type strategy: str
+    :param config: Config
+    :type config: Config
+    :param parameters: Union[BacktestParameters, HyperoptParameters]
+    :type parameters: Union[BacktestParameters, HyperoptParameters]
+    """
+    intervals, pairs = load_informative_intervals_and_pairs_from_strategy(
+        parameters.to_config_dict(strategy), parameters.pairs, parameters.timeframe_detail
+    )
+    download_missing_historical_data(
+        config, intervals, pairs + parameters.pairs, parameters.timerange
+    )
+
+
+def download_data_with_parameters(
+    strategy: str,
+    parameters: Union[BacktestParameters, HyperoptParameters],
+):
+    intervals, pairs = load_informative_intervals_and_pairs_from_strategy(
+        parameters.to_config_dict(strategy), parameters.pairs, parameters.timeframe_detail
+    )
+    download_missing_historical_data(parameters.config, intervals, pairs, parameters.timerange)
+
+
+def download_data_with_config(
+    lft_config: dict,
+    timerange: str,
+):
+    loaded_intervals, loaded_pairs = load_informative_intervals_and_pairs_from_strategy(
+        lft_config,
+        lft_config['pairs'],
+        lft_config.get('timeframe_detail'),
+    )
+    download_missing_historical_data(lft_config, loaded_intervals, loaded_pairs, timerange)
+
+
+def download_missing_historical_data(
+    config: Config,
+    intervals: list[str],
+    pairs: list[str],
+    timerange: str,
+):
+    """
+    It checks if the data is already downloaded for the given
+    pairs and intervals. If not, it downloads the data
+
+    :param intervals: list of intervals to download
+    :param pairs: list of pairs to download
+    :param config: Config object
+    :param timerange: timerange to download
+    """
     start_date, end_date = timerange.split('-')
     start_date = dateutil.parser.parse(start_date).replace(tzinfo=utc)
     if end_date:
@@ -211,8 +297,7 @@ def download_missing_historical_data(
         end_date = datetime.now().replace(tzinfo=utc)
     pairs_to_download = set()
     tf_to_download = set()
-    intervals, pairs = load_informative_intervals_and_pairs_from_strategy(strategy, parameters)
-    pair_list = parameters.pairs + pairs
+    pair_list = pairs
 
     logger.info(
         f'Checking if download is needed for '
@@ -251,7 +336,7 @@ def download_missing_historical_data(
             len(pairs_to_download),
             ' '.join(tf_to_download),
         )
-    logger.success('Data is up to date')
+    logger.info('Data is up to date')
 
 
 def download(
@@ -279,7 +364,7 @@ def download(
     if not pairs:
         pairs = config.whitelist
     if timerange:
-        start, finish = timerange.split('-')
+        start, _ = timerange.split('-')
         start_dt = dateutil.parser.parse(start)
         days_between = (datetime.now() - start_dt).days
         days = days_between
@@ -299,39 +384,68 @@ def download(
     ).split()
     sh.freqtrade(
         *command,
-        _err=queue.put,
-        _out=queue.put,
+        _err=queue.put if queue else None,
+        _out=queue.put if queue else None,
     )
+
+
+def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str):
+    """
+    It downloads the data for the specified pair, exchange, and intervals
+
+    :param pair: The pair to download
+    :type pair: str
+    :param exchange: The exchange you want to download from
+    :type exchange: str
+    :param intervals: A list of intervals to download
+    :type intervals: list[str]
+    :param timerange: The time range to download data for
+    :type timerange: str
+    """
+    config = Config(exchange + '.json')
+    download_missing_historical_data(config, intervals, [pair], timerange)
 
 
 def download_watcher(
     queue: Queue, start_date: datetime, n_pairs: int, timeframes: set[str], exchange: str
 ):
+    """
+    It iterates over the number of pairs,
+    and downloads the data for each pair. It then updates the download history
+
+    :param queue: Queue to put the output into
+    :param start_date: The start date to download data for
+    :param n_pairs: The number of pairs to download
+    :param timeframes: The timeframes to download
+    :param exchange: The exchange to download from
+    """
     pair_idx = 0
     timeframe_idx = 0
-    while pair_idx < n_pairs:
-        try:
-            output: str = queue.get(timeout=30)
-        except Empty:
-            logger.error(f'Downloader is not responding. Aborting.')
-            break
+    with alive_progress.alive_bar(n_pairs, title='Downloading pair data', force_tty=True) as bar:
+        while pair_idx < n_pairs:
+            try:
+                output: str = queue.get(timeout=300)
+            except Empty:
+                logger.error(f'Downloader is not responding. Aborting.')
+                break
 
-        exec_log.info(output.strip())
-        if 'Closing async ccxt session' in output:
-            break
-        if 'Downloaded data' not in output:
-            continue
-        timeframe_idx += 1
-        # Downloaded data for AVAX/USDT with length 1877
-        pair = output.split('Downloaded data for ')[1].split(' with length ')[0]
-        if timeframe_idx == len(timeframes):
-            update_download_history(start_date, [pair], ' '.join(timeframes), exchange)
-            logger.info(
-                'Downloaded pair {}, intervals: {} ({}/{})',
-                pair,
-                ', '.join(timeframes),
-                pair_idx + 1,
-                n_pairs,
-            )
-            pair_idx += 1
-            timeframe_idx = 0
+            exec_log.info(output.strip())
+            if 'Closing async ccxt session' in output:
+                break
+            if 'Downloaded data' not in output:
+                continue
+            timeframe_idx += 1
+            # Downloaded data for AVAX/USDT with length 1877
+            pair = output.split('Downloaded data for ')[1].split(' with length ')[0]
+            if timeframe_idx == len(timeframes):
+                update_download_history(start_date, [pair], ' '.join(timeframes), exchange)
+                logger.info(
+                    'Downloaded history for {} @ {} ({}/{})',
+                    pair,
+                    ', '.join(timeframes),
+                    pair_idx + 1,
+                    n_pairs,
+                )
+                pair_idx += 1
+                timeframe_idx = 0
+                bar()

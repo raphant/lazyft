@@ -1,14 +1,13 @@
 import copy
 from typing import Union
 
-from lazyft.command_parameters import (
-    BacktestParameters,
-    HyperoptParameters,
-)
+from lazyft.command_parameters import BacktestParameters, HyperoptParameters
 
 
 class Command:
-    def __init__(self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None):
+    def __init__(
+        self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None
+    ):
         self.strategy = strategy
         self.hyperopt_id = id
         self.config = params.config
@@ -18,7 +17,7 @@ class Command:
 
     @property
     def command_string(self):
-        return self.params.command_string + " " + f'-s {self.strategy}'
+        return self.params.command_string + " " + f"-s {self.strategy}"
 
 
 def create_commands(
@@ -37,7 +36,9 @@ def create_commands(
 
     commands = []
     CommandClass = (
-        HyperoptCommand if isinstance(parameters, HyperoptParameters) else BacktestCommand
+        HyperoptCommand
+        if isinstance(parameters, HyperoptParameters)
+        else BacktestCommand
     )
     for s, id in parameters.strategy_id_pairs:
         command = CommandClass(

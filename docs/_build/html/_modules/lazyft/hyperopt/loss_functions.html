@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.hyperopt.loss_functions &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pyramid.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.hyperopt.loss_functions</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.hyperopt.loss_functions</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="n">date_range</span>
+
+
+<div class="viewcode-block" id="win_ratio_and_profit_ratio_loss"><a class="viewcode-back" href="../../../lazyft.hyperopt.html#lazyft.hyperopt.loss_functions.win_ratio_and_profit_ratio_loss">[docs]</a><span class="k">def</span> <span class="nf">win_ratio_and_profit_ratio_loss</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="n">trade_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Custom objective function, returns smaller number for better results</span>
+
+<span class="sd">    This function optimizes for both: best profit AND stability</span>
+
+<span class="sd">    On stability, the final score has an incentive, through &#39;win_ratio&#39;,</span>
+<span class="sd">    to make more winning deals out of all deals done</span>
+
+<span class="sd">    This might prove to be more reliable for dry and live runs of FreqTrade</span>
+<span class="sd">    and prevent over-fitting on best profit only</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">wins</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;profit_ratio&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="n">avg_profit</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;profit_ratio&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">*</span> <span class="mf">100.0</span>
+
+    <span class="n">win_ratio</span> <span class="o">=</span> <span class="n">wins</span> <span class="o">/</span> <span class="n">trade_count</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">avg_profit</span> <span class="o">*</span> <span class="n">win_ratio</span> <span class="o">*</span> <span class="mi">100</span></div>
+
+
+<div class="viewcode-block" id="roi_and_profit_hyperopt_loss"><a class="viewcode-back" href="../../../lazyft.hyperopt.html#lazyft.hyperopt.loss_functions.roi_and_profit_hyperopt_loss">[docs]</a><span class="k">def</span> <span class="nf">roi_and_profit_hyperopt_loss</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="n">trade_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">ROI_WEIGHT</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">STRATEGY_SELL_WEIGHT</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">TRAILING_WEIGHT</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">WIN_WEIGHT</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">MIN_STOP_LOSS_WEIGHT</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">PROFIT_WEIGHT</span> <span class="o">=</span> <span class="mi">20</span>
+
+    <span class="n">SUM_WEIGHT</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ROI_WEIGHT</span>
+        <span class="o">+</span> <span class="n">STRATEGY_SELL_WEIGHT</span>
+        <span class="o">+</span> <span class="n">TRAILING_WEIGHT</span>
+        <span class="o">+</span> <span class="n">WIN_WEIGHT</span>
+        <span class="o">+</span> <span class="n">MIN_STOP_LOSS_WEIGHT</span>
+        <span class="o">+</span> <span class="n">PROFIT_WEIGHT</span>
+    <span class="p">)</span>
+    <span class="c1"># Calculate the rate for different sell reason types</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;sell_reason&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;roi&#39;</span><span class="p">),</span> <span class="s1">&#39;roi_signals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">roi_signals_rate</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;roi_signals&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">trade_count</span>
+
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;sell_reason&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;sell_signal&#39;</span><span class="p">),</span> <span class="s1">&#39;strategy_sell_signals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">strategy_sell_signal_rate</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;strategy_sell_signals&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">trade_count</span>
+
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;sell_reason&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;trailing_stop_loss&#39;</span><span class="p">),</span>
+        <span class="s1">&#39;trailing_stop_loss_signals&#39;</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">trailing_stop_loss_signals_rate</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;trailing_stop_loss_signals&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">trade_count</span>
+
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;sell_reason&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;stop_loss&#39;</span><span class="p">),</span> <span class="s1">&#39;stop_loss_signals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">stop_loss_signals_rate</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;stop_loss_signals&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">trade_count</span>
+
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;profit_ratio&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s1">&#39;wins&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">win_rate</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;wins&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">trade_count</span>
+
+    <span class="n">average_profit</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;profit_ratio&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">*</span> <span class="mi">100</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="o">-</span><span class="mi">1</span>
+        <span class="o">*</span> <span class="p">(</span>
+            <span class="n">roi_signals_rate</span> <span class="o">*</span> <span class="n">ROI_WEIGHT</span>
+            <span class="o">+</span> <span class="n">strategy_sell_signal_rate</span> <span class="o">*</span> <span class="n">STRATEGY_SELL_WEIGHT</span>
+            <span class="o">+</span> <span class="n">trailing_stop_loss_signals_rate</span> <span class="o">*</span> <span class="n">TRAILING_WEIGHT</span>
+            <span class="o">+</span> <span class="n">win_rate</span> <span class="o">*</span> <span class="n">WIN_WEIGHT</span>
+            <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">stop_loss_signals_rate</span><span class="p">)</span> <span class="o">*</span> <span class="n">MIN_STOP_LOSS_WEIGHT</span>
+            <span class="o">+</span> <span class="n">average_profit</span> <span class="o">*</span> <span class="n">PROFIT_WEIGHT</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="n">SUM_WEIGHT</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sharpe_hyperopt_loss"><a class="viewcode-back" href="../../../lazyft.hyperopt.html#lazyft.hyperopt.loss_functions.sharpe_hyperopt_loss">[docs]</a><span class="k">def</span> <span class="nf">sharpe_hyperopt_loss</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">trade_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">days</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Objective function, returns smaller number for more optimal results.</span>
+
+<span class="sd">    Uses Sharpe Ratio calculation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">total_profit</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;profit_ratio&quot;</span><span class="p">]</span>
+    <span class="n">days_period</span> <span class="o">=</span> <span class="n">days</span>
+
+    <span class="c1"># adding slippage of 0.1% per trade</span>
+    <span class="n">total_profit</span> <span class="o">=</span> <span class="n">total_profit</span> <span class="o">-</span> <span class="mf">0.0005</span>
+    <span class="n">expected_returns_mean</span> <span class="o">=</span> <span class="n">total_profit</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">days_period</span>
+    <span class="n">up_stdev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">total_profit</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">up_stdev</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">sharp_ratio</span> <span class="o">=</span> <span class="n">expected_returns_mean</span> <span class="o">/</span> <span class="n">up_stdev</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">365</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Define high (negative) sharpe ratio to be clear that this is NOT optimal.</span>
+        <span class="n">sharp_ratio</span> <span class="o">=</span> <span class="o">-</span><span class="mf">20.0</span>
+
+    <span class="c1"># print(expected_returns_mean, up_stdev, sharp_ratio)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">sharp_ratio</span></div>
+
+
+<div class="viewcode-block" id="sortino_daily"><a class="viewcode-back" href="../../../lazyft.hyperopt.html#lazyft.hyperopt.loss_functions.sortino_daily">[docs]</a><span class="k">def</span> <span class="nf">sortino_daily</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="n">trade_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Objective function, returns smaller number for more optimal results.</span>
+
+<span class="sd">    Uses Sortino Ratio calculation.</span>
+
+<span class="sd">    Sortino Ratio calculated as described in</span>
+<span class="sd">    http://www.redrockcapital.com/Sortino__A__Sharper__Ratio_Red_Rock_Capital.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">min_date</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">close_date</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">max_date</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">close_date</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">resample_freq</span> <span class="o">=</span> <span class="s1">&#39;1D&#39;</span>
+    <span class="n">slippage_per_trade_ratio</span> <span class="o">=</span> <span class="mf">0.0005</span>
+    <span class="n">days_in_year</span> <span class="o">=</span> <span class="mi">365</span>
+    <span class="n">minimum_acceptable_return</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="c1"># apply slippage per trade to profit_ratio</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s1">&#39;profit_ratio_after_slippage&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;profit_ratio&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">slippage_per_trade_ratio</span>
+    <span class="p">)</span>
+
+    <span class="c1"># create the index within the min_date and end max_date</span>
+    <span class="n">t_index</span> <span class="o">=</span> <span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">min_date</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">max_date</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">resample_freq</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">sum_daily</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">resample_freq</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;close_date&#39;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">agg</span><span class="p">({</span><span class="s2">&quot;profit_ratio_after_slippage&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">})</span>
+        <span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">t_index</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">total_profit</span> <span class="o">=</span> <span class="n">sum_daily</span><span class="p">[</span><span class="s2">&quot;profit_ratio_after_slippage&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">minimum_acceptable_return</span>
+    <span class="n">expected_returns_mean</span> <span class="o">=</span> <span class="n">total_profit</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+    <span class="n">sum_daily</span><span class="p">[</span><span class="s1">&#39;downside_returns&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sum_daily</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">total_profit</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;downside_returns&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_profit</span>
+    <span class="n">total_downside</span> <span class="o">=</span> <span class="n">sum_daily</span><span class="p">[</span><span class="s1">&#39;downside_returns&#39;</span><span class="p">]</span>
+    <span class="c1"># Here total_downside contains min(0, P - MAR) values,</span>
+    <span class="c1"># where P = sum_daily[&quot;profit_ratio_after_slippage&quot;]</span>
+    <span class="n">down_stdev</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">total_downside</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">total_downside</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">down_stdev</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">sortino_ratio</span> <span class="o">=</span> <span class="n">expected_returns_mean</span> <span class="o">/</span> <span class="n">down_stdev</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">days_in_year</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Define high (negative) sortino ratio to be clear that this is NOT optimal.</span>
+        <span class="n">sortino_ratio</span> <span class="o">=</span> <span class="o">-</span><span class="mf">20.0</span>
+
+    <span class="c1"># print(t_index, sum_daily, total_profit)</span>
+    <span class="c1"># print(minimum_acceptable_return, expected_returns_mean, down_stdev, sortino_ratio)</span>
+    <span class="k">return</span> <span class="n">sortino_ratio</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.hyperopt.loss_functions</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

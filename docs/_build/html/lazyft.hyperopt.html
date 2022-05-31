@@ -1,0 +1,317 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>lazyft.hyperopt package &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="lazyft.models package" href="lazyft.models.html" />
+    <link rel="prev" title="lazyft.combo_optimization package" href="lazyft.combo_optimization.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lazyft.models.html" title="lazyft.models package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="lazyft.combo_optimization.html" title="lazyft.combo_optimization package"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="modules.html" >lazyft</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="lazyft.html" accesskey="U">lazyft package</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.hyperopt package</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="lazyft-hyperopt-package">
+<h1>lazyft.hyperopt package<a class="headerlink" href="#lazyft-hyperopt-package" title="Permalink to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="module-lazyft.hyperopt.commands">
+<span id="lazyft-hyperopt-commands-module"></span><h2>lazyft.hyperopt.commands module<a class="headerlink" href="#module-lazyft.hyperopt.commands" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="lazyft.hyperopt.commands.HyperoptCommand">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lazyft.hyperopt.commands.</span></span><span class="sig-name descname"><span class="pre">HyperoptCommand</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="lazyft.html#lazyft.command_parameters.HyperoptParameters" title="lazyft.command_parameters.HyperoptParameters"><span class="pre">HyperoptParameters</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/commands.html#HyperoptCommand"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.commands.HyperoptCommand" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lazyft.html#lazyft.command.Command" title="lazyft.command.Command"><code class="xref py py-class docutils literal notranslate"><span class="pre">Command</span></code></a></p>
+</dd></dl>
+
+</section>
+<section id="module-lazyft.hyperopt.runner">
+<span id="lazyft-hyperopt-runner-module"></span><h2>lazyft.hyperopt.runner module<a class="headerlink" href="#module-lazyft.hyperopt.runner" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptManager">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lazyft.hyperopt.runner.</span></span><span class="sig-name descname"><span class="pre">HyperoptManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">commands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#lazyft.hyperopt.commands.HyperoptCommand" title="lazyft.hyperopt.commands.HyperoptCommand"><span class="pre">lazyft.hyperopt.commands.HyperoptCommand</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autosave</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptManager.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptManager.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptManager.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes the hyperopt commands in a non-blocking way.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The thread object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptManager.on_finished">
+<span class="sig-name descname"><span class="pre">on_finished</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">runner</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#lazyft.hyperopt.runner.HyperoptRunner" title="lazyft.hyperopt.runner.HyperoptRunner"><span class="pre">HyperoptRunner</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptManager.on_finished"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptManager.on_finished" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called when a runner finishes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>runner</strong> – The runner that finished.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptManager.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptManager.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptManager.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stops the hyperopt manager and clears the queue.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lazyft.hyperopt.runner.</span></span><span class="sig-name descname"><span class="pre">HyperoptRunner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">command</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#lazyft.hyperopt.commands.HyperoptCommand" title="lazyft.hyperopt.commands.HyperoptCommand"><span class="pre">HyperoptCommand</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autosave</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notify</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lazyft.html#lazyft.runner.Runner" title="lazyft.runner.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">Runner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">background</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes the Hyperopt command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>background</strong> – If True, the command will be executed in the background.</p></li>
+<li><p><strong>load_strategy</strong> – If True, the strategy will be loaded from the database using the
+hyperopt ID.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.generate_report">
+<span class="sig-name descname"><span class="pre">generate_report</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.generate_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.generate_report" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a report that can saved later on.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.get_epoch_report">
+<span class="sig-name descname"><span class="pre">get_epoch_report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="lazyft.models.html#lazyft.models.hyperopt.HyperoptReport" title="lazyft.models.hyperopt.HyperoptReport"><span class="pre">HyperoptReport</span></a></span></span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.get_epoch_report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.get_epoch_report" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the report for a specific epoch.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>epoch</strong> – The epoch to get the report for.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The report for the epoch.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.get_results">
+<span class="sig-name descname"><span class="pre">get_results</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.get_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.get_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Scrapes the hyperopt epoch information using regex and returns a DataFrame</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.join">
+<span class="sig-name descname"><span class="pre">join</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.join"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.join" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.live_output">
+<span class="sig-name descname"><span class="pre">live_output</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.live_output"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.live_output" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use rich lib to display an updatable table with epoch information</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.lock">
+<span class="sig-name descname"><span class="pre">lock</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.lock" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.log_path">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">log_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.log_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the path to the log file.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.on_finished">
+<span class="sig-name descname"><span class="pre">on_finished</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">success</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.on_finished"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.on_finished" title="Permalink to this definition">¶</a></dt>
+<dd><p>The callback for the sh command in execute()</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.output">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">output</span></span><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.output" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.pre_execute">
+<span class="sig-name descname"><span class="pre">pre_execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">load_strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.pre_execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.pre_execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initializes the HyperoptRunner.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.report">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">report</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="lazyft.models.html#lazyft.models.hyperopt.HyperoptReport" title="lazyft.models.hyperopt.HyperoptReport"><span class="pre">HyperoptReport</span></a></em><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.report" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="lazyft.models.html#lazyft.models.hyperopt.HyperoptReport" title="lazyft.models.hyperopt.HyperoptReport"><span class="pre">HyperoptReport</span></a></span></span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the the hyperopt result to the database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>epoch</strong> – An optional epoch to save. If None, the best epoch is used. This epoch will
+have 1 subtracted from it.</p></li>
+<li><p><strong>tag</strong> – An optional tag to save.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The saved report</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.stop" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.sub_process_log">
+<span class="sig-name descname"><span class="pre">sub_process_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.sub_process_log"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.sub_process_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>For logging purposes. Fills the write_queue</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lazyft.hyperopt.runner.HyperoptRunner.update_spaces">
+<span class="sig-name descname"><span class="pre">update_spaces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/lazyft/hyperopt/runner.html#HyperoptRunner.update_spaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lazyft.hyperopt.runner.HyperoptRunner.update_spaces" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-lazyft.hyperopt">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-lazyft.hyperopt" title="Permalink to this heading">¶</a></h2>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">lazyft.hyperopt package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-lazyft.hyperopt.commands">lazyft.hyperopt.commands module</a></li>
+<li><a class="reference internal" href="#module-lazyft.hyperopt.runner">lazyft.hyperopt.runner module</a></li>
+<li><a class="reference internal" href="#module-lazyft.hyperopt">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="lazyft.combo_optimization.html"
+                          title="previous chapter">lazyft.combo_optimization package</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="lazyft.models.html"
+                          title="next chapter">lazyft.models package</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/lazyft.hyperopt.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lazyft.models.html" title="lazyft.models package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="lazyft.combo_optimization.html" title="lazyft.combo_optimization package"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="modules.html" >lazyft</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="lazyft.html" >lazyft package</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.hyperopt package</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

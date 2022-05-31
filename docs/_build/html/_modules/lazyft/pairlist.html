@@ -1,0 +1,220 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.pairlist &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pyramid.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.pairlist</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.pairlist</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">freqtrade.exchange</span> <span class="kn">import</span> <span class="n">Exchange</span>
+<span class="kn">from</span> <span class="nn">freqtrade.plugins.pairlistmanager</span> <span class="kn">import</span> <span class="n">PairListManager</span>
+
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">lazyft.config</span> <span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span> <span class="nn">lazyft.reports</span> <span class="kn">import</span> <span class="n">get_hyperopt_repo</span>
+
+<span class="n">STABLE_COINS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;USDT&quot;</span><span class="p">,</span> <span class="s2">&quot;USDC&quot;</span><span class="p">,</span> <span class="s2">&quot;BUSD&quot;</span><span class="p">,</span> <span class="s2">&quot;USD&quot;</span><span class="p">]</span>
+<span class="n">BLACKLIST</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;^(BNB|BTC|ETH)/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^(.*USD.*|PAX|PAXG|DAI|IDRT|AUD|BRZ|CAD|CHF|EUR|GBP|HKD|JPY|NGN|RUB|SGD|TRY|UAH|VAI|ZAR)/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.*(_PREMIUM|BEAR|BULL|DOWN|HALF|HEDGE|UP|[1235][SL])/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;.*(ACM|AFA|ALA|ALL|APL|ASR|ATM|BAR|CAI|CITY|FOR|GAL|GOZ|IBFK|JUV|LEG|LOCK-1|NAVI|NOV|OG|PFL|PSG|ROUSH|STV|TH|TRA|UCH|UFC|YBO)/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^(CVP|NMR)/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^(ATOM)/.*&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DOGE/USDT&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="load_pairlist_from_id"><a class="viewcode-back" href="../../lazyft.html#lazyft.pairlist.load_pairlist_from_id">[docs]</a><span class="k">def</span> <span class="nf">load_pairlist_from_id</span><span class="p">(</span><span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;loading pairlist from params id </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">get_hyperopt_repo</span><span class="p">()</span><span class="o">.</span><span class="n">get_by_param_id</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span><span class="o">.</span><span class="n">pairlist</span></div>
+
+
+<div class="viewcode-block" id="refresh_pairlist"><a class="viewcode-back" href="../../lazyft.html#lazyft.pairlist.refresh_pairlist">[docs]</a><span class="k">def</span> <span class="nf">refresh_pairlist</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Config</span><span class="p">,</span> <span class="n">n_coins</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">save_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">age_limit</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Refresh the pairlist with the latest data from the exchange. Default settings are:</span>
+<span class="sd">        `PriceFilter=True,</span>
+<span class="sd">        AgeFilter=True,</span>
+<span class="sd">        SpreadFilter=True,</span>
+<span class="sd">        RangeStabilityFilter=True,</span>
+<span class="sd">        VolatilityFilter=True`</span>
+
+<span class="sd">    :param config: The original config to use settings from</span>
+<span class="sd">    :param n_coins: The number of coins to include in the pairlist</span>
+<span class="sd">    :param save_as: (optional) The name of the pairlist to save the new one as</span>
+<span class="sd">    :param age_limit: (optional) The age limit for the coins to include in the pairlist</span>
+<span class="sd">    :param kwargs: (optional) Any additional filters to apply to the pairlist</span>
+<span class="sd">    :return: The new pairlist</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Refreshing pairlist...&quot;</span><span class="p">)</span>
+    <span class="c1"># in case the user wants to save changes as a new config</span>
+    <span class="n">config_copy</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># these settings will be used to filter the pairlist</span>
+    <span class="n">filter_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">PriceFilter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">AgeFilter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">SpreadFilter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">RangeStabilityFilter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">VolatilityFilter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">filter_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="c1"># update the config object with the new settings</span>
+    <span class="n">set_pairlist_settings</span><span class="p">(</span><span class="n">config_copy</span><span class="p">,</span> <span class="n">n_coins</span><span class="p">,</span> <span class="n">age_limit</span><span class="p">,</span> <span class="o">**</span><span class="n">filter_kwargs</span><span class="p">)</span>
+
+    <span class="n">exchange</span> <span class="o">=</span> <span class="n">Exchange</span><span class="p">(</span><span class="n">config_copy</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">manager</span> <span class="o">=</span> <span class="n">PairListManager</span><span class="p">(</span><span class="n">exchange</span><span class="p">,</span> <span class="n">config_copy</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">manager</span><span class="o">.</span><span class="n">refresh_pairlist</span><span class="p">()</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">config_copy</span><span class="o">.</span><span class="n">update_whitelist_and_save</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">whitelist</span><span class="p">)</span>
+        <span class="n">reset_pairlist_settings</span><span class="p">(</span><span class="n">config_copy</span><span class="p">)</span>
+        <span class="n">config_copy</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_as</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished refreshing pairlist (</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">whitelist</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">manager</span><span class="o">.</span><span class="n">whitelist</span></div>
+
+
+<div class="viewcode-block" id="set_pairlist_settings"><a class="viewcode-back" href="../../lazyft.html#lazyft.pairlist.set_pairlist_settings">[docs]</a><span class="k">def</span> <span class="nf">set_pairlist_settings</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span><span class="p">,</span> <span class="n">n_coins</span><span class="p">,</span> <span class="n">age_limit</span><span class="p">,</span> <span class="o">**</span><span class="n">filter_kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Set the settings for the pairlist in the config object</span>
+
+<span class="sd">    :param config: The config object to update</span>
+<span class="sd">    :param n_coins: The number of coins to include in the pairlist</span>
+<span class="sd">    :param age_limit: The age limit for the coins to include in the pairlist</span>
+<span class="sd">    :param filter_kwargs: Any additional filters to apply to the pairlist</span>
+<span class="sd">    :return: The updated config object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config</span><span class="p">[</span><span class="s2">&quot;exchange&quot;</span><span class="p">][</span><span class="s2">&quot;pair_whitelist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;VolumePairList&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;number_assets&quot;</span><span class="p">:</span> <span class="n">n_coins</span><span class="p">,</span>
+        <span class="s2">&quot;sort_key&quot;</span><span class="p">:</span> <span class="s2">&quot;quoteVolume&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;refresh_period&quot;</span><span class="p">:</span> <span class="mi">1800</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">filter_kwargs</span><span class="p">[</span><span class="s2">&quot;AgeFilter&quot;</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;AgeFilter&quot;</span><span class="p">,</span> <span class="s2">&quot;min_days_listed&quot;</span><span class="p">:</span> <span class="n">age_limit</span><span class="p">})</span>
+    <span class="k">if</span> <span class="n">filter_kwargs</span><span class="p">[</span><span class="s2">&quot;PriceFilter&quot;</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;PriceFilter&quot;</span><span class="p">,</span> <span class="s2">&quot;min_price&quot;</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">})</span>
+    <span class="k">if</span> <span class="n">filter_kwargs</span><span class="p">[</span><span class="s2">&quot;SpreadFilter&quot;</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;SpreadFilter&quot;</span><span class="p">,</span> <span class="s2">&quot;max_spread_ratio&quot;</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">})</span>
+    <span class="k">if</span> <span class="n">filter_kwargs</span><span class="p">[</span><span class="s2">&quot;RangeStabilityFilter&quot;</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;RangeStabilityFilter&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;lookback_days&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                <span class="s2">&quot;min_rate_of_change&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+                <span class="s2">&quot;refresh_period&quot;</span><span class="p">:</span> <span class="mi">1800</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">filter_kwargs</span><span class="p">[</span><span class="s2">&quot;VolatilityFilter&quot;</span><span class="p">]:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;VolatilityFilter&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;lookback_days&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                <span class="s2">&quot;min_volatility&quot;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">,</span>
+                <span class="s2">&quot;max_volatility&quot;</span><span class="p">:</span> <span class="mf">0.75</span><span class="p">,</span>
+                <span class="s2">&quot;refresh_period&quot;</span><span class="p">:</span> <span class="mi">1800</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="c1"># set blacklist</span>
+    <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;stake_currency&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">STABLE_COINS</span><span class="p">:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;exchange&quot;</span><span class="p">][</span><span class="s2">&quot;pair_blacklist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">BLACKLIST</span></div>
+
+
+<div class="viewcode-block" id="reset_pairlist_settings"><a class="viewcode-back" href="../../lazyft.html#lazyft.pairlist.reset_pairlist_settings">[docs]</a><span class="k">def</span> <span class="nf">reset_pairlist_settings</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Config</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reset the pairlist settings to StaticPairList</span>
+
+<span class="sd">    :param config: The config object to update</span>
+<span class="sd">    :return: The updated config object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config</span><span class="p">[</span><span class="s2">&quot;pairlists&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;method&quot;</span><span class="p">:</span> <span class="s2">&quot;StaticPairList&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">config</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.pairlist</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

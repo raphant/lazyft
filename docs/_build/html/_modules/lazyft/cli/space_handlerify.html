@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.cli.space_handlerify &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pyramid.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.cli.space_handlerify</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.cli.space_handlerify</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">import</span> <span class="nn">typer</span>
+<span class="kn">from</span> <span class="nn">diskcache</span> <span class="kn">import</span> <span class="n">Index</span>
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">paths</span><span class="p">,</span> <span class="n">strategy</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Typer</span><span class="p">()</span>
+
+<span class="n">cache</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">CACHE_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;space_handlerify&#39;</span><span class="p">)))</span>
+
+
+<div class="viewcode-block" id="convert"><a class="viewcode-back" href="../../../lazyft.cli.html#lazyft.cli.space_handlerify.convert">[docs]</a><span class="nd">@app</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">convert</span><span class="p">(</span>
+    <span class="n">strategy_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Argument</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="n">save_as</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Option</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;New name to save modified strategy as&quot;</span><span class="p">),</span>
+<span class="p">):</span>
+    <span class="c1"># noinspection PyUnresolvedReferences</span>
+    <span class="kn">import</span> <span class="nn">readline</span>
+
+    <span class="k">if</span> <span class="s1">&#39;.py&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">strategy_name</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">paths</span><span class="o">.</span><span class="n">STRATEGY_DIR</span> <span class="o">/</span> <span class="n">strategy</span><span class="o">.</span><span class="n">get_file_name</span><span class="p">(</span><span class="n">strategy_name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">paths</span><span class="o">.</span><span class="n">STRATEGY_DIR</span> <span class="o">/</span> <span class="n">strategy_name</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Strategy file </span><span class="si">{</span><span class="n">strategy_name</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+    <span class="c1"># print(text)</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a regex pattern to capture something like the following:</span>
+<span class="sd">    base_nb_candles_buy = IntParameter(</span>
+<span class="sd">        5, 80, default=buy_params[&#39;base_nb_candles_buy&#39;], space=&#39;buy&#39;, optimize=True</span>
+<span class="sd">    )</span>
+<span class="sd">    low_offset = DecimalParameter(</span>
+<span class="sd">        0.9, 0.99, default=buy_params[&#39;low_offset&#39;], space=&#39;buy&#39;, optimize=True</span>
+<span class="sd">    )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">class_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;class [\w_]+\(IStrategy\):&#39;</span><span class="p">)</span>
+    <span class="n">class_pattern2</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;class ([\w_]+)\(IStrategy\):&#39;</span><span class="p">)</span>
+    <span class="c1"># Append &quot;sh&quot; to the end of class name</span>
+    <span class="n">class_name</span> <span class="o">=</span> <span class="n">class_pattern2</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">class_name</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">+</span> <span class="s1">&#39;Sh&#39;</span><span class="p">)</span>
+    <span class="c1"># get the line number that the class is defined on</span>
+    <span class="n">class_line_number</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">())</span> <span class="k">if</span> <span class="n">class_pattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">)]</span>
+    <span class="n">class_line_no</span> <span class="o">=</span> <span class="n">class_line_number</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">to_insert_line</span> <span class="o">=</span> <span class="n">class_line_no</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">sh_insert</span> <span class="o">=</span> <span class="s1">&#39;    sh = SpaceHandler(__file__, disable=__name__ != __qualname__)&#39;</span>
+    <span class="n">import_insert</span> <span class="o">=</span> <span class="s1">&#39;from lazyft.space_handler import SpaceHandler&#39;</span>
+    <span class="n">split_text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+    <span class="n">split_text</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">to_insert_line</span><span class="p">,</span> <span class="n">sh_insert</span><span class="p">)</span>
+    <span class="c1"># insert import</span>
+    <span class="n">split_text</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">import_insert</span><span class="p">)</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">split_text</span><span class="p">)</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;(\s*[\w_]+\s*=\s*\w+Parameter\(\s*[\w,\s=\-\[\]&#39;.]+optimize=\w+[\w,\s=\-\[\]&#39;.]*\s*\))&quot;</span>
+    <span class="p">)</span>
+    <span class="n">inner_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;(\s*[\w_]+)\s*=\s*\w+Parameter\(\s*[\w,\s=\-\[\]&#39;.]+optimize=\w+[\w,\s=\-\[\]&#39;.]*\s*\)&quot;</span>
+    <span class="p">)</span>
+    <span class="n">find</span> <span class="o">=</span> <span class="n">pattern</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="n">find</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;No parameters found&quot;</span>
+    <span class="c1"># find count of regex: optimize=\w+</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;optimize=\w+&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">count</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">find</span><span class="p">),</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s1"> parameters found, but expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">find</span><span class="p">)</span><span class="si">}</span><span class="s1"> parameters&#39;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Found </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s1"> parameters&#39;</span><span class="p">)</span>
+    <span class="c1"># new_group = &#39;&#39;</span>
+    <span class="n">group</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">add_to_cache</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">groups</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">find</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">cached_group</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="c1"># replace optimize = True with optimize = False with regex</span>
+        <span class="n">inner_find</span> <span class="o">=</span> <span class="n">inner_pattern</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">inner_find</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
+            <span class="n">group</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">inner_find</span><span class="p">]</span>
+            <span class="n">add_to_cache</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">new_group</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">find</span><span class="p">)</span><span class="si">}</span><span class="s2">) What group should </span><span class="si">{</span><span class="n">inner_find</span><span class="si">}</span><span class="s2"> be in?: &quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="n">group</span><span class="p">,</span>
+            <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">add_to_cache</span> <span class="ow">or</span> <span class="n">new_group</span> <span class="o">!=</span> <span class="n">group</span><span class="p">:</span>
+            <span class="n">cache</span><span class="p">[</span><span class="n">inner_find</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_group</span>
+            <span class="n">add_to_cache</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">new_group</span>
+        <span class="c1"># print(&#39;Before:&#39;, f)</span>
+        <span class="n">sub</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;optimize=\w+&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;optimize=sh.get_space(&#39;</span><span class="si">{</span><span class="n">new_group</span><span class="si">}</span><span class="s2">&#39;)&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">sub</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inner_find</span><span class="si">}</span><span class="s2">\s*=\s*\w+Parameter\(\s*[\w,\s=\-\[\]&#39;.]+optimize=\w+[\w,\s=\-\[\]&#39;.]*\s*\)&quot;</span><span class="p">,</span>
+            <span class="n">sub</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+            <span class="n">text</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_group</span><span class="p">)</span>
+    <span class="n">new_file</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="n">save_as</span> <span class="ow">or</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s1">_sh.py&#39;</span><span class="p">)</span>
+    <span class="n">new_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Added groups: </span><span class="si">{</span><span class="nb">set</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Saved to </span><span class="si">{</span><span class="n">new_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.cli.space_handlerify</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

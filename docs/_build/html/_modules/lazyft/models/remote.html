@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.models.remote &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pyramid.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.models.remote</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.models.remote</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span>
+
+
+<div class="viewcode-block" id="RemotePreset"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.remote.RemotePreset">[docs]</a><span class="k">class</span> <span class="nc">RemotePreset</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">address</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">22</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">opt_port</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">!=</span> <span class="mi">22</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;-e&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ssh -p </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Environment"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.remote.Environment">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Environment</span><span class="p">:</span>
+    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="n">file</span><span class="p">:</span> <span class="n">Path</span>
+
+<div class="viewcode-block" id="Environment.save"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.remote.Environment.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        It saves the environment to a file.</span>
+
+<span class="sd">        :param new_data: dict = None</span>
+<span class="sd">        :type new_data: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">new_data</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_db_file_name</span><span class="p">()</span>
+        <span class="n">new_text</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">new_text</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Environment.update_db_file_name"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.remote.Environment.update_db_file_name">[docs]</a>    <span class="k">def</span> <span class="nf">update_db_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If the user has set the</span>
+<span class="sd">        `FREQTRADE__DRY_RUN` environment variable to `True`, then the database file name</span>
+<span class="sd">        will be `tradesv3.{strategy}-dry_run-id.sqlite`.</span>
+
+<span class="sd">        If the user has set the</span>
+<span class="sd">        `FREQTRADE__DRY_RUN` environment variable to `False`, then the database file name</span>
+<span class="sd">        will be `tradesv3.{strategy}-live-id.sqlite`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FREQTRADE__DRY_RUN&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">dry_run</span> <span class="o">=</span> <span class="s2">&quot;dry_run&quot;</span> <span class="k">if</span> <span class="n">mode</span> <span class="k">else</span> <span class="s2">&quot;live&quot;</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;STRATEGY&quot;</span><span class="p">]</span>
+        <span class="nb">id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;ID&quot;</span><span class="p">]</span>
+        <span class="n">db_file</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tradesv3.</span><span class="si">{</span><span class="n">strategy</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">dry_run</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.sqlite&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;DB_FILE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">db_file</span></div></div>
+
+
+<div class="viewcode-block" id="RemoteBotInfo"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.remote.RemoteBotInfo">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">RemoteBotInfo</span><span class="p">:</span>
+    <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_env_file</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;STRATEGY&quot;</span><span class="p">]</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.models.remote</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

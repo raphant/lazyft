@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.log_config &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pyramid.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.log_config</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.log_config</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">paths</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+
+
+<div class="viewcode-block" id="non_exec_only"><a class="viewcode-back" href="../../lazyft.html#lazyft.log_config.non_exec_only">[docs]</a><span class="k">def</span> <span class="nf">non_exec_only</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot;type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">record</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="filter_log_file"><a class="viewcode-back" href="../../lazyft.html#lazyft.log_config.filter_log_file">[docs]</a><span class="k">def</span> <span class="nf">filter_log_file</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">log_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;type&#39;</span> <span class="ow">in</span> <span class="n">record</span><span class="p">[</span><span class="s1">&#39;extra&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">record</span><span class="p">[</span><span class="s1">&#39;extra&#39;</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">log_type</span></div>
+
+
+<div class="viewcode-block" id="setup_logger"><a class="viewcode-back" href="../../lazyft.html#lazyft.log_config.setup_logger">[docs]</a><span class="k">def</span> <span class="nf">setup_logger</span><span class="p">():</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span>
+        <span class="n">handlers</span><span class="o">=</span><span class="p">[</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">sink</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+                <span class="n">level</span><span class="o">=</span><span class="s1">&#39;INFO&#39;</span><span class="p">,</span>
+                <span class="n">backtrace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">diagnose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">enqueue</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="nb">filter</span><span class="o">=</span><span class="n">non_exec_only</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">sink</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;logs.log&quot;</span><span class="p">),</span>
+                <span class="n">backtrace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">diagnose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">level</span><span class="o">=</span><span class="s1">&#39;DEBUG&#39;</span><span class="p">,</span>
+                <span class="n">delay</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">enqueue</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="nb">filter</span><span class="o">=</span><span class="n">non_exec_only</span><span class="p">,</span>
+                <span class="n">retention</span><span class="o">=</span><span class="s2">&quot;5 days&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s1">&#39;1 MB&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">sink</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;hyperopt.log&#39;</span><span class="p">),</span>
+                <span class="n">retention</span><span class="o">=</span><span class="s2">&quot;5 days&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s1">&#39;2.5 MB&#39;</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="nb">filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">filter_log_file</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">log_type</span><span class="o">=</span><span class="s1">&#39;hyperopt&#39;</span><span class="p">),</span>
+                <span class="n">enqueue</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">sink</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;backtest.log&#39;</span><span class="p">),</span>
+                <span class="n">retention</span><span class="o">=</span><span class="s2">&quot;5 days&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s1">&#39;2.5 MB&#39;</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="nb">filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">filter_log_file</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">log_type</span><span class="o">=</span><span class="s1">&#39;backtest&#39;</span><span class="p">),</span>
+                <span class="n">enqueue</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">sink</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;general_exec.log&#39;</span><span class="p">),</span>
+                <span class="n">retention</span><span class="o">=</span><span class="s2">&quot;5 days&quot;</span><span class="p">,</span>
+                <span class="n">rotation</span><span class="o">=</span><span class="s1">&#39;1 MB&#39;</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="nb">filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">filter_log_file</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">log_type</span><span class="o">=</span><span class="s1">&#39;general&#39;</span><span class="p">),</span>
+                <span class="n">enqueue</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.log_config</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

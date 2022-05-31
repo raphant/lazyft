@@ -1,0 +1,531 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.models.hyperopt &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/pyramid.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.models.hyperopt</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.models.hyperopt</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">sqlite3</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">_operator</span> <span class="kn">import</span> <span class="n">itemgetter</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">rapidjson</span>
+<span class="kn">from</span> <span class="nn">diskcache</span> <span class="kn">import</span> <span class="n">Index</span>
+<span class="kn">from</span> <span class="nn">freqtrade.misc</span> <span class="kn">import</span> <span class="n">deep_merge_dicts</span>
+<span class="kn">from</span> <span class="nn">freqtrade.optimize</span> <span class="kn">import</span> <span class="n">optimize_reports</span>
+<span class="kn">from</span> <span class="nn">freqtrade.optimize.hyperopt_tools</span> <span class="kn">import</span> <span class="n">HyperoptTools</span>
+<span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">pandas.io.json</span> <span class="kn">import</span> <span class="n">json_normalize</span>
+<span class="kn">from</span> <span class="nn">sqlmodel</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">SQLModel</span>
+
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">paths</span><span class="p">,</span> <span class="n">util</span>
+<span class="kn">from</span> <span class="nn">lazyft.database</span> <span class="kn">import</span> <span class="n">engine</span>
+<span class="kn">from</span> <span class="nn">lazyft.models</span> <span class="kn">import</span> <span class="n">PerformanceBase</span><span class="p">,</span> <span class="n">ReportBase</span>
+
+<span class="kn">from</span> <span class="nn">lazyft.strategy</span> <span class="kn">import</span> <span class="n">get_file_name</span>
+<span class="kn">from</span> <span class="nn">lazyft.util</span> <span class="kn">import</span> <span class="n">calculate_win_ratio</span><span class="p">,</span> <span class="n">remove_cache</span><span class="p">,</span> <span class="n">get_last_hyperopt_file_name</span>
+
+
+<div class="viewcode-block" id="create_cache"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.create_cache">[docs]</a><span class="k">def</span> <span class="nf">create_cache</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Index</span><span class="p">,</span> <span class="n">Index</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create the cache for the performance table</span>
+
+<span class="sd">    :return: A cache and a temporary cache</span>
+<span class="sd">    :rtype: tuple[diskcache.Index, diskcache.Index]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cache</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">CACHE_DIR</span> <span class="o">/</span> <span class="s2">&quot;models&quot;</span><span class="p">))</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">DatabaseError</span><span class="p">:</span>  <span class="c1"># Database is malformed</span>
+        <span class="c1"># remove cache/models with shutil.rmtree</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database is malformed, removing cache/models&quot;</span><span class="p">)</span>
+        <span class="n">remove_cache</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">CACHE_DIR</span> <span class="o">/</span> <span class="s2">&quot;models&quot;</span><span class="p">)</span>
+        <span class="n">cache</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">CACHE_DIR</span> <span class="o">/</span> <span class="s2">&quot;models&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">cache</span><span class="p">,</span> <span class="n">Index</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">())</span></div>
+
+
+<span class="n">cache</span><span class="p">,</span> <span class="n">tmp_cache</span> <span class="o">=</span> <span class="n">create_cache</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="HyperoptPerformance"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptPerformance">[docs]</a><span class="k">class</span> <span class="nc">HyperoptPerformance</span><span class="p">(</span><span class="n">PerformanceBase</span><span class="p">):</span>
+    <span class="n">wins</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">losses</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">draws</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">avg_profits</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">med_profit</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">tot_profit</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">profit_percent</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">avg_duration</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">loss</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profit_total_pct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">profit_percent</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profit_ratio</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">avg_profits</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">profit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tot_profit</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">win_ratio</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the win ratio of the backtest. Takes draws into account.</span>
+<span class="sd">        :return: win ratio</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_win_ratio</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wins</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">draws</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HyperoptReport"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport">[docs]</a><span class="k">class</span> <span class="nc">HyperoptReport</span><span class="p">(</span><span class="n">ReportBase</span><span class="p">,</span> <span class="n">table</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The id of the report&quot;</span><span class="p">)</span>
+    <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">hyperopt_file_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The hyperopt file name&quot;</span><span class="p">)</span>
+    <span class="n">strategy_hash</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The strategy hash used for integrity&quot;</span><span class="p">)</span>
+    <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The exchange used for the backtest&quot;</span><span class="p">)</span>
+
+    <span class="c1"># region properties</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">filtered_results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return filtered results.</span>
+
+<span class="sd">        :return: A tuple of the filtered results and the number of results.</span>
+<span class="sd">        :rtype: tuple[list, int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;user_data_dir&quot;</span><span class="p">:</span> <span class="n">paths</span><span class="o">.</span><span class="n">USER_DATA_DIR</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">HyperoptTools</span><span class="o">.</span><span class="n">load_filtered_results</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">result_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a dictionary with the results of the hyperopt run.</span>
+<span class="sd">        Will cache the result for faster access.</span>
+<span class="sd">        If the report is not saved to the database, the report will be temporarily cached.</span>
+
+<span class="sd">        :raises IndexError: If the hyperopt does not exist.</span>
+<span class="sd">        :return: A dictionary with the results of the hyperopt run.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_cache</span> <span class="o">=</span> <span class="n">cache</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="k">else</span> <span class="n">tmp_cache</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file_str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="p">)</span> <span class="ow">in</span> <span class="n">_cache</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_cache</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file_str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="p">]</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">DatabaseError</span><span class="p">:</span>
+            <span class="n">remove_cache</span><span class="p">(</span><span class="n">_cache</span><span class="o">.</span><span class="n">directory</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading and caching hyperopt results for id </span><span class="si">{}</span><span class="s2">...&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_epochs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Epoch </span><span class="si">{}</span><span class="s2"> not found in hyperopt results for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Available epochs: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_epochs</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="si">}</span><span class="s2"> not found in hyperopt results for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">. Available epochs: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">total_epochs</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">_cache</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file_str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">all_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of all epochs of the hyperopt run.</span>
+
+<span class="sd">        :return: A list of all epochs of the hyperopt run.</span>
+<span class="sd">        :rtype: list[dict]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">filtered_results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">total_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The total number of epochs of the hyperopt run.</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">filtered_results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">backtest_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The backtest data of the best hyperopt run.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;results_metrics&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The name of the strategy used for the hyperopt run.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;strategy_name&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">hyperopt_file</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The path to the hyperopt file.</span>
+
+<span class="sd">        :return: A path to the hyperopt file.</span>
+<span class="sd">        :rtype: Path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">paths</span><span class="o">.</span><span class="n">HYPEROPT_RESULTS_DIR</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file_str</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">performance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HyperoptPerformance</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The performance of the best hyperopt run.</span>
+
+<span class="sd">        :return: A HyperoptPerformance object.</span>
+<span class="sd">        :rtype: HyperoptPerformance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">HyperoptPerformance</span><span class="p">(</span>
+            <span class="n">wins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;wins&quot;</span><span class="p">],</span>
+            <span class="n">losses</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;losses&quot;</span><span class="p">],</span>
+            <span class="n">draws</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;draws&quot;</span><span class="p">],</span>
+            <span class="n">avg_profits</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;profit_mean&quot;</span><span class="p">],</span>
+            <span class="n">med_profit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;profit_median&quot;</span><span class="p">],</span>
+            <span class="n">profit_percent</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;profit_total&quot;</span><span class="p">],</span>
+            <span class="n">tot_profit</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;profit_total_abs&quot;</span><span class="p">],</span>
+            <span class="n">avg_duration</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;holding_avg&quot;</span><span class="p">],</span>
+            <span class="n">start_date</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;backtest_start&quot;</span><span class="p">],</span>
+            <span class="n">end_date</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;backtest_end&quot;</span><span class="p">],</span>
+            <span class="n">seed</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">trades</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;total_trades&quot;</span><span class="p">],</span>
+            <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span>
+            <span class="n">drawdown</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">drawdown</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stake_currency</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The stake currency.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;stake_currency&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stake_amount</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The stake amount.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;stake_amount&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">starting_balance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The starting balance.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;starting_balance&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">max_open_trades</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The maximum number of open trades.</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;max_open_trades&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">timeframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The timeframe.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;timeframe&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">timerange</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The timerange.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;timerange&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pairlist</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The pairlist.</span>
+<span class="sd">        :rtype: list[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;pairlist&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">log_file</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The log file.</span>
+<span class="sd">        :rtype: Path | None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">paths</span><span class="o">.</span><span class="n">HYPEROPT_LOG_PATH</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.log&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Log file not found for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">loss</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The loss of the best hyperopt run.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;loss&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The final parameters of the hyperopt.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">final_params</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;params_not_optimized&quot;</span><span class="p">])</span>
+        <span class="n">final_params</span> <span class="o">=</span> <span class="n">deep_merge_dicts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span><span class="p">[</span><span class="s2">&quot;params_details&quot;</span><span class="p">],</span> <span class="n">final_params</span><span class="p">)</span>
+        <span class="n">date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%x</span><span class="s2"> </span><span class="si">%X</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">final_params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;strategy_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">final_params</span><span class="p">,</span>
+            <span class="s2">&quot;ft_stratparam_v&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;export_time&quot;</span><span class="p">:</span> <span class="n">date</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">final_params</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">parameters_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: A path to the parameters file.</span>
+<span class="sd">        :rtype: Path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">get_file_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">paths</span><span class="o">.</span><span class="n">STRATEGY_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">file_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.json&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">drawdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The drawdown of the best hyperopt run.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;max_drawdown_account&quot;</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">report_text</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return: The backtest summary of the best hyperopt run.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">lazyft.reports</span> <span class="kn">import</span> <span class="n">backtest_results_as_text</span>
+
+        <span class="k">return</span> <span class="n">backtest_results_as_text</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">backtest_data</span><span class="p">[</span><span class="s2">&quot;stake_currency&quot;</span><span class="p">],</span>
+            <span class="n">hyperopt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># endregion</span>
+
+<div class="viewcode-block" id="HyperoptReport.export_parameters"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.export_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">export_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export the parameters of the hyperopt run to a json file.</span>
+
+<span class="sd">        :param path: Optional path to export the parameters to.</span>
+<span class="sd">        :type path: Path</span>
+<span class="sd">        :return: None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters_path</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">rapidjson</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Exported parameters for report </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.delete"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete the hyperopt run.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># self.hyperopt_file.unlink(missing_ok=True)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_file</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.hyperopt_list_to_df"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.hyperopt_list_to_df">[docs]</a>    <span class="k">def</span> <span class="nf">hyperopt_list_to_df</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the hyperopt list into a dataframe of performances.</span>
+
+<span class="sd">        :return: A dataframe with the hyperopt list.</span>
+<span class="sd">        :rtype: pd.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="n">json_normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">all_epochs</span><span class="p">,</span> <span class="n">max_level</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">trials</span> <span class="o">=</span> <span class="n">HyperoptTools</span><span class="o">.</span><span class="n">prepare_trials_columns</span><span class="p">(</span>
+            <span class="n">trials</span><span class="p">,</span>
+            <span class="s2">&quot;results_metrics.max_drawdown_abs&quot;</span> <span class="ow">in</span> <span class="n">trials</span><span class="o">.</span><span class="n">columns</span>
+            <span class="ow">or</span> <span class="s2">&quot;results_metrics.max_drawdown_account&quot;</span> <span class="ow">in</span> <span class="n">trials</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">trials</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;is_initial_point&quot;</span><span class="p">,</span> <span class="s2">&quot;is_best&quot;</span><span class="p">,</span> <span class="s2">&quot;Best&quot;</span><span class="p">],</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">trials</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Epoch&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># &quot;Avg duration&quot; is a column with values the format of HH:MM:SS.</span>
+        <span class="c1"># We want to turn this into hours</span>
+        <span class="n">avg_duration_hours</span> <span class="o">=</span> <span class="n">trials</span><span class="p">[</span><span class="s2">&quot;Avg duration&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">util</span><span class="o">.</span><span class="n">duration_string_to_timedelta</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># insert avg_duration_seconds in the seventh position</span>
+        <span class="n">trials</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;Avg duration hours&quot;</span><span class="p">,</span> <span class="n">avg_duration_hours</span><span class="p">)</span>
+        <span class="c1"># strip each column name</span>
+        <span class="n">trials</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">trials</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">trials</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.show_hyperopt"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.show_hyperopt">[docs]</a>    <span class="k">def</span> <span class="nf">show_hyperopt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Show the hyperopt results for a specific epoch. If no epoch is specified,</span>
+<span class="sd">        show the hyperopt results for the best epoch.</span>
+
+<span class="sd">        :param epoch: The epoch number to show. If None, the best epoch will be shown</span>
+<span class="sd">        :type epoch: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">epoch</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_epochs</span><span class="p">[</span><span class="n">epoch</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_dict</span>
+        <span class="n">optimize_reports</span><span class="o">.</span><span class="n">show_backtest_result</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;results_metrics&quot;</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stake_currency</span><span class="p">,</span>
+            <span class="p">[],</span>
+        <span class="p">)</span>
+        <span class="n">HyperoptTools</span><span class="o">.</span><span class="n">show_epoch_details</span><span class="p">(</span>
+            <span class="n">result</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">total_epochs</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+            <span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.new_report_from_epoch"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.new_report_from_epoch">[docs]</a>    <span class="k">def</span> <span class="nf">new_report_from_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epoch</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new report from the hyperopt results for a specific epoch.</span>
+
+<span class="sd">        :param epoch: The epoch number to create the report from.</span>
+<span class="sd">        :return: The new report.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">HyperoptReport</span><span class="p">(</span>
+            <span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">hyperopt_file_str</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hyperopt_file</span><span class="p">),</span>
+            <span class="n">exchange</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">exchange</span><span class="p">,</span>
+            <span class="n">tag</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="p">,</span>
+            <span class="n">strategy_hash</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy_hash</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.get_best_epoch"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.get_best_epoch">[docs]</a>    <span class="k">def</span> <span class="nf">get_best_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the epoch number of the best epoch.</span>
+
+<span class="sd">        :return: The epoch number of the best epoch.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sorted_epochs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">all_epochs</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">itemgetter</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_epochs</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">sorted_epochs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.from_last_result"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.from_last_result">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_last_result</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">exchange</span><span class="o">=</span><span class="s2">&quot;kucoin&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a HyperoptReport object from the last result of a hyperopt run.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">HyperoptReport</span><span class="p">(</span>
+            <span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span><span class="p">,</span>
+            <span class="n">hyperopt_file_str</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">HYPEROPT_RESULTS_DIR</span> <span class="o">/</span> <span class="n">get_last_hyperopt_file_name</span><span class="p">(),</span>
+            <span class="n">exchange</span><span class="o">=</span><span class="n">exchange</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HyperoptReport.from_hyperopt_result"><a class="viewcode-back" href="../../../lazyft.models.html#lazyft.models.hyperopt.HyperoptReport.from_hyperopt_result">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_hyperopt_result</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">result_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a HyperoptReport object from a hyperopt result file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">HyperoptReport</span><span class="p">(</span><span class="n">epoch</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">hyperopt_file_str</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">result_path</span><span class="p">),</span> <span class="n">exchange</span><span class="o">=</span><span class="n">exchange</span><span class="p">)</span></div></div>
+
+
+<span class="n">SQLModel</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.models.hyperopt</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

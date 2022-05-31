@@ -1,0 +1,745 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.reports &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pyramid.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.reports</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.reports</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">UserList</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">dateutil.parser</span> <span class="kn">import</span> <span class="n">parse</span>
+<span class="kn">from</span> <span class="nn">freqtrade.optimize.optimize_reports</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_periodic_breakdown_stats</span><span class="p">,</span>
+    <span class="n">text_table_add_metrics</span><span class="p">,</span>
+    <span class="n">text_table_bt_results</span><span class="p">,</span>
+    <span class="n">text_table_exit_reason</span><span class="p">,</span>
+    <span class="n">text_table_periodic_breakdown</span><span class="p">,</span>
+    <span class="n">text_table_tags</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span> <span class="nn">lazyft.database</span> <span class="kn">import</span> <span class="n">engine</span>
+<span class="kn">from</span> <span class="nn">lazyft.errors</span> <span class="kn">import</span> <span class="n">IdNotFoundError</span>
+<span class="kn">from</span> <span class="nn">lazyft.models.backtest</span> <span class="kn">import</span> <span class="n">BacktestReport</span>
+<span class="kn">from</span> <span class="nn">lazyft.models.base</span> <span class="kn">import</span> <span class="n">ReportBase</span>
+<span class="kn">from</span> <span class="nn">lazyft.models.hyperopt</span> <span class="kn">import</span> <span class="n">HyperoptReport</span>
+<span class="kn">from</span> <span class="nn">lazyft.util</span> <span class="kn">import</span> <span class="n">calculate_win_ratio</span>
+<span class="kn">from</span> <span class="nn">sqlmodel</span> <span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span> <span class="nn">sqlmodel.sql.expression</span> <span class="kn">import</span> <span class="n">select</span>
+
+<span class="n">cols_to_print</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;strategy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;h_id&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;date&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;exchange&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;starting_balance&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;max_open_trades&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tpd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;trades&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;days&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">BacktestReportList</span> <span class="o">=</span> <span class="n">UserList</span><span class="p">[</span><span class="n">BacktestReport</span><span class="p">]</span>
+<span class="n">HyperoptReportList</span> <span class="o">=</span> <span class="n">UserList</span><span class="p">[</span><span class="n">HyperoptReport</span><span class="p">]</span>
+<span class="n">RepoList</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">UserList</span><span class="p">[</span><span class="n">BacktestReport</span><span class="p">],</span> <span class="n">UserList</span><span class="p">[</span><span class="n">HyperoptReport</span><span class="p">]]</span>
+<span class="n">AbstractReport</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">BacktestReport</span><span class="p">,</span> <span class="n">HyperoptReport</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="RepoExplorer"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer">[docs]</a><span class="k">class</span> <span class="nc">RepoExplorer</span><span class="p">(</span><span class="n">UserList</span><span class="p">[</span><span class="n">AbstractReport</span><span class="p">],</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A database API used to query, sort, filter, and delete reports.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataframe</span>
+
+<div class="viewcode-block" id="RepoExplorer.reset"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.reset">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Queries the database and returns a list of all reports</span>
+
+<span class="sd">        :return: RepoExplorer with all reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.get"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportBase</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the report with the given id.</span>
+
+<span class="sd">        :param id: The id of the report to return.</span>
+<span class="sd">        :type id: int</span>
+<span class="sd">        :raises IdNotFoundError: If no report with the given id is found.</span>
+<span class="sd">        :return: The report with the given id.</span>
+<span class="sd">        :rtype: ReportBase</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">IdNotFoundError</span><span class="p">(</span><span class="s2">&quot;Could not find report with id </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.get_strategy_id_pairs"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.get_strategy_id_pairs">[docs]</a>    <span class="k">def</span> <span class="nf">get_strategy_id_pairs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns an iterable of tuples of strategy names and ids.</span>
+
+
+<span class="sd">        :return: An iterable of tuples of strategy names and ids.</span>
+<span class="sd">        :rtype: Iterable[tuple[str, int]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pairs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="n">pairs</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">hyperopt_id</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">pairs</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter">[docs]</a>    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ReportBase</span><span class="p">],</span> <span class="nb">bool</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports using a function.</span>
+
+<span class="sd">        :param func: The function to use to filter the list.</span>
+<span class="sd">        :type func: Callable[[ReportBase], bool]</span>
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="c1"># noinspection PyMethodOverriding</span>
+<div class="viewcode-block" id="RepoExplorer.sort"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.sort">[docs]</a>    <span class="k">def</span> <span class="nf">sort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ReportBase</span><span class="p">],</span> <span class="nb">bool</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sorts the list of reports using a function.</span>
+
+<span class="sd">        :param func: The function to use to sort the list.</span>
+<span class="sd">        :type func: Callable[[ReportBase], bool]</span>
+<span class="sd">        :return: RepoExplorer with the sorted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">func</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.head"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.head">[docs]</a>    <span class="k">def</span> <span class="nf">head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the first n reports.</span>
+
+<span class="sd">        :param n: The number of reports to return.</span>
+<span class="sd">        :type n: int</span>
+<span class="sd">        :return: RepoExplorer with the first n reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.tail"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.tail">[docs]</a>    <span class="k">def</span> <span class="nf">tail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the last n reports.</span>
+
+<span class="sd">        :param n: The number of reports to return.</span>
+<span class="sd">        :type n: int</span>
+<span class="sd">        :return: RepoExplorer with the last n reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="n">n</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.sort_by_date"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.sort_by_date">[docs]</a>    <span class="k">def</span> <span class="nf">sort_by_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sorts the list of reports by date.</span>
+
+<span class="sd">        :param ascending: Sort in lowest to highest date order, defaults to False</span>
+<span class="sd">        :type ascending: bool, optional</span>
+<span class="sd">        :return: RepoExplorer with the sorted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">date</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="ow">not</span> <span class="n">ascending</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.sort_by_profit"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.sort_by_profit">[docs]</a>    <span class="k">def</span> <span class="nf">sort_by_profit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ascended</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sorts the list of reports by profit.</span>
+
+<span class="sd">        :param ascended: Sort in lowest to highest profit order, defaults to False</span>
+<span class="sd">        :type ascended: bool, optional</span>
+<span class="sd">        :return: RepoExplorer with the sorted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">performance</span><span class="o">.</span><span class="n">profit_percent</span><span class="p">,</span>
+            <span class="n">reverse</span><span class="o">=</span><span class="ow">not</span> <span class="n">ascended</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.sort_by_ppd"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.sort_by_ppd">[docs]</a>    <span class="k">def</span> <span class="nf">sort_by_ppd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ascended</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sorts the list of reports by profit per day.</span>
+
+<span class="sd">        :param ascended: Sort in lowest to highest profit per day order, defaults to False</span>
+<span class="sd">        :type ascended: bool, optional</span>
+<span class="sd">        :return: RepoExplorer with the sorted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">performance</span><span class="o">.</span><span class="n">ppd</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="ow">not</span> <span class="n">ascended</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.sort_by_score"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.sort_by_score">[docs]</a>    <span class="k">def</span> <span class="nf">sort_by_score</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sorts the list of reports by score.</span>
+
+
+<span class="sd">        :param ascending: Sort in lowest to highest score order, defaults to False</span>
+<span class="sd">        :type ascending: bool, optional</span>
+<span class="sd">        :return: RepoExplorer with the sorted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">performance</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="ow">not</span> <span class="n">ascending</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter_by_id"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter_by_id">[docs]</a>    <span class="k">def</span> <span class="nf">filter_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports by ids.</span>
+
+<span class="sd">        :param ids: The ids to filter by.</span>
+<span class="sd">        :type ids: Iterable[int]</span>
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter_by_tag"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter_by_tag">[docs]</a>    <span class="k">def</span> <span class="nf">filter_by_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports by tags.</span>
+
+<span class="sd">        :param tags: The tags to filter by.</span>
+<span class="sd">        :type tags: Iterable[str]</span>
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">matched</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">tag</span> <span class="ow">in</span> <span class="n">tags</span><span class="p">:</span>
+                <span class="n">matched</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">matched</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter_by_profitable"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter_by_profitable">[docs]</a>    <span class="k">def</span> <span class="nf">filter_by_profitable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports by profitability.</span>
+
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">performance</span><span class="o">.</span><span class="n">profit</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter_by_strategy"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter_by_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">filter_by_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategies</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports by strategies.</span>
+
+<span class="sd">        :param strategies: The strategies to filter by.</span>
+<span class="sd">        :type strategies: Iterable[str]</span>
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">strategy</span> <span class="ow">in</span> <span class="n">strategies</span><span class="p">:</span>
+                    <span class="n">new_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find strategy </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">strategy</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">strategies</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">new_data</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.filter_by_exchange"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.filter_by_exchange">[docs]</a>    <span class="k">def</span> <span class="nf">filter_by_exchange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exchange</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RepoExplorer&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filters the list of reports by exchanges.</span>
+
+<span class="sd">        :param exchange: The exchange to filter by.</span>
+<span class="sd">        :type exchange: str</span>
+<span class="sd">        :return: RepoExplorer with the filtered reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">exchange</span> <span class="o">==</span> <span class="n">exchange</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.first"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.first">[docs]</a>    <span class="k">def</span> <span class="nf">first</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportBase</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the first report.</span>
+
+<span class="sd">        :return: The first report.</span>
+<span class="sd">        :rtype: ReportBase</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.last"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.last">[docs]</a>    <span class="k">def</span> <span class="nf">last</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReportBase</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the last report.</span>
+
+<span class="sd">        :return: The last report.</span>
+<span class="sd">        :rtype: ReportBase</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.dataframe"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.dataframe">[docs]</a>    <span class="k">def</span> <span class="nf">dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a dataframe of the reports.</span>
+
+<span class="sd">        :return: A dataframe of the reports.</span>
+<span class="sd">        :rtype: pd.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">df</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Failed to create dataframe for report: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">frames</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No dataframes created&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">frame</span><span class="o">.</span><span class="n">stake</span> <span class="o">==</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="s2">&quot;stake&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;unlimited&quot;</span>
+        <span class="n">frame</span><span class="p">[</span><span class="s2">&quot;avg_profit_pct&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="s2">&quot;avg_profit_pct&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.delete"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.delete">[docs]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Deletes reports by ids.</span>
+
+<span class="sd">        :param ids: The ids to delete.</span>
+<span class="sd">        :type ids: Iterable[int]</span>
+<span class="sd">        :return: RepoExplorer with the deleted reports.</span>
+<span class="sd">        :rtype: RepoExplorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">reports</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filter_by_id</span><span class="p">(</span><span class="o">*</span><span class="n">ids</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">report</span> <span class="ow">in</span> <span class="n">reports</span><span class="p">:</span>
+                <span class="n">report</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Deleted report id: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.delete_all"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.delete_all">[docs]</a>    <span class="k">def</span> <span class="nf">delete_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Deletes all reports.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">report</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="n">report</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Deleted </span><span class="si">{}</span><span class="s2"> reports from </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RepoExplorer.length"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.RepoExplorer.length">[docs]</a>    <span class="k">def</span> <span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the length of the list of reports.</span>
+
+<span class="sd">        :return: The number of reports in the database.</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_BacktestRepoExplorer</span><span class="p">(</span><span class="n">RepoExplorer</span><span class="p">,</span> <span class="n">BacktestReportList</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;_BacktestRepoExplorer&quot;</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">BacktestReport</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_by_date</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_hashes</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">BacktestReport</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">hash</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">all</span><span class="p">()]</span>
+
+    <span class="k">def</span> <span class="nf">get_using_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">hash</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">hash</span> <span class="o">==</span> <span class="nb">hash</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">get_top_strategies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;td&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;strategy&quot;</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_results_from_date_range</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">start_date</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">end_date</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">start_date</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">start_date</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">end_date</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">end_date</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">end_date</span><span class="p">)</span><span class="o">.</span><span class="n">date</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">report</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="n">df_trades</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">trades</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">df_trades</span><span class="p">[</span><span class="s2">&quot;open_date&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span> <span class="o">&gt;</span> <span class="n">start_date</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="n">end_date</span> <span class="ow">or</span> <span class="n">df_trades</span><span class="p">[</span><span class="s2">&quot;open_date&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span> <span class="o">&lt;=</span> <span class="n">end_date</span>
+            <span class="p">)</span>
+            <span class="n">df_range</span> <span class="o">=</span> <span class="n">df_trades</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_range</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">totals_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">strategy</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">h_id</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">hyperopt_id</span><span class="p">,</span>
+                <span class="n">starting_balance</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">starting_balance</span><span class="p">,</span>
+                <span class="n">stake_amount</span><span class="o">=</span><span class="n">report</span><span class="o">.</span><span class="n">stake_amount</span><span class="p">,</span>
+                <span class="c1"># total_profit=df_range.profit_abs.sum(),</span>
+                <span class="c1"># profit_per_trade=df_range.profit_abs.mean(),</span>
+                <span class="n">avg_profit_pct</span><span class="o">=</span><span class="n">df_range</span><span class="o">.</span><span class="n">profit_ratio</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="n">total_profit_pct</span><span class="o">=</span><span class="n">df_range</span><span class="o">.</span><span class="n">profit_ratio</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+                <span class="n">trades</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df_range</span><span class="p">),</span>
+                <span class="n">wins</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df_range</span><span class="p">[</span><span class="n">df_range</span><span class="o">.</span><span class="n">profit_abs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]),</span>
+                <span class="n">draws</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df_range</span><span class="p">[</span><span class="n">df_range</span><span class="o">.</span><span class="n">profit_abs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]),</span>
+                <span class="n">losses</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df_range</span><span class="p">[</span><span class="n">df_range</span><span class="o">.</span><span class="n">profit_abs</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]),</span>
+            <span class="p">)</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">totals_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_pair_totals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sort_by</span><span class="o">=</span><span class="s2">&quot;profit_total_pct&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get trades from all saved reports and summarize them.&quot;&quot;&quot;</span>
+        <span class="n">all_trades</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">trades</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">])</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">all_trades</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">all_trades</span><span class="p">[</span><span class="s2">&quot;pair&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span>
+            <span class="n">profit_total</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;profit_abs&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+            <span class="n">profit_total_pct</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;profit_ratio&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+            <span class="n">profit_pct</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;profit_ratio&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+            <span class="n">avg_stake_amount</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;stake_amount&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+            <span class="n">count</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;pair&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;count&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">profit_total_pct</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">profit_total_pct</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">profit_pct</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">profit_pct</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">sort_by</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_HyperoptRepoExplorer</span><span class="p">(</span><span class="n">RepoExplorer</span><span class="p">,</span> <span class="n">HyperoptReportList</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">HyperoptReport</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_by_param_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the report with the uuid or the first report in the repo&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">)][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">IdNotFoundError</span><span class="p">(</span><span class="s2">&quot;Could not find report with id </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_by_param_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">ids</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the report with the uuid or the first report in the repo&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">sort_by_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">performance</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span>
+            <span class="n">reverse</span><span class="o">=</span><span class="n">reverse</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+
+<div class="viewcode-block" id="get_backtest_repo"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.get_backtest_repo">[docs]</a><span class="k">def</span> <span class="nf">get_backtest_repo</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the backtest repo.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_BacktestRepoExplorer</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="get_hyperopt_repo"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.get_hyperopt_repo">[docs]</a><span class="k">def</span> <span class="nf">get_hyperopt_repo</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the hyperopt repo.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_HyperoptRepoExplorer</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BacktestExplorer"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.BacktestExplorer">[docs]</a><span class="k">class</span> <span class="nc">BacktestExplorer</span><span class="p">:</span>
+<div class="viewcode-block" id="BacktestExplorer.get_hashes"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.BacktestExplorer.get_hashes">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_hashes</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">BacktestReport</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">hash</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()]</span></div>
+
+<div class="viewcode-block" id="BacktestExplorer.get_using_hash"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.BacktestExplorer.get_using_hash">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_using_hash</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">hash</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">statement</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">BacktestReport</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">BacktestReport</span><span class="o">.</span><span class="n">hash</span> <span class="o">==</span> <span class="nb">hash</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">statement</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">results</span><span class="o">.</span><span class="n">one</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="backtest_results_as_text"><a class="viewcode-back" href="../../lazyft.html#lazyft.reports.backtest_results_as_text">[docs]</a><span class="k">def</span> <span class="nf">backtest_results_as_text</span><span class="p">(</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">stake_currency</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">backtest_breakdown</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">hyperopt</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">hyperopt_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a text report from a backtest results dict.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">backtest_breakdown</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">backtest_breakdown</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Print results</span>
+    <span class="n">header_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Result for strategy </span><span class="si">{</span><span class="n">strategy</span><span class="si">}</span><span class="s2"> #</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2"> | Hyperopt: </span><span class="si">{</span><span class="n">hyperopt</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">hyperopt</span> <span class="ow">and</span> <span class="n">hyperopt_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">header_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; | Hyperopt id: </span><span class="si">{</span><span class="n">hyperopt_id</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">header_str</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_bt_results</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;results_per_pair&quot;</span><span class="p">],</span> <span class="n">stake_currency</span><span class="o">=</span><span class="n">stake_currency</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; BACKTESTING REPORT &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;results_per_buy_tag&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_tags</span><span class="p">(</span>
+            <span class="s2">&quot;buy_tag&quot;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;results_per_buy_tag&quot;</span><span class="p">],</span> <span class="n">stake_currency</span><span class="o">=</span><span class="n">stake_currency</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; BUY TAG STATS &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_exit_reason</span><span class="p">(</span>
+        <span class="n">exit_reason_stats</span><span class="o">=</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;exit_reason_summary&quot;</span><span class="p">],</span> <span class="n">stake_currency</span><span class="o">=</span><span class="n">stake_currency</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; SELL REASON STATS &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_bt_results</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;left_open_trades&quot;</span><span class="p">],</span> <span class="n">stake_currency</span><span class="o">=</span><span class="n">stake_currency</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; LEFT OPEN TRADES REPORT &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">period</span> <span class="ow">in</span> <span class="n">backtest_breakdown</span><span class="p">:</span>
+        <span class="n">days_breakdown_stats</span> <span class="o">=</span> <span class="n">generate_periodic_breakdown_stats</span><span class="p">(</span>
+            <span class="n">trade_list</span><span class="o">=</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;trades&quot;</span><span class="p">],</span> <span class="n">period</span><span class="o">=</span><span class="n">period</span>
+        <span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_periodic_breakdown</span><span class="p">(</span>
+            <span class="n">days_breakdown_stats</span><span class="o">=</span><span class="n">days_breakdown_stats</span><span class="p">,</span>
+            <span class="n">stake_currency</span><span class="o">=</span><span class="n">stake_currency</span><span class="p">,</span>
+            <span class="n">period</span><span class="o">=</span><span class="n">period</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">period</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2"> BREAKDOWN &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">text_table_add_metrics</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; SUMMARY METRICS &quot;</span><span class="o">.</span><span class="n">center</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;=&quot;</span><span class="p">))</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="n">text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">text</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="c1"># print(get_backtest_repo().get_pair_totals(&#39;mean&#39;).head(15))</span>
+    <span class="c1"># print(get_hyperopt_repo().filter_by_strategy(&#39;ImsPlay&#39;))</span>
+    <span class="c1"># print(get_backtest_repo())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">get_backtest_repo</span><span class="p">()</span><span class="o">.</span><span class="n">sort_by_profit</span><span class="p">()</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">strategy_hash</span><span class="p">)</span>
+    <span class="c1"># print(get_hyperopt_repo())</span>
+
+    <span class="c1"># t1 = time.time()</span>
+    <span class="c1"># print(get_backtest_repo().head(20).df().to_markdown())</span>
+    <span class="c1"># first_report = get_backtest_repo().head(1)[0]</span>
+    <span class="c1"># print(first_report.backtest_data.keys())</span>
+    <span class="c1"># # print(str(get_hyperopt_repo()))</span>
+    <span class="c1">#</span>
+    <span class="c1"># print(&#39;Elapsed time:&#39;, time.time() - t1, &#39;seconds&#39;)</span>
+    <span class="c1"># StrategyBackup.first().print()</span>
+    <span class="c1"># report = get_hyperopt_repo().last()</span>
+    <span class="c1"># print(report.get_best_epoch(), report.epoch)</span>
+    <span class="c1"># print(get_hyperopt_repo().get(35).parameters[&#39;params&#39;][&#39;buy&#39;])</span>
+    <span class="c1"># print(get_backtest_repo().head(10).df().to_markdown())</span>
+    <span class="c1"># print(get_hyperopt_repo().get(38).performance.profit_total_pct * 100)</span>
+    <span class="c1"># print(get_backtest_repo().head(20).df().to_markdown())</span>
+    <span class="c1"># print(get_backtest_repo().get(275).report_text)</span>
+    <span class="c1"># notify_telegram(&#39;Test&#39;, dict_to_telegram_string(get_hyperopt_repo().get(38).performance.dict()))</span>
+    <span class="c1"># report = get_hyperopt_repo().get(38)</span>
+
+    <span class="c1"># def meets_requirements(drawdown, profit_pct, win_rate, is_hyperopt=True):</span>
+    <span class="c1">#     if is_hyperopt:</span>
+    <span class="c1">#         maximum_drawdown = 0.4</span>
+    <span class="c1">#         minimum_profit_pct = 1.0</span>
+    <span class="c1">#         minimum_win_rate = 0.4</span>
+    <span class="c1">#     else:</span>
+    <span class="c1">#         maximum_drawdown = 0.30</span>
+    <span class="c1">#         minimum_profit_pct = 1.0</span>
+    <span class="c1">#         minimum_win_rate = 0.4</span>
+    <span class="c1">#     reason = &#39;&#39;</span>
+    <span class="c1">#     meets = True</span>
+    <span class="c1">#     if win_rate &lt; minimum_win_rate:</span>
+    <span class="c1">#         meets = False</span>
+    <span class="c1">#         reason = &#39;win_rate&#39;</span>
+    <span class="c1">#     if profit_pct &lt; minimum_profit_pct:</span>
+    <span class="c1">#         meets = False</span>
+    <span class="c1">#         reason = &#39;profit_pct&#39;</span>
+    <span class="c1">#     if drawdown &gt; maximum_drawdown:</span>
+    <span class="c1">#         meets = False</span>
+    <span class="c1">#         reason = &#39;drawdown&#39;</span>
+    <span class="c1">#     return meets, reason</span>
+
+    <span class="c1"># def find_epochs_that_meet_requirement(report: HyperoptReport, n_results: int = 10):</span>
+    <span class="c1">#     logger.info(f&#39;Searching for epochs that meet requirements for report #{report.id}&#39;)</span>
+    <span class="c1">#     profit_key = &#39;Profit&#39;</span>
+    <span class="c1">#     drawdown_key = &#39;max_drawdown_account&#39;</span>
+    <span class="c1">#     wins_draw_loss_key = &#39;Win Draw Loss&#39;</span>
+    <span class="c1">#     df = report.hyperopt_list_to_df()</span>
+    <span class="c1">#     # drop duplicates on all columns but the index</span>
+    <span class="c1">#     new_df = df.drop_duplicates(</span>
+    <span class="c1">#         subset=df.columns.difference([profit_key, drawdown_key, wins_draw_loss_key]),</span>
+    <span class="c1">#         keep=&#39;first&#39;,</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     logger.info(f&#39;Dropped {len(df) - len(new_df)} duplicate epochs from report #{report.id}&#39;)</span>
+    <span class="c1">#     df = new_df</span>
+    <span class="c1">#</span>
+    <span class="c1">#     # df = df.drop_duplicates(subset=[wins_draw_loss_key, profit_key, drawdown_key], keep=&#39;last&#39;)</span>
+    <span class="c1">#</span>
+    <span class="c1">#     def split_wins_draws_losses(row):</span>
+    <span class="c1">#         wdl_val = row[wins_draw_loss_key]  # Example: 79    0   75</span>
+    <span class="c1">#         pattern = re.compile(r&#39;(\d+)\s+(\d+)\s+(\d+)&#39;)</span>
+    <span class="c1">#         wins, draws, losses = pattern.match(wdl_val).groups()</span>
+    <span class="c1">#         return wins, draws, losses</span>
+    <span class="c1">#</span>
+    <span class="c1">#     df[&#39;win_ratio&#39;] = df.apply(</span>
+    <span class="c1">#         lambda row: calculate_win_ratio(*split_wins_draws_losses(row)), axis=1</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     # filter out epochs that don&#39;t meet requirements</span>
+    <span class="c1">#</span>
+    <span class="c1">#     # use meets_requirements function to filter out epochs that don&#39;t meet requirements</span>
+    <span class="c1">#     meets_req = df.apply(</span>
+    <span class="c1">#         lambda row: meets_requirements(</span>
+    <span class="c1">#             row[drawdown_key], row[profit_key], row[&#39;win_ratio&#39;], is_hyperopt=True</span>
+    <span class="c1">#         )[0],</span>
+    <span class="c1">#         axis=1,</span>
+    <span class="c1">#     )</span>
+    <span class="c1">#     meets_req = df[meets_req]</span>
+    <span class="c1">#     meets_req = meets_req.sort_values(&#39;Objective&#39;, ascending=False)</span>
+    <span class="c1">#     # get the top n best results by profit</span>
+    <span class="c1">#     meets_req = meets_req.head(n_results)</span>
+    <span class="c1">#     reports = []</span>
+    <span class="c1">#     for idx, row in meets_req.iterrows():</span>
+    <span class="c1">#         new_report = report.new_report_from_epoch(idx)</span>
+    <span class="c1">#         new_report.save()</span>
+    <span class="c1">#         reports.append(new_report)</span>
+    <span class="c1">#         # assert new_report.performance.profit_total_pct == row[profit_key]</span>
+    <span class="c1">#     return reports</span>
+
+    <span class="c1"># print(report.parameters)</span>
+    <span class="c1"># find_epochs_that_meet_requirement(report)</span>
+    <span class="c1"># r = get_hyperopt_repo().df()</span>
+    <span class="c1"># df = r.hyperopt_list_to_df()</span>
+    <span class="c1"># df.sort_values(&#39;Objective&#39;, ascending=True).to_markdown()</span>
+    <span class="c1"># print(get_hyperopt_repo().first().performance.profit_total_pct)</span>
+    <span class="c1"># notify_telegram(&#39;Test&#39;, dict_to_telegram_string(report.performance.dict()))</span>
+    <span class="c1"># report = get_backtest_repo().sort_by_profit().first()</span>
+    <span class="c1"># print(report.backtest_data[&#39;holding_avg&#39;])</span>
+    <span class="c1"># print(report.df.to_markdown())</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.reports</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

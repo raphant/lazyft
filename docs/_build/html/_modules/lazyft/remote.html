@@ -1,0 +1,439 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lazyft.remote &#8212; LazyFT 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pyramid.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="../../_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head><body>
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.remote</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for lazyft.remote</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+<span class="kn">import</span> <span class="nn">rapidjson</span>
+<span class="kn">import</span> <span class="nn">sh</span>
+<span class="kn">from</span> <span class="nn">freqtrade.data.btanalysis</span> <span class="kn">import</span> <span class="n">load_trades_from_db</span>
+
+<span class="kn">from</span> <span class="nn">lazyft</span> <span class="kn">import</span> <span class="n">logger</span><span class="p">,</span> <span class="n">paths</span><span class="p">,</span> <span class="n">parameter_tools</span>
+<span class="kn">from</span> <span class="nn">lazyft.config</span> <span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span> <span class="nn">lazyft.models</span> <span class="kn">import</span> <span class="n">StrategyBackup</span>
+<span class="kn">from</span> <span class="nn">lazyft.models.remote</span> <span class="kn">import</span> <span class="n">RemotePreset</span><span class="p">,</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">RemoteBotInfo</span>
+<span class="kn">from</span> <span class="nn">lazyft.reports</span> <span class="kn">import</span> <span class="n">get_hyperopt_repo</span>
+<span class="kn">from</span> <span class="nn">lazyft.strategy</span> <span class="kn">import</span> <span class="n">create_strategy_params_filepath</span><span class="p">,</span> <span class="n">get_file_name</span><span class="p">,</span> <span class="n">Strategy</span>
+
+<span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">RUN_MODES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dry&quot;</span><span class="p">,</span> <span class="s2">&quot;live&quot;</span><span class="p">]</span>
+<span class="n">remotes_file</span> <span class="o">=</span> <span class="n">paths</span><span class="o">.</span><span class="n">BASE_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;remotes.json&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">remotes_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+    <span class="n">remotes_dict</span> <span class="o">=</span> <span class="n">rapidjson</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">remotes_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+    <span class="n">remote_preset</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">RemotePreset</span><span class="p">(</span><span class="o">**</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">remotes_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> does not exist. Remotes not loaded&quot;</span><span class="p">,</span> <span class="n">remotes_file</span><span class="p">)</span>
+
+
+<span class="c1"># remote_preset = dict(</span>
+<span class="c1">#     vps=RemotePreset(</span>
+<span class="c1">#         &#39;raphael@calibre.raphaelnanje.me&#39;, &#39;/home/raphael/freqtrade/&#39;, 51111</span>
+<span class="c1">#     ),</span>
+<span class="c1">#     pi=RemotePreset(&#39;pi@pi4.local&#39;, &#39;/home/pi/freqtrade/&#39;),</span>
+<span class="c1"># )</span>
+
+
+<div class="viewcode-block" id="RemoteBot"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">RemoteBot</span><span class="p">:</span>
+    <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">_preset</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;vps&quot;</span><span class="p">)</span>
+    <span class="n">_env</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Environment</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Config</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tools</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">RemoteTools</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Config</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">preset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">remote_preset</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_preset</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">RemoteBotInfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">env</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Environment</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env</span>
+        <span class="n">env_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_file</span><span class="p">(</span><span class="s2">&quot;.env&quot;</span><span class="p">)</span>
+        <span class="n">env_file_text</span> <span class="o">=</span> <span class="n">env_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+        <span class="c1"># noinspection PyTypeChecker</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span>
+            <span class="nb">dict</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">))</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">env_file_text</span><span class="o">.</span><span class="n">split</span><span class="p">()),</span> <span class="n">env_file</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">env</span>
+
+<div class="viewcode-block" id="RemoteBot.print_logs"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.print_logs">[docs]</a>    <span class="k">def</span> <span class="nf">print_logs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
+        <span class="n">project_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="n">RemoteTools</span><span class="o">.</span><span class="n">FORMATTABLE_BOT_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cd </span><span class="si">{</span><span class="n">project_dir</span><span class="si">}</span><span class="s2"> &amp;&amp; docker-compose logs --tail </span><span class="si">{</span><span class="n">n_lines</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">sh</span><span class="o">.</span><span class="n">ssh</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot;-p&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">())],</span>
+            <span class="n">_err</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+            <span class="n">_out</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.refresh"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.refresh">[docs]</a>    <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_env</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RemoteBot.restart"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.restart">[docs]</a>    <span class="k">def</span> <span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">build</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">restart_bot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">build</span><span class="o">=</span><span class="n">build</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.stop"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">stop_bot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.set_run_mode"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.set_run_mode">[docs]</a>    <span class="k">def</span> <span class="nf">set_run_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">mode</span> <span class="ow">in</span> <span class="n">RUN_MODES</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not in </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">RUN_MODES</span><span class="p">)</span>
+        <span class="n">dry_run</span> <span class="o">=</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;dry&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting run mode to </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mode</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;FREQTRADE__DRY_RUN&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dry_run</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;.env&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.set_strategy"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.set_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">set_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting strategy for bot </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="si">}</span><span class="s1"> to &quot;</span><span class="si">{</span><span class="n">strategy</span><span class="si">}</span><span class="s1">&quot; with id &quot;</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s1">&quot;...&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">update_remote_strategy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;STRATEGY&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;ID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;.env&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Strategy for bot #</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="si">}</span><span class="s2"> set to </span><span class="si">{</span><span class="n">strategy</span><span class="si">}</span><span class="s2"> with id </span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.get_trades"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.get_trades">[docs]</a>    <span class="k">def</span> <span class="nf">get_trades</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get trades using the currently configured DB_FILE in the env&quot;&quot;&quot;</span>
+        <span class="c1"># get name of db file</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;DB_FILE&quot;</span><span class="p">]</span>
+        <span class="c1"># get db file from remote</span>
+        <span class="n">db_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetch_file</span><span class="p">(</span><span class="s2">&quot;user_data/&quot;</span> <span class="o">+</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">db_path</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="c1"># create df from db</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">load_trades_from_db</span><span class="p">(</span><span class="s2">&quot;sqlite:///&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">db_path</span><span class="p">))</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">open_date</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">open_date</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%x</span><span class="s1"> </span><span class="si">%X</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">close_date</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">close_date</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%x</span><span class="s1"> </span><span class="si">%X</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">df</span></div>
+
+<div class="viewcode-block" id="RemoteBot.update_config"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.update_config">[docs]</a>    <span class="k">def</span> <span class="nf">update_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update the remote config with the passed dictionary</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            update (dict): A dictionary with the values to update</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">current_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="n">current_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">update</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_config</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="RemoteBot.save_config"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.save_config">[docs]</a>    <span class="k">def</span> <span class="nf">save_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">),</span> <span class="s2">&quot;user_data&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.update_whitelist"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.update_whitelist">[docs]</a>    <span class="k">def</span> <span class="nf">update_whitelist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">whitelist</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">append</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve a local copy of specified bots remote config, update its whitelist, and send it</span>
+<span class="sd">        back to the bot.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update_whitelist_and_save</span><span class="p">(</span><span class="n">whitelist</span><span class="p">,</span> <span class="n">append</span><span class="o">=</span><span class="n">append</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">),</span> <span class="s2">&quot;user_data&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.update_blacklist"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.update_blacklist">[docs]</a>    <span class="k">def</span> <span class="nf">update_blacklist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blacklist</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">append</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve a local copy of specified bots remote config, update its whitelist, and send it</span>
+<span class="sd">        back to the bot.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update_blacklist</span><span class="p">(</span><span class="n">blacklist</span><span class="p">,</span> <span class="n">append</span><span class="o">=</span><span class="n">append</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">),</span> <span class="s2">&quot;user_data&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.update_ensemble"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.update_ensemble">[docs]</a>    <span class="k">def</span> <span class="nf">update_ensemble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategies</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Strategy</span><span class="p">]):</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="s1">&#39;ensemble.json&#39;</span><span class="p">)</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">rapidjson</span><span class="o">.</span><span class="n">dumps</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strategies</span><span class="p">]))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;New ensemble is </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">strategies</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;user_data/strategies/ensemble.json&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.send_file"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.send_file">[docs]</a>    <span class="k">def</span> <span class="nf">send_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="n">remote_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">local_path</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteBot.fetch_file"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteBot.fetch_file">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="n">local_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">fetch_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">,</span> <span class="n">local_path</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="RemoteTools"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">RemoteTools</span><span class="p">:</span>
+    <span class="n">preset</span><span class="p">:</span> <span class="n">RemotePreset</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">FORMATTABLE_BOT_STRING</span> <span class="o">=</span> <span class="s2">&quot;freqtrade-bot</span><span class="si">{}</span><span class="s2">&quot;</span>
+
+    <span class="n">tmp_files</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">address</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">address</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">path</span>
+
+<div class="viewcode-block" id="RemoteTools.update_strategy_params"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.update_strategy_params">[docs]</a>    <span class="k">def</span> <span class="nf">update_strategy_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[Strategy Params] &quot;</span><span class="si">{}</span><span class="s1">&quot; -&gt; &quot;</span><span class="si">{}</span><span class="s1">.json&quot;&#39;</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+        <span class="c1"># load path of params</span>
+        <span class="c1"># create the remote path to save as</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+        <span class="n">local_params</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="s1">&#39;params.json&#39;</span><span class="p">)</span>
+        <span class="n">local_params</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">rapidjson</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">get_hyperopt_repo</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">))</span>
+        <span class="n">remote_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;user_data/strategies/&quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">create_strategy_params_filepath</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="c1"># send the local params to the remote path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">local_params</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.update_remote_bot_whitelist"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.update_remote_bot_whitelist">[docs]</a>    <span class="k">def</span> <span class="nf">update_remote_bot_whitelist</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">whitelist</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">append</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve a local copy of specified bots remote config, update its whitelist, and send it</span>
+<span class="sd">        back to the bot.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">update_whitelist_and_save</span><span class="p">(</span><span class="n">whitelist</span><span class="p">,</span> <span class="n">append</span><span class="o">=</span><span class="n">append</span><span class="p">)</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="p">),</span> <span class="s2">&quot;user_data&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.get_config"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.get_config">[docs]</a>    <span class="k">def</span> <span class="nf">get_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Config</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_file</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="s2">&quot;user_data/config.json&quot;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="RemoteTools.update_remote_strategy"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.update_remote_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">update_remote_strategy</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">strategy_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hyperopt_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">strategy_file_name</span> <span class="o">=</span> <span class="n">get_file_name</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">strategy_file_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;Could not find strategy file that matches </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">strategy_name</span><span class="p">)</span>
+        <span class="n">strategy_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">STRATEGY_DIR</span><span class="p">,</span> <span class="n">strategy_file_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hyperopt_id</span><span class="p">:</span>
+            <span class="nb">hash</span> <span class="o">=</span> <span class="n">get_hyperopt_repo</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">hyperopt_id</span><span class="p">)</span><span class="o">.</span><span class="n">strategy_hash</span>
+            <span class="k">if</span> <span class="nb">hash</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Sending &quot;</span><span class="si">{</span><span class="n">strategy_name</span><span class="si">}</span><span class="s1">&quot; using strategy hash &quot;</span><span class="si">{</span><span class="nb">hash</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+                <span class="c1"># create tmp dir</span>
+                <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+                <span class="n">strategy_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="n">strategy_file_name</span><span class="p">)</span>
+                <span class="n">StrategyBackup</span><span class="o">.</span><span class="n">load_hash</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span><span class="o">.</span><span class="n">export_to</span><span class="p">(</span><span class="n">strategy_path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update_strategy_params</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">strategy_name</span><span class="p">,</span> <span class="n">hyperopt_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_file</span><span class="p">(</span>
+            <span class="n">bot_id</span><span class="p">,</span>
+            <span class="n">strategy_path</span><span class="p">,</span>
+            <span class="s2">&quot;user_data/strategies/&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">strategy_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="RemoteTools.send_file"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.send_file">[docs]</a>    <span class="k">def</span> <span class="nf">send_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">local_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">remote_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            bot_id:</span>
+<span class="sd">            local_path: Where to save the fetched file. Defaults to /tmp</span>
+<span class="sd">            remote_path: The relative location of a remote file to fetch</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[send] &quot;</span><span class="si">{}</span><span class="s1">&quot; -&gt; bot </span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">local_path</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rsync</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_remote_path</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="RemoteTools.fetch_file"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.fetch_file">[docs]</a>    <span class="k">def</span> <span class="nf">fetch_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">local_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            bot_id:</span>
+<span class="sd">            remote_path: The relative location of a remote file to fetch</span>
+<span class="sd">            local_path: Where to save the fetched file. Defaults to /tmp</span>
+
+<span class="sd">        Returns: Path of local copy of fetched file</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[fetch] &quot;</span><span class="si">{}</span><span class="s1">&quot; &lt;- bot </span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">local_path</span><span class="p">:</span>
+            <span class="n">temp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;lazyft&quot;</span><span class="p">)</span>
+            <span class="n">local_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tmp_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">rsync</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">format_remote_path</span><span class="p">(</span><span class="n">bot_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">remote_path</span><span class="p">)),</span>
+                <span class="n">local_path</span><span class="p">,</span>
+                <span class="n">fetch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">sh</span><span class="o">.</span><span class="n">ErrorReturnCode_23</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> not found in remote.&quot;</span><span class="p">,</span> <span class="n">remote_path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">remote_path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.format_remote_path"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.format_remote_path">[docs]</a>    <span class="k">def</span> <span class="nf">format_remote_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMATTABLE_BOT_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bot_id</span><span class="p">),</span> <span class="n">path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.rsync"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.rsync">[docs]</a>    <span class="k">def</span> <span class="nf">rsync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origin</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">destination</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">fetch</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">fetch</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">origin</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">destination</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">destination</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">pre_command</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;-ai&quot;</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">destination</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">opt_port</span><span class="p">):</span>
+            <span class="n">pre_command</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">opt_port</span> <span class="o">+</span> <span class="n">pre_command</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">pre_command</span><span class="p">]</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">debug</span> <span class="k">if</span> <span class="n">DEBUG</span> <span class="k">else</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span>
+        <span class="n">log</span><span class="p">(</span><span class="s1">&#39;[sh] &quot;rsync </span><span class="si">{}</span><span class="s1">&quot;&#39;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="p">))</span>
+        <span class="n">sh</span><span class="o">.</span><span class="n">rsync</span><span class="p">(</span>
+            <span class="n">command</span><span class="p">,</span>
+            <span class="n">_err</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">log</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+            <span class="n">_out</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">log</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.delete_strategy_params"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.delete_strategy_params">[docs]</a>    <span class="k">def</span> <span class="nf">delete_strategy_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">project_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMATTABLE_BOT_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">params_file</span> <span class="o">=</span> <span class="n">create_strategy_params_filepath</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cd </span><span class="si">{</span><span class="n">project_dir</span><span class="si">}</span><span class="s2">;rm -vf user_data/strategies/</span><span class="si">{</span><span class="n">params_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="n">sh</span><span class="o">.</span><span class="n">ssh</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">())],</span>
+            <span class="n">_err</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+            <span class="n">_out</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.restart_bot"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.restart_bot">[docs]</a>    <span class="k">def</span> <span class="nf">restart_bot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">build</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;[restart bot] </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">project_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMATTABLE_BOT_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cd </span><span class="si">{</span><span class="n">project_dir</span><span class="si">}</span><span class="s2"> &amp;&amp; docker-compose --ansi never up  -d&quot;</span>
+        <span class="k">if</span> <span class="n">build</span><span class="p">:</span>
+            <span class="n">command</span> <span class="o">+=</span> <span class="s2">&quot; --build&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running ssh </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+        <span class="n">sh</span><span class="o">.</span><span class="n">ssh</span><span class="p">(</span>
+            <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;-p </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">())],</span>
+            <span class="n">_err</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+            <span class="n">_out</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.stop_bot"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.stop_bot">[docs]</a>    <span class="k">def</span> <span class="nf">stop_bot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;[stop bot] </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">project_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMATTABLE_BOT_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bot_id</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cd </span><span class="si">{</span><span class="n">project_dir</span><span class="si">}</span><span class="s2"> &amp;&amp; docker-compose --ansi never down&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running ssh </span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+        <span class="n">sh</span><span class="o">.</span><span class="n">ssh</span><span class="p">(</span>
+            <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;-p </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preset</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">split</span><span class="p">())],</span>
+            <span class="n">_err</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+            <span class="n">_out</span><span class="o">=</span><span class="k">lambda</span> <span class="n">o</span><span class="p">:</span> <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">strip</span><span class="p">()),</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RemoteTools.delete_temp_files"><a class="viewcode-back" href="../../lazyft.html#lazyft.remote.RemoteTools.delete_temp_files">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">delete_temp_files</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">while</span> <span class="bp">cls</span><span class="o">.</span><span class="n">tmp_files</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">tmp_files</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">bot1</span> <span class="o">=</span> <span class="n">RemoteBot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;vps&quot;</span><span class="p">)</span>
+    <span class="n">bot2</span> <span class="o">=</span> <span class="n">RemoteBot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+    <span class="n">bot3</span> <span class="o">=</span> <span class="n">RemoteBot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+    <span class="n">bot4</span> <span class="o">=</span> <span class="n">RemoteBot</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+    <span class="n">bot5</span> <span class="o">=</span> <span class="n">RemoteBot</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;pi&quot;</span><span class="p">)</span>
+
+    <span class="n">bot</span> <span class="o">=</span> <span class="n">bot2</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;BatsContest&quot;</span><span class="p">)</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">set_run_mode</span><span class="p">(</span><span class="s2">&quot;dry&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">bot</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">restart</span><span class="p">()</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">LazyFT 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">lazyft.remote</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Raphael.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.0.
+    </div>
+  </body>
+</html>

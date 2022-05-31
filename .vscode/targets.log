@@ -1,0 +1,252 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+make: *** No rule to make target 'all'.  Stop.
+
+# GNU Make 4.3
+# Built for x86_64-pc-linux-gnu
+# Copyright (C) 1988-2020 Free Software Foundation, Inc.
+# License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+# This is free software: you are free to change and redistribute it.
+# There is NO WARRANTY, to the extent permitted by law.
+
+# Make data base, printed on Tue May 31 10:00:56 2022
+
+# Variables
+
+# environment
+LC_ALL = C
+# environment
+STARSHIP_SESSION_KEY = 9704419948328556
+# environment
+LC_NAME = en_US.UTF-8
+# environment
+LC_NUMERIC = en_US.UTF-8
+# environment
+VSCODE_CWD = /home/raphael
+# environment
+LC_ADDRESS = en_US.UTF-8
+# default
+MAKE_COMMAND := make
+# environment
+VSCODE_HANDLES_SIGPIPE = true
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# default
+.VARIABLES := 
+# environment
+PWD = /home/raphael/PycharmProjects/lazyft_lib
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# environment
+MAIL = /var/spool/mail/raphael
+# environment
+XDG_DATA_DIRS = /usr/local/share:/usr/share:/var/lib/snapd/desktop
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# environment
+VSCODE_LOG_STACK = false
+# automatic
+%F = $(notdir $%)
+# environment
+LANG = C
+# default
+.LOADED := 
+# default
+.INCLUDE_DIRS = /usr/include /usr/local/include /usr/include
+# makefile
+MAKEFLAGS = pqrR
+# makefile
+CURDIR := /home/raphael/PycharmProjects/lazyft_lib
+# environment
+VSCODE_PIPE_LOGGING = true
+# environment
+MCFLY_SESSION_ID = n7CvVNucjdMDoPAlS68qBHD9
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# environment
+MFLAGS = -pqrR
+# default
+.SHELLFLAGS := -c
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# makefile
+MAKEFILE_LIST := 
+# automatic
+@F = $(notdir $@)
+# environment
+VSCODE_VERBOSE_LOGGING = true
+# environment
+XDG_SESSION_TYPE = tty
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+*F = $(notdir $*)
+# environment
+QT_QPA_PLATFORMTHEME = qt5ct
+# environment
+DBUS_SESSION_BUS_ADDRESS = unix:path=/run/user/1000/bus
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en","availableLanguages":{}}
+# default
+MAKE_HOST := x86_64-pc-linux-gnu
+# environment
+MCFLY_HISTFILE = /home/raphael/.local/share/fish/fish_history
+# makefile
+SHELL = /bin/sh
+# default
+MAKECMDGOALS := all
+# environment
+SHLVL = 2
+# environment
+MAKELEVEL := 0
+# default
+MAKE = $(MAKE_COMMAND)
+# environment
+PATH = /home/raphael/.vscode-server/bin/c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5/bin/remote-cli:/usr/local/sbin:/usr/local/bin:/usr/bin:/var/lib/snapd/snap/bin:/home/raphael/.local/bin:/home/raphael/.yarn/bin:/home/raphael/.cargo/bin:/home/raphael/go/go1.17beta1/bin/:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/home/raphael/.local/bin:/home/raphael/.yarn/bin:/home/raphael/.cargo/bin:/home/raphael/go/go1.17beta1/bin/
+# default
+MAKEFILES := 
+# environment
+LC_MONETARY = en_US.UTF-8
+# environment
+MOTD_SHOWN = pam
+# automatic
+^F = $(notdir $^)
+# environment
+LC_TIME = en_US.UTF-8
+# environment
+SSH_CLIENT = 192.168.193.5 33120 22
+# environment
+VSCODE_LOG_NATIVE = false
+# environment
+LC_TELEPHONE = en_US.UTF-8
+# automatic
+?F = $(notdir $?)
+# automatic
++F = $(notdir $+)
+# 'override' directive
+GNUMAKEFLAGS := 
+# environment
+BROWSER = /home/raphael/.vscode-server/bin/c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5/bin/helpers/browser.sh
+# environment
+LOGNAME = raphael
+# makefile
+.DEFAULT_GOAL := 
+# environment
+EDITOR = vim
+# environment
+USER = raphael
+# default
+MAKE_VERSION := 4.3
+# environment
+VSCODE_EXTHOST_WILL_SEND_SOCKET = true
+# environment
+LC_MEASUREMENT = en_US.UTF-8
+# environment
+STARSHIP_SHELL = fish
+# environment
+VSCODE_AGENT_FOLDER = /home/raphael/.vscode-server
+# environment
+_ = /usr/bin/make
+# environment
+LC_PAPER = en_US.UTF-8
+# environment
+XDG_RUNTIME_DIR = /run/user/1000
+# environment
+VSCODE_IPC_HOOK_CLI = /run/user/1000/vscode-ipc-e612e845-2c70-42a5-aec8-e05e651aab9e.sock
+# environment
+XDG_SESSION_CLASS = user
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+HOME = /home/raphael
+# environment
+XDG_SESSION_ID = 224
+# default
+.RECIPEPREFIX := 
+# automatic
+<F = $(notdir $<)
+# default
+SUFFIXES := 
+# environment
+RANGER_LOAD_DEFAULT_RC = FALSE
+# default
+.FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell nocomment grouped-target extra-prereqs archives jobserver output-sync check-symlink guile load
+# environment
+LC_IDENTIFICATION = en_US.UTF-8
+# environment
+SSH_CONNECTION = 192.168.193.5 33120 192.168.193.1 22
+# variable set hash-table stats:
+# Load=84/1024=8%, Rehash=0, Collisions=5/111=5%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 66308, inode 11788617): 20 files, no impossibilities.
+
+# 20 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has been updated.
+#  Failed to be updated.
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+all:
+#  Command line target.
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has not been updated.
+
+# Not a target:
+makefile:
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has been updated.
+#  Failed to be updated.
+
+# Not a target:
+GNUmakefile:
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has been updated.
+#  Failed to be updated.
+
+# files hash-table stats:
+# Load=6/1024=1%, Rehash=0, Collisions=0/15=0%
+# VPATH Search Paths
+
+# No 'vpath' search paths.
+
+# No general ('VPATH' variable) search path.
+
+# strcache buffers: 1 (0) / strings = 28 / storage = 273 B / avg = 9 B
+# current buf: size = 8162 B / used = 273 B / count = 28 / avg = 9 B
+
+# strcache performance: lookups = 31 / hit rate = 9%
+# hash-table stats:
+# Load=28/8192=0%, Rehash=0, Collisions=0/31=0%
+# Finished Make data base on Tue May 31 10:00:56 2022
+
+ 

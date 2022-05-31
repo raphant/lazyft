@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -31,18 +32,54 @@ class StrategyTools:
     _last_strategy_len = None
 
 
+@dataclass
+class Strategy:
+    name: str | None = None
+    id: int = None
+    args: dict | None = None
+
+    def __post_init__(self):
+        if not self.name:
+            assert self.id, "Need a strategy name or ID"
+
+            self.name = get_name_from_id(self.id)
+
+    @property
+    def as_ft_strategy(self) -> IStrategy:
+        """
+        Return the strategy as a freqtrade strategy.
+        :return: A freqtrade strategy
+        """
+        assert self.args, "Need strategy args"
+        return StrategyResolver.load_strategy(self.args)
+
+    @property
+    def as_pair(self):
+        """
+        :return: A tuple of the name and id of the question.
+        """
+        return self.name, str(self.id)
+
+    @property
+    def timeframe(self) -> str:
+        """
+        :return: The timeframe of the strategy
+        :return: str
+        """
+        return self.as_ft_strategy.timeframe
+
+    def __str__(self) -> str:
+        return "-".join(self.as_pair).rstrip("-")
+
+
 def start_list_strategies(args: dict[str, Any]):
     """
     Return files with Strategy custom classes available in the directory
     """
     config = setup_utils_configuration(args, RunMode.UTIL_NO_EXCHANGE)
 
-    directory = Path(
-        config.get("strategy_path", config["user_data_dir"] / USERPATH_STRATEGIES)
-    )
-    strategy_objs = StrategyResolver.search_all_objects(
-        directory, not args["print_one_column"]
-    )
+    directory = Path(config.get("strategy_path", config["user_data_dir"] / USERPATH_STRATEGIES))
+    strategy_objs = StrategyResolver.search_all_objects(directory, not args["print_one_column"])
     # Sort alphabetically
     strategy_objs = sorted(strategy_objs, key=lambda x: x["name"])
     for obj in strategy_objs:
@@ -129,9 +166,7 @@ def load_strategy(strategy: str, config: Union[str, Config, dict]) -> IStrategy:
     return load_strategy
 
 
-def load_intervals_from_strategy(
-    strategy_name: str, parameters: "BacktestParameters"
-) -> str:
+def load_intervals_from_strategy(strategy_name: str, parameters: "BacktestParameters") -> str:
     """
     Loads the intervals from a strategy
 
@@ -225,25 +260,17 @@ def create_temp_folder_for_strategy_and_params_from_backup(
     :return: The path to the new folder
     """
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"lazyft-{strategy_backup.name}_"))
-    logger.info(
-        f"Created temporary folder {tmp_dir} for strategy backup {strategy_backup.name}"
-    )
+    logger.info(f"Created temporary folder {tmp_dir} for strategy backup {strategy_backup.name}")
     path = strategy_backup.export_to(tmp_dir)
     logger.info(f"Exported strategy backup {strategy_backup.name} to {path}")
     if hyperopt_id:
-        parameter_tools.set_params_file(
-            hyperopt_id, export_path=path.with_suffix(".json")
-        )
+        parameter_tools.set_params_file(hyperopt_id, export_path=path.with_suffix(".json"))
     hyperopt_data_dir = paths.USER_DATA_DIR / "hyperopt_results"
     backtest_data_dir = paths.USER_DATA_DIR / "backtest_results"
     # backtest_data_dir = paths.USER_DATA_DIR / 'backtest_results'
     # create a link in tmp folder to hyperopt_data_dir and backtest_data_dir
-    os.symlink(
-        str(hyperopt_data_dir.resolve()), str((tmp_dir / "hyperopt_results/").resolve())
-    )
-    os.symlink(
-        str(backtest_data_dir.resolve()), str((tmp_dir / "backtest_results/").resolve())
-    )
+    os.symlink(str(hyperopt_data_dir.resolve()), str((tmp_dir / "hyperopt_results/").resolve()))
+    os.symlink(str(backtest_data_dir.resolve()), str((tmp_dir / "backtest_results/").resolve()))
     # create a link in tmp folder to the data dir
     os.symlink(
         str(paths.USER_DATA_DIR.joinpath("data").resolve()),

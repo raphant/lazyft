@@ -73,7 +73,7 @@ try:
     BASIC_CONFIG = Configuration.from_files([str(paths.CONFIG_DIR / "config.json")])
 except Exception as e:
     logger.warning(f"Could not load config.json: {e}")
-
+    BASIC_CONFIG = {}
 
 warnings.filterwarnings(
     "ignore", ".*Class SelectOfScalar will not make use of SQL compilation caching.*"

@@ -1,3 +1,7 @@
+"""
+Contains logic for running backtests.
+"""
+
 from __future__ import annotations
 
 import pathlib
@@ -14,7 +18,7 @@ from freqtrade.optimize import backtesting, optimize_reports
 from lazyft import downloader, logger, parameter_tools, paths, strategy, util
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.database import engine
-from lazyft.models import BacktestData, BacktestReport
+from lazyft.models.backtest import BacktestReport
 from lazyft.reports import get_backtest_repo, get_hyperopt_repo
 from lazyft.runner import Runner
 from lazyft.space_handler import SpaceHandler
@@ -38,7 +42,7 @@ class BacktestMultiRunner:
         self.session_id = str(uuid.uuid4())
         self.current_runner: Optional[BacktestRunner] = None
 
-    def execute(self):
+    def execute(self) -> None:
         """
         Executes all runners in the queue.
         """
@@ -112,7 +116,7 @@ class BacktestRunner(Runner):
         self.result_path: Optional[pathlib.Path] = None
 
     @property
-    def hash(self):
+    def hash(self) -> str:
         """To help avoid running the same backtest"""
         if self._hash:
             return self._hash
@@ -140,7 +144,7 @@ class BacktestRunner(Runner):
         logger.debug('Command hash: {}', self._hash)
         return self._hash
 
-    def pre_execute(self):
+    def pre_execute(self) -> backtesting.Backtesting:
         """
         Pre-execution tasks
         """
@@ -188,7 +192,10 @@ class BacktestRunner(Runner):
         return bt
 
     @logger.catch(reraise=True)
-    def execute(self):
+    def execute(self) -> None:
+        """
+        Executes the backtest.
+        """
         if self.hash_exists():
             self.load_hashed()
             return
@@ -248,7 +255,7 @@ class BacktestRunner(Runner):
     #         # logger.error('Sh returned an error ')
     #         self.exception = e
 
-    def on_finished(self, success):
+    def on_finished(self, success) -> None:
         try:
             self.running = False
             logger.info('Elapsed time: {:.2f}', time.time() - self.start_time)
@@ -263,7 +270,11 @@ class BacktestRunner(Runner):
             strategy.delete_temporary_strategy_backup_dir(self.tmp_strategy_path)
             self.write_queue.join()
 
-    def hash_exists(self):
+    def hash_exists(self) -> bool:
+        """
+        If the backtest has a hash and the hash exists in the backtest repo, return True
+        :return: A boolean value.
+        """
         if self.load_from_hash and self.hash in get_backtest_repo().get_hashes():
             return True
         return False
@@ -291,7 +302,7 @@ class BacktestRunner(Runner):
     #             logger.exception(e)
     #             raise
 
-    def generate_report(self):
+    def generate_report(self) -> BacktestReport:
         """
         Generates the report from the output of the backtest.
 
@@ -309,7 +320,7 @@ class BacktestRunner(Runner):
             ensemble=','.join(['-'.join(s.as_pair) for s in self.command.params.ensemble]),
         )
 
-    def log(self, *args):
+    def log(self, *args) -> None:
         """For logging purposes. Fills the write_queue"""
         text = ''.join(args)
         print(*args)
@@ -318,9 +329,14 @@ class BacktestRunner(Runner):
 
     @property
     def log_path(self) -> pathlib.Path:
+        """
+        The function returns a path to a log file for a backtest report
+
+        :return: The path to the log file for the backtest.
+        """
         return (paths.BACKTEST_LOG_PATH / str(self.report_id)).with_suffix('.log')
 
-    def sub_process_log(self, text="", out=False, error=False):
+    def sub_process_log(self, text="", out=False, error=False) -> None:
         """
         Callback for the subprocess to log the output.
 
@@ -333,11 +349,14 @@ class BacktestRunner(Runner):
         logger_exec.info(text.strip())
         super().sub_process_log(text, out, error)
 
-    def print_report(self):
+    def print_report(self) -> None:
+        """
+        Prints the backtest report output to the console.
+        """
         print(self.report.report_text)
 
     # noinspection PyProtectedMember
-    def save(self, tag: str = None):
+    def save(self, tag: str = None) -> BacktestReport | None:
         """
         Saves the report to the database.
         """
@@ -363,7 +382,7 @@ class BacktestRunner(Runner):
                 self.report_id = report.id
         return report
 
-    def performance_df(self):
+    def performance_df(self) -> pd.DataFrame:
         """
         The function takes the report of the strategy and returns a dataframe with the performance of
         the strategy
@@ -374,14 +393,17 @@ class BacktestRunner(Runner):
         performance = {'strategy': self.strategy, **self.report.performance.dict()}
         return pd.DataFrame([performance])
 
-    def load_hashed(self):
+    def load_hashed(self) -> None:
         """
         It uses the hash to load the report from the database.
         """
         self.report = get_backtest_repo().get_using_hash(self.hash)
         logger.info('Loaded report with same hash - {}', self.hash)
 
-    def update_spaces(self):
+    def update_spaces(self) -> None:
+        """
+        Updates the spaces file of the strategy.
+        """
         logger.info('Updating custom spaces...')
         sh = SpaceHandler(self.params.strategy_path / strategy.get_file_name(self.strategy))
         sh.reset()

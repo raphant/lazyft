@@ -1,5 +1,4 @@
 import re
-from pathlib import Path
 
 import typer
 from diskcache import Index
@@ -7,7 +6,7 @@ from lazyft import paths, strategy
 
 app = typer.Typer()
 
-cache = Index('cache/space_handlerify')
+cache = Index(str(paths.CACHE_DIR.joinpath('space_handlerify')))
 
 
 @app.command()

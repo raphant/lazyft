@@ -15,6 +15,7 @@ from typing import Iterable, Optional
 
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.combo_optimization import logger, notify
+from lazyft.combo_optimization.errors import HyperoptError
 from lazyft.combo_optimization.requirements import (
     find_epochs_that_meet_requirement,
     report_meets_requirements,
@@ -23,12 +24,11 @@ from lazyft.combo_optimization.requirements import (
 from lazyft.combo_optimization.stats import append_stats, print_stats
 from lazyft.command_parameters import BacktestParameters, HyperoptParameters
 from lazyft.hyperopt import HyperoptRunner
-from lazyft.models import BacktestReport, HyperoptReport, Strategy
+from lazyft.models.backtest import BacktestReport
+from lazyft.models.hyperopt import HyperoptReport
 from lazyft.reports import get_backtest_repo, get_hyperopt_repo
-from lazyft.strategy import get_space_handler_spaces
+from lazyft.strategy import get_space_handler_spaces, Strategy
 from lazyft.util import dict_to_telegram_string
-
-from lft_rest.errors import HyperoptError
 
 
 class ComboOptimizer:

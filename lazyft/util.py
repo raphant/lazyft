@@ -106,10 +106,12 @@ def duration_string_to_timedelta(delta_string: str):
 def store_backtest_stats(recordfilename: Path, stats: dict[str, DataFrame]) -> Path:
     """
     Stores backtest results
+
     :param recordfilename: Path object, which can either be a filename or a directory.
-        Filenames will be appended with a timestamp right before the suffix
-        while for directories, <directory>/backtest-result-<datetime>.json will be used as filename
+    Filenames will be appended with a timestamp right before the suffix
+    while for directories, <directory>/backtest-result-<datetime>.json will be used as filename
     :param stats: Dataframe containing the backtesting statistics
+    
     :return: Path object pointing to the file where the statistics were stored
     """
     if recordfilename.is_dir():

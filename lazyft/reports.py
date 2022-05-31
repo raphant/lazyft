@@ -2,7 +2,7 @@ import datetime
 import re
 from abc import ABCMeta, abstractmethod
 from collections import UserList
-from typing import Any, Callable, Union
+from typing import Any, Callable, Iterable, Union
 
 import pandas as pd
 from dateutil.parser import parse
@@ -17,7 +17,9 @@ from freqtrade.optimize.optimize_reports import (
 from lazyft import logger
 from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
-from lazyft.models import BacktestReport, HyperoptReport, ReportBase
+from lazyft.models.backtest import BacktestReport
+from lazyft.models.base import ReportBase
+from lazyft.models.hyperopt import HyperoptReport
 from lazyft.util import calculate_win_ratio
 from sqlmodel import Session
 from sqlmodel.sql.expression import select
@@ -40,71 +42,177 @@ RepoList = Union[UserList[BacktestReport], UserList[HyperoptReport]]
 AbstractReport = Union[BacktestReport, HyperoptReport]
 
 
-class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
+class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
+    """
+    A database API used to query, sort, filter, and delete reports.
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.reset()
         self.df = self.dataframe
 
     @abstractmethod
-    def reset(self) -> "_RepoExplorer":
+    def reset(self) -> "RepoExplorer":
+        """
+        Queries the database and returns a list of all reports
+
+        :return: RepoExplorer with all reports.
+        :rtype: RepoExplorer
+        """
         pass
 
-    def get(self, id: int) -> AbstractReport:
-        """Gets a report by id"""
+    def get(self, id: int) -> ReportBase:
+        """
+        Returns the report with the given id.
+
+        :param id: The id of the report to return.
+        :type id: int
+        :raises IdNotFoundError: If no report with the given id is found.
+        :return: The report with the given id.
+        :rtype: ReportBase
+        """
         try:
             return [r for r in self if str(r.id) == str(id)][0]
         except IndexError:
             raise IdNotFoundError("Could not find report with id %s" % id)
 
-    def get_strategy_id_pairs(self):
-        # nt = namedtuple('StrategyPair', ['strategy', 'id'])
+    def get_strategy_id_pairs(self) -> Iterable[tuple[str, int]]:
+        """
+        Returns an iterable of tuples of strategy names and ids.
+
+
+        :return: An iterable of tuples of strategy names and ids.
+        :rtype: Iterable[tuple[str, int]]
+        """
         pairs = set()
         for r in self:
             pairs.add((r.strategy, r.hyperopt_id))
         return pairs
 
-    def filter(self, func: Callable[[ReportBase], bool]):
+    def filter(self, func: Callable[[ReportBase], bool]) -> "RepoExplorer":
+        """
+        Filters the list of reports using a function.
+
+        :param func: The function to use to filter the list.
+        :type func: Callable[[ReportBase], bool]
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         self.data = list(filter(func, self.data))
         return self
 
-    def sort(self, func: Callable[[ReportBase], bool]) -> "_RepoExplorer":
+    # noinspection PyMethodOverriding
+    def sort(self, func: Callable[[ReportBase], bool]) -> "RepoExplorer":
+        """
+        Sorts the list of reports using a function.
+
+        :param func: The function to use to sort the list.
+        :type func: Callable[[ReportBase], bool]
+        :return: RepoExplorer with the sorted reports.
+        :rtype: RepoExplorer
+        """
         self.data = sorted(self.data, key=func, reverse=True)
         return self
 
-    def head(self, n: int):
+    def head(self, n: int) -> "RepoExplorer":
+        """
+        Returns the first n reports.
+
+        :param n: The number of reports to return.
+        :type n: int
+        :return: RepoExplorer with the first n reports.
+        :rtype: RepoExplorer
+        """
         self.data = self.data[:n]
         return self
 
-    def tail(self, n: int):
+    def tail(self, n: int) -> "RepoExplorer":
+        """
+        Returns the last n reports.
+
+        :param n: The number of reports to return.
+        :type n: int
+        :return: RepoExplorer with the last n reports.
+        :rtype: RepoExplorer
+        """
         self.data = self.data[-n:]
         return self
 
-    def sort_by_date(self, reverse=False):
-        self.data = sorted(self.data, key=lambda r: r.date, reverse=not reverse)
+    def sort_by_date(self, ascending=False) -> "RepoExplorer":
+        """
+        Sorts the list of reports by date.
+
+        :param ascending: Sort in lowest to highest date order, defaults to False
+        :type ascending: bool, optional
+        :return: RepoExplorer with the sorted reports.
+        :rtype: RepoExplorer
+        """
+        self.data = sorted(self.data, key=lambda r: r.date, reverse=not ascending)
         return self
 
-    def sort_by_profit(self, reverse=False):
+    def sort_by_profit(self, ascended=False) -> "RepoExplorer":
+        """
+        Sorts the list of reports by profit.
+
+        :param ascended: Sort in lowest to highest profit order, defaults to False
+        :type ascended: bool, optional
+        :return: RepoExplorer with the sorted reports.
+        :rtype: RepoExplorer
+        """
         self.data = sorted(
             self.data,
             key=lambda r: r.performance.profit_percent,
-            reverse=not reverse,
+            reverse=not ascended,
         )
         return self
 
-    def sort_by_ppd(self, reverse=False):
-        self.data = sorted(self.data, key=lambda r: r.performance.ppd, reverse=not reverse)
+    def sort_by_ppd(self, ascended=False) -> "RepoExplorer":
+        """
+        Sorts the list of reports by profit per day.
+
+        :param ascended: Sort in lowest to highest profit per day order, defaults to False
+        :type ascended: bool, optional
+        :return: RepoExplorer with the sorted reports.
+        :rtype: RepoExplorer
+        """
+        self.data = sorted(self.data, key=lambda r: r.performance.ppd, reverse=not ascended)
         return self
 
-    def sort_by_score(self, reverse=False):
-        self.data = sorted(self.data, key=lambda r: r.performance.score, reverse=not reverse)
+    def sort_by_score(self, ascending=False) -> "RepoExplorer":
+        """
+        Sorts the list of reports by score.
+
+
+        :param ascending: Sort in lowest to highest score order, defaults to False
+        :type ascending: bool, optional
+        :return: RepoExplorer with the sorted reports.
+        :rtype: RepoExplorer
+        """
+        self.data = sorted(self.data, key=lambda r: r.performance.score, reverse=not ascending)
         return self
 
-    def filter_by_id(self, *ids: str):
+    def filter_by_id(self, ids: Iterable[int]) -> "RepoExplorer":
+        """
+        Filters the list of reports by ids.
+
+        :param ids: The ids to filter by.
+        :type ids: Iterable[int]
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         self.data = [r for r in self if r.id in ids]
         return self
 
-    def filter_by_tag(self, *tags: str):
+    def filter_by_tag(self, tags: Iterable[str]) -> "RepoExplorer":
+        """
+        Filters the list of reports by tags.
+
+        :param tags: The tags to filter by.
+        :type tags: Iterable[str]
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         matched = []
         for r in self:
             if r.tag in tags:
@@ -112,11 +220,25 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.data = matched
         return self
 
-    def filter_by_profitable(self):
+    def filter_by_profitable(self) -> "RepoExplorer":
+        """
+        Filters the list of reports by profitability.
+
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         self.data = [r for r in self if r.performance.profit > 0]
         return self
 
-    def filter_by_strategy(self, *strategies: str):
+    def filter_by_strategy(self, strategies: Iterable[str]) -> "RepoExplorer":
+        """
+        Filters the list of reports by strategies.
+
+        :param strategies: The strategies to filter by.
+        :type strategies: Iterable[str]
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         new_data = []
         for r in self:
             try:
@@ -128,17 +250,43 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.data = new_data
         return self
 
-    def filter_by_exchange(self, exchange: str):
+    def filter_by_exchange(self, exchange: str) -> "RepoExplorer":
+        """
+        Filters the list of reports by exchanges.
+
+        :param exchange: The exchange to filter by.
+        :type exchange: str
+        :return: RepoExplorer with the filtered reports.
+        :rtype: RepoExplorer
+        """
         self.data = [r for r in self if r.exchange == exchange]
         return self
 
-    def first(self):
+    def first(self) -> ReportBase:
+        """
+        Returns the first report.
+
+        :return: The first report.
+        :rtype: ReportBase
+        """
         return self.data[0]
 
-    def last(self):
+    def last(self) -> ReportBase:
+        """
+        Returns the last report.
+
+        :return: The last report.
+        :rtype: ReportBase
+        """
         return self.data[-1]
 
     def dataframe(self) -> pd.DataFrame:
+        """
+        Returns a dataframe of the reports.
+
+        :return: A dataframe of the reports.
+        :rtype: pd.DataFrame
+        """
         frames = []
         for r in self:
             try:
@@ -156,9 +304,16 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         frame.sort_values(by="id", ascending=False, inplace=True)
         return frame
 
-    def delete(self, *id: int):
-        """Delete the reports by id"""
-        reports = self.filter_by_id(*id)
+    def delete(self, ids: Iterable[int]) -> None:
+        """
+        Deletes reports by ids.
+
+        :param ids: The ids to delete.
+        :type ids: Iterable[int]
+        :return: RepoExplorer with the deleted reports.
+        :rtype: RepoExplorer
+        """
+        reports = self.filter_by_id(*ids)
         with Session(engine) as session:
             for report in reports:
                 report.delete(session)
@@ -166,7 +321,10 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
                 logger.info("Deleted report id: {}", report.id)
             session.commit()
 
-    def delete_all(self):
+    def delete_all(self) -> None:
+        """
+        Deletes all reports.
+        """
         with Session(engine) as session:
             for report in self:
                 report.delete(session)
@@ -175,11 +333,17 @@ class _RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
 
         logger.info("Deleted {} reports from {}", len(self), self.__class__.__name__)
 
-    def length(self):
+    def length(self) -> int:
+        """
+        Returns the length of the list of reports.
+
+        :return: The number of reports in the database.
+        :rtype: int
+        """
         return len(self)
 
 
-class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
+class _BacktestRepoExplorer(RepoExplorer, BacktestReportList):
     def reset(self) -> "_BacktestRepoExplorer":
         with Session(engine) as session:
             statement = select(BacktestReport)
@@ -257,7 +421,7 @@ class _BacktestRepoExplorer(_RepoExplorer, BacktestReportList):
         return df.sort_values(sort_by, ascending=False)
 
 
-class _HyperoptRepoExplorer(_RepoExplorer, HyperoptReportList):
+class _HyperoptRepoExplorer(RepoExplorer, HyperoptReportList):
     def reset(self):
         with Session(engine) as session:
             statement = select(HyperoptReport)
@@ -288,10 +452,16 @@ class _HyperoptRepoExplorer(_RepoExplorer, HyperoptReportList):
 
 
 def get_backtest_repo():
+    """
+    Returns the backtest repo.
+    """
     return _BacktestRepoExplorer().reset()
 
 
 def get_hyperopt_repo():
+    """
+    Returns the hyperopt repo.
+    """
     return _HyperoptRepoExplorer()
 
 

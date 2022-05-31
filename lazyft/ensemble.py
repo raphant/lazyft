@@ -5,7 +5,7 @@ from __future__ import annotations
 import rapidjson
 
 from lazyft import paths, parameter_tools
-from lazyft.models import Strategy
+from lazyft.strategy import Strategy
 
 
 def set_ensemble_strategies(strategies: list[Strategy]):

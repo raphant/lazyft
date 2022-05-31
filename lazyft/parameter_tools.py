@@ -6,12 +6,6 @@ from typing import Union
 from loguru import logger
 
 
-def get_parameters(id: str) -> dict:
-    from lazyft.reports import get_hyperopt_repo
-
-    return get_hyperopt_repo().get(id).parameters
-
-
 def set_params_file(hyperopt_id: int, export_path: Path = None):
     """Load strategy parameters from a saved report."""
 

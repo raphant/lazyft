@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import time
 from queue import Queue
 from threading import Thread
@@ -9,26 +10,35 @@ from typing import Optional
 import pandas as pd
 import rapidjson
 import sh
+from rich.live import Live
+from rich.table import Table
+from sqlmodel import Session
+
 from lazyft import (
     downloader,
     hyperopt,
     logger,
     parameter_tools,
     paths,
-    regex,
     runner,
     strategy,
 )
 from lazyft.database import engine
-from lazyft.models import HyperoptReport
-from lazyft.notify import notify_pb, notify_telegram
+from lazyft.models.hyperopt import HyperoptReport
+from lazyft.notify import notify_telegram
 from lazyft.reports import get_hyperopt_repo
 from lazyft.space_handler import SpaceHandler
 from lazyft.util import get_last_hyperopt_file_name
-from rich.live import Live
-from rich.table import Table
-from sqlmodel import Session
 
+EPOCH_LINE_REGEX = re.compile(
+    r'(?P<epoch>[\d/]+)[\s|]+(?P<trades>[\d/]+)[\s|]+'
+    r'(?P<wins_draws_losses>\d+\s+\d+\s+\d+)[\s|]+'
+    r'(?P<average_profit>[\d.-]+%)[\s|]+'
+    r'(?P<profit>[\d.-]+ \w+\s+\([\d.,-]+%\))[\s|]+'
+    r'(?P<average_duration>\d+ \w+ [\d:]+)[\s|]+'
+    r'(?P<max_drawdown>(?:[\d.-]+ (\w+\s+)\([\d.]+%\))?(?:--)?)[\s|]+'
+    r'(?P<objective>[\d.,-]+)'
+)
 logger_exec = logger.bind(type='hyperopt')
 columns = [
     "Epoch",
@@ -56,7 +66,7 @@ class HyperoptManager:
         self.running = False
 
         self.queue = Queue()
-        self.reports: list[hyperopt.HyperoptReportExporter] = []
+        self.reports: list[HyperoptReport] = []
         self.runners: list[HyperoptRunner] = []
         self.current_runner: Optional[HyperoptRunner] = None
         self.failed_runners: list[HyperoptRunner] = []
@@ -275,7 +285,8 @@ class HyperoptRunner(runner.Runner):
 
     def _get_results_as_table(self):
         """Generates tables for live_output"""
-        data = regex.EPOCH_LINE_REGEX.findall(self.output)
+
+        data = EPOCH_LINE_REGEX.findall(self.output)
         table = _Printer.create_new_table()
         for d in data:
             table.add_row(*d)
@@ -376,7 +387,7 @@ class HyperoptRunner(runner.Runner):
 
     def get_results(self) -> pd.DataFrame:
         """Scrapes the hyperopt epoch information using regex and returns a DataFrame"""
-        data = regex.EPOCH_LINE_REGEX.findall(self.output)
+        data = EPOCH_LINE_REGEX.findall(self.output)
         return pd.DataFrame(data, columns=columns)
 
     def sub_process_log(self, text="", out=False, error=False):

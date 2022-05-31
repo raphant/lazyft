@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from freqtrade.exchange import Exchange
 from freqtrade.plugins.pairlistmanager import PairListManager
-from loguru import logger
 
 from lazyft import logger
 from lazyft.config import Config
@@ -88,15 +87,11 @@ def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
         "refresh_period": 1800,
     }
     if filter_kwargs["AgeFilter"]:
-        config["pairlists"].append(
-            {"method": "AgeFilter", "min_days_listed": age_limit}
-        )
+        config["pairlists"].append({"method": "AgeFilter", "min_days_listed": age_limit})
     if filter_kwargs["PriceFilter"]:
         config["pairlists"].append({"method": "PriceFilter", "min_price": 0.001})
     if filter_kwargs["SpreadFilter"]:
-        config["pairlists"].append(
-            {"method": "SpreadFilter", "max_spread_ratio": 0.005}
-        )
+        config["pairlists"].append({"method": "SpreadFilter", "max_spread_ratio": 0.005})
     if filter_kwargs["RangeStabilityFilter"]:
         config["pairlists"].append(
             {

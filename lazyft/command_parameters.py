@@ -16,7 +16,7 @@ import lazyft.paths
 from lazyft import logger, parameter_tools
 from lazyft.config import Config
 from lazyft.ensemble import set_ensemble_strategies
-from lazyft.models import Strategy
+from lazyft.strategy import Strategy
 from lazyft.util import get_timerange
 
 
@@ -51,9 +51,7 @@ def pairs_to_strategy(pairs: list[str]):
 @attr.s
 class GlobalParameters:
     command = ""
-    config_path: Union[str, Config] = attr.ib(
-        converter=format_config, metadata={"arg": "-c"}
-    )
+    config_path: Union[str, Config] = attr.ib(converter=format_config, metadata={"arg": "-c"})
     secrets_config: Union[str, Config] = attr.ib(
         default=None, converter=format_config, metadata={"arg": "-c"}
     )
@@ -61,14 +59,15 @@ class GlobalParameters:
     strategies: list[Union[Strategy, str]] = attr.ib(default=None)
     download_data: bool = attr.ib(default=True)
     user_data_dir: Path = attr.ib(
-        default=lazyft.paths.USER_DATA_DIR, metadata={"arg": "--user-data-dir"}
+        default=lazyft.paths.USER_DATA_DIR.relative_to(lazyft.paths.BASE_DIR),
+        metadata={"arg": "--user-data-dir"},
     )
     extra_args: str = attr.ib(default="")
     # data_dir: Path = attr.ib(
     #     default=lazyft.paths.USER_DATA_DIR / 'data', metadata={'arg': '--datadir'}
     # )
     strategy_path: Path = attr.ib(
-        default=lazyft.paths.USER_DATA_DIR / "strategies",
+        default=lazyft.paths.STRATEGY_DIR.relative_to(lazyft.paths.BASE_DIR),
         metadata={"arg": "--strategy-path"},
     )
 
@@ -122,9 +121,7 @@ class BacktestParameters(GlobalParameters):
     timerange: str = attr.ib(default="", metadata={"arg": "--timerange"})
     pairs: list[str] = attr.ib(factory=list, metadata={"arg": "--pairs"})
     days: int = attr.ib(default=60, metadata={"arg": "--days"})
-    starting_balance: float = attr.ib(
-        default=500, metadata={"arg": "--starting-balance"}
-    )
+    starting_balance: float = attr.ib(default=500, metadata={"arg": "--starting-balance"})
     stake_amount: Union[float, str] = attr.ib(
         default="unlimited", metadata={"arg": "--stake-amount"}
     )
@@ -208,18 +205,12 @@ class HyperoptParameters(BacktestParameters):
     epochs: int = attr.ib(default=500, metadata={"arg": "--epochs"})
     min_trades: int = attr.ib(default=100, metadata={"arg": "--min-trades"})
     spaces: str = attr.ib(default="default", metadata={"arg": "--spaces"})
-    loss: str = attr.ib(
-        default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"}
-    )
+    loss: str = attr.ib(default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"})
     seed: int = attr.ib(default=None, metadata={"arg": "--random-state"})
     jobs: int = attr.ib(default=-1, metadata={"arg": "--job-workers"})
-    disable_param_export: bool = attr.ib(
-        default=True, metadata={"arg": "--disable-param-export"}
-    )
+    disable_param_export: bool = attr.ib(default=True, metadata={"arg": "--disable-param-export"})
     print_all: bool = attr.ib(default=False, metadata={"arg": "--print-all"})
-    ignore_missing_spaces: bool = attr.ib(
-        default=True, metadata={"arg": "--ignore-missing-spaces"}
-    )
+    ignore_missing_spaces: bool = attr.ib(default=True, metadata={"arg": "--ignore-missing-spaces"})
     cache: str = None
 
     def __attrs_post_init__(self):
@@ -264,9 +255,7 @@ class HyperoptParameters(BacktestParameters):
             id=strategy.id,
             verbose=verbose,
         )
-        runner = HyperoptRunner(
-            command, autosave=autosave, notify=notify, verbose=verbose
-        )
+        runner = HyperoptRunner(command, autosave=autosave, notify=notify, verbose=verbose)
 
         try:
             runner.execute(background=background, load_strategy=load_hashed_strategy)
@@ -278,6 +267,4 @@ class HyperoptParameters(BacktestParameters):
         pass
 
 
-command_map = {
-    a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata
-}
+command_map = {a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata}

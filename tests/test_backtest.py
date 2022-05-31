@@ -1,3 +1,4 @@
+import lazyft.models.backtest
 from lazyft import backtest, models
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
@@ -85,4 +86,4 @@ def test_multi_runner():
     mr.execute()
     assert any(mr.reports)
     for r in mr.reports:
-        assert isinstance(r, models.BacktestReport)
+        assert isinstance(r, lazyft.models.backtest.BacktestReport)

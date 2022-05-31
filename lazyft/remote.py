@@ -11,9 +11,10 @@ from freqtrade.data.btanalysis import load_trades_from_db
 
 from lazyft import logger, paths, parameter_tools
 from lazyft.config import Config
-from lazyft.models import RemotePreset, Environment, RemoteBotInfo, Strategy, StrategyBackup
+from lazyft.models import StrategyBackup
+from lazyft.models.remote import RemotePreset, Environment, RemoteBotInfo
 from lazyft.reports import get_hyperopt_repo
-from lazyft.strategy import create_strategy_params_filepath, get_file_name
+from lazyft.strategy import create_strategy_params_filepath, get_file_name, Strategy
 
 DEBUG = False
 RUN_MODES = ["dry", "live"]
@@ -187,7 +188,7 @@ class RemoteTools:
         # create the remote path to save as
         tmp_dir = tempfile.mkdtemp()
         local_params = Path(tmp_dir, 'params.json')
-        local_params.write_text(rapidjson.dumps(parameter_tools.get_parameters(id)))
+        local_params.write_text(rapidjson.dumps(get_hyperopt_repo().get(id).parameters))
         remote_path = f"user_data/strategies/" f"{create_strategy_params_filepath(strategy).name}"
         # send the local params to the remote path
         self.send_file(bot_id, local_params, remote_path)

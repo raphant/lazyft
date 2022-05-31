@@ -26,11 +26,12 @@ def create_commands(
 ):
     """
     Create `HyperoptCommand` for each strategy in strategies.
-    Args:
-        parameters:
-        verbose:
-    Returns:
-    """
+
+    :param parameters: HyperoptParameters or BacktestParameters
+    :param verbose: Whether to print out the commands
+
+    :return: List of `HyperoptCommand`
+    """ 
     from lazyft.backtest.commands import BacktestCommand
     from lazyft.hyperopt.commands import HyperoptCommand
 

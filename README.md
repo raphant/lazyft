@@ -1,2 +1,4 @@
 # lazyft
-A convient FreqTrade wrapper-library that makes it easy to develop strategies
+A convenient FreqTrade wrapper-library that makes it easy to develop strategies
+
+## Introduction

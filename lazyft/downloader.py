@@ -468,12 +468,13 @@ def download_watcher(
                 update_download_history(
                     start_date, [pair], " ".join(timeframes), exchange
                 )
-                logger.info(
-                    "Downloaded history for {} @ {} ({}/{})",
-                    pair,
-                    ", ".join(timeframes),
-                    pair_idx + 1,
-                    n_pairs,
+                print(
+                    "Downloaded history for {} @ {} ({}/{})".format(
+                        pair,
+                        ", ".join(timeframes),
+                        pair_idx + 1,
+                        n_pairs,
+                    )
                 )
                 pair_idx += 1
                 timeframe_idx = 0

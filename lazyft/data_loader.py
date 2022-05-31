@@ -5,6 +5,7 @@ from diskcache import Cache
 from freqtrade.configuration import TimeRange
 from freqtrade.data.history import load_pair_history
 from freqtrade.strategy import merge_informative_pair
+
 from lazyft import logger, paths
 from lazyft.downloader import download_pair
 from lazyft.paths import PAIR_DATA_DIR
@@ -28,10 +29,12 @@ def load_pair_data(
     :return: A DataFrame with the OHLCV data."
     """
 
-    @cache.memoize(expire=60 * 30, tag="data_loader")
+    @cache.memoize(expire=60 * 30, tag="data_loader.load_pair_data")
     def func(pair, timeframe, exchange, timerange):
         if timerange:
-            download_pair(pair.upper(), exchange, intervals=[timeframe], timerange=timerange)
+            download_pair(
+                pair.upper(), exchange, intervals=[timeframe], timerange=timerange
+            )
         return load_pair_history(
             datadir=PAIR_DATA_DIR.joinpath(exchange),
             timeframe=timeframe,
@@ -42,7 +45,9 @@ def load_pair_data(
         )
 
     data = func(pair, timeframe, exchange, timerange)
-    assert not data.empty, f"Data for {pair} {timeframe} {exchange} {timerange} is empty"
+    assert (
+        not data.empty
+    ), f"Data for {pair} {timeframe} {exchange} {timerange} is empty"
     logger.info(
         f'Loaded {len(data)} rows for {pair} @ timeframe {timeframe}, data starts at {data.iloc[0]["date"]}'
     )
@@ -98,4 +103,8 @@ def load_pair_data_for_each_timeframe(
 
 
 if __name__ == "__main__":
-    print(load_pair_data_for_each_timeframe("BTC/USDT", "20220101-", ["1h", "2h", "4h", "8h"]))
+    print(
+        load_pair_data_for_each_timeframe(
+            "BTC/USDT", "20220101-", ["1h", "2h", "4h", "8h"]
+        )
+    )

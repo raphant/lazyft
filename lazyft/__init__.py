@@ -16,7 +16,7 @@ from rich import console
 from . import paths, util
 from .log_config import setup_logger
 
-SETTINGS = Index(paths.CACHE_DIR / "settings")
+SETTINGS = Index(str(paths.CACHE_DIR / "settings"))
 
 if not paths.CONFIG_DIR.exists():
     if (
@@ -51,7 +51,7 @@ setup_logger()
 logger_exec = logger.bind(type="general")
 tmp_dir = Path("/tmp/lazyft")
 
-if not SETTINGS["CHECK_BASE_CONFIG"]:
+if not SETTINGS.get("CHECK_BASE_CONFIG"):
     config_files = [str(path) for path in paths.BASE_DIR.glob("config*.json")]
     if not any(config_files):
         pass

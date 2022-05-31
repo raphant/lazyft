@@ -1,1 +1,8 @@
 venv/
+logs/
+cache/*
+configs/
+user_data/
+*egg*
+__pycache__
+*.db

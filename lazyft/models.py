@@ -19,6 +19,12 @@ from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from freqtrade.resolvers import StrategyResolver
 from freqtrade.strategy import IStrategy
+from pandas import json_normalize
+from pydantic import BaseModel
+from rich.console import Console
+from rich.syntax import Syntax
+from sqlmodel import Field, Relationship, Session, SQLModel, select
+
 from lazyft import logger, paths, strategy, util
 from lazyft.database import engine
 from lazyft.loss_functions import (
@@ -29,17 +35,12 @@ from lazyft.loss_functions import (
 )
 from lazyft.strategy import get_file_name, get_name_from_id
 from lazyft.util import calculate_win_ratio, get_last_hyperopt_file_name, remove_cache
-from pandas import json_normalize
-from pydantic import BaseModel
-from rich.console import Console
-from rich.syntax import Syntax
-from sqlmodel import Field, Relationship, Session, SQLModel, select
 
 try:
     cache = Index(str(paths.BASE_DIR / "cache/models"))
 except sqlite3.DatabaseError:  # Database is malformed
     # remove cache/models with shutil.rmtree
-    logger.info(f'Database is malformed, removing cache/models')
+    logger.info(f"Database is malformed, removing cache/models")
     remove_cache(paths.BASE_DIR / "cache/models")
     cache = Index(str(paths.BASE_DIR / "cache/models"))
 tmp_cache = Index(tempfile.gettempdir())
@@ -183,14 +184,14 @@ class BacktestPerformance(PerformanceBase):
             *args,
             **kwargs,
         )
-        d['profit_mean_pct'] = self.profit_ratio
+        d["profit_mean_pct"] = self.profit_ratio
         return d
 
 
 class ReportBase(SQLModel):
     id: Optional[int]
     date: datetime = Field(default_factory=datetime.now)
-    tag: str = ''
+    tag: str = ""
 
     class Config:
         allow_population_by_field_name = True
@@ -204,7 +205,7 @@ class ReportBase(SQLModel):
     @property
     def df(self):
         try:
-            n_pairlist = len(self.pairlist.split(','))
+            n_pairlist = len(self.pairlist.split(","))
         except AttributeError:
             n_pairlist = len(self.pairlist)
         d = dict(
@@ -232,7 +233,7 @@ class ReportBase(SQLModel):
         )
         df = pd.DataFrame([d])
         df.total_profit = df.total_profit.apply(lambda v: round(v, 2))
-        df.date = df.date.apply(lambda date: date.strftime('%x %X'))
+        df.date = df.date.apply(lambda date: date.strftime("%x %X"))
         df.balance = df.balance.astype(int)
         return df
 
@@ -254,7 +255,7 @@ class BacktestData(SQLModel, table=True):
 
     @property
     def parsed(self) -> dict:
-        return rapidjson.loads(self.text)['strategy']
+        return rapidjson.loads(self.text)["strategy"]
 
     def __str__(self) -> str:
         return f'Backtest for ID: {self.id} - {self.parsed["strategy"]}'
@@ -263,8 +264,8 @@ class BacktestData(SQLModel, table=True):
 class HyperoptReport(ReportBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     epoch: int
-    hyperopt_file_str: str = Field(default='')
-    strategy_hash: str = Field(default='')
+    hyperopt_file_str: str = Field(default="")
+    strategy_hash: str = Field(default="")
     exchange: str
 
     # region properties
@@ -276,7 +277,7 @@ class HyperoptReport(ReportBase, table=True):
         :return: A tuple of a list and an integer. The first list contains the results of the trials. The integer
          the number of trials that were performed.
         """
-        config = {'user_data_dir': paths.USER_DATA_DIR}
+        config = {"user_data_dir": paths.USER_DATA_DIR}
         return HyperoptTools.load_filtered_results(self.hyperopt_file, config)
 
     @property
@@ -293,16 +294,16 @@ class HyperoptReport(ReportBase, table=True):
         except sqlite3.DatabaseError:
             remove_cache(_cache.directory)
             return self.result_dict
-        logger.info(
-            'Loading and caching hyperopt results for id {}...', self.id)
+        logger.info("Loading and caching hyperopt results for id {}...", self.id)
         try:
             data = self.all_epochs[self.epoch]
         except IndexError:
             logger.error(
-                'Epoch {} not found in hyperopt results for {}', self.epoch, self.id)
-            logger.info('Available epochs: {}', self.total_epochs)
+                "Epoch {} not found in hyperopt results for {}", self.epoch, self.id
+            )
+            logger.info("Available epochs: {}", self.total_epochs)
             raise IndexError(
-                f'Epoch {self.epoch} not found in hyperopt results for {self.id}. Available epochs: {self.total_epochs}'
+                f"Epoch {self.epoch} not found in hyperopt results for {self.id}. Available epochs: {self.total_epochs}"
             )
         _cache[self.hyperopt_file_str, self.epoch] = data
         return data
@@ -317,11 +318,11 @@ class HyperoptReport(ReportBase, table=True):
 
     @property
     def backtest_data(self):
-        return self.result_dict['results_metrics']
+        return self.result_dict["results_metrics"]
 
     @property
     def strategy(self):
-        return self.backtest_data['strategy_name']
+        return self.backtest_data["strategy_name"]
 
     @property
     def hyperopt_file(self) -> Path:
@@ -330,75 +331,76 @@ class HyperoptReport(ReportBase, table=True):
     @property
     def performance(self) -> HyperoptPerformance:
         return HyperoptPerformance(
-            wins=self.backtest_data['wins'],
-            losses=self.backtest_data['losses'],
-            draws=self.backtest_data['draws'],
-            avg_profits=self.backtest_data['profit_mean'],
-            med_profit=self.backtest_data['profit_median'],
-            profit_percent=self.backtest_data['profit_total'],
-            tot_profit=self.backtest_data['profit_total_abs'],
-            avg_duration=self.backtest_data['holding_avg'],
-            start_date=self.backtest_data['backtest_start'],
-            end_date=self.backtest_data['backtest_end'],
+            wins=self.backtest_data["wins"],
+            losses=self.backtest_data["losses"],
+            draws=self.backtest_data["draws"],
+            avg_profits=self.backtest_data["profit_mean"],
+            med_profit=self.backtest_data["profit_median"],
+            profit_percent=self.backtest_data["profit_total"],
+            tot_profit=self.backtest_data["profit_total_abs"],
+            avg_duration=self.backtest_data["holding_avg"],
+            start_date=self.backtest_data["backtest_start"],
+            end_date=self.backtest_data["backtest_end"],
             seed=-1,
-            trades=self.backtest_data['total_trades'],
+            trades=self.backtest_data["total_trades"],
             loss=self.loss,
             drawdown=self.drawdown,
         )
 
     @property
     def stake_currency(self):
-        return self.backtest_data['stake_currency']
+        return self.backtest_data["stake_currency"]
 
     @property
     def stake_amount(self):
-        return self.backtest_data['stake_amount']
+        return self.backtest_data["stake_amount"]
 
     @property
     def starting_balance(self):
-        return self.backtest_data['starting_balance']
+        return self.backtest_data["starting_balance"]
 
     @property
     def max_open_trades(self):
-        return self.backtest_data['max_open_trades']
+        return self.backtest_data["max_open_trades"]
 
     @property
     def timeframe(self):
-        return self.backtest_data['timeframe']
+        return self.backtest_data["timeframe"]
 
     @property
     def timerange(self):
-        return self.backtest_data['timerange']
+        return self.backtest_data["timerange"]
 
     @property
     def pairlist(self):
-        return self.backtest_data['pairlist']
+        return self.backtest_data["pairlist"]
 
     @property
     def log_file(self):
         try:
-            return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + '.log')
+            return paths.HYPEROPT_LOG_PATH.joinpath(str(self.id) + ".log")
         except FileNotFoundError:
-            logger.warning('Log file not found for {}', self.id)
+            logger.warning("Log file not found for {}", self.id)
 
     @property
     def loss(self):
-        return self.result_dict['loss']
+        return self.result_dict["loss"]
 
     @property
     def parameters(self) -> dict:
         """
         :return: The final parameters of the hyperopt.
         """
-        final_params = deepcopy(self.result_dict['params_not_optimized'])
+        final_params = deepcopy(self.result_dict["params_not_optimized"])
         final_params = deep_merge_dicts(
-            self.result_dict['params_details'], final_params)
-        date = self.date.strftime('%x %X')
+            self.result_dict["params_details"], final_params
+        )
+        date = self.date.strftime("%x %X")
         final_params = {
-            'strategy_name': self.strategy,
-            'params': final_params,
-            'ft_stratparam_v': 1,
-            'export_time': date,
+            "strategy_name": self.strategy,
+            "params": final_params,
+            "ft_stratparam_v": 1,
+            "export_time": date,
         }
         return final_params
 
@@ -409,7 +411,7 @@ class HyperoptReport(ReportBase, table=True):
 
     @property
     def drawdown(self):
-        return self.backtest_data['max_drawdown_account']
+        return self.backtest_data["max_drawdown_account"]
 
     @property
     def report_text(self):
@@ -419,7 +421,7 @@ class HyperoptReport(ReportBase, table=True):
             self.strategy,
             self.id,
             self.backtest_data,
-            self.backtest_data['stake_currency'],
+            self.backtest_data["stake_currency"],
             hyperopt=True,
         )
 
@@ -433,7 +435,7 @@ class HyperoptReport(ReportBase, table=True):
         """
         path = path or self.parameters_path
         path.write_text(rapidjson.dumps(self.parameters))
-        logger.info('Exported parameters for report {} to {}', self.id, path)
+        logger.info("Exported parameters for report {} to {}", self.id, path)
 
     def delete(self, *args):
         # self.hyperopt_file.unlink(missing_ok=True)
@@ -443,23 +445,22 @@ class HyperoptReport(ReportBase, table=True):
         trials = json_normalize(self.all_epochs, max_level=1)
         trials = HyperoptTools.prepare_trials_columns(
             trials,
-            'results_metrics.max_drawdown_abs' in trials.columns
-            or 'results_metrics.max_drawdown_account' in trials.columns,
+            "results_metrics.max_drawdown_abs" in trials.columns
+            or "results_metrics.max_drawdown_account" in trials.columns,
         )
         trials.drop(
-            columns=['is_initial_point', 'is_best', 'Best'],
+            columns=["is_initial_point", "is_best", "Best"],
             inplace=True,
-            errors='ignore',
+            errors="ignore",
         )
-        trials.set_index('Epoch', inplace=True)
+        trials.set_index("Epoch", inplace=True)
         # "Avg duration" is a column with values the format of HH:MM:SS.
         # We want to turn this into hours
-        avg_duration_hours = trials['Avg duration'].apply(
-            lambda s: util.duration_string_to_timedelta(
-                s).total_seconds() / 3600,
+        avg_duration_hours = trials["Avg duration"].apply(
+            lambda s: util.duration_string_to_timedelta(s).total_seconds() / 3600,
         )
         # insert avg_duration_seconds in the seventh position
-        trials.insert(6, 'Avg duration hours', avg_duration_hours)
+        trials.insert(6, "Avg duration hours", avg_duration_hours)
         # strip each column name
         trials.columns = [c.strip() for c in trials.columns]
         return trials
@@ -478,7 +479,7 @@ class HyperoptReport(ReportBase, table=True):
             result = self.result_dict
         optimize_reports.show_backtest_result(
             self.strategy,
-            result['results_metrics'],
+            result["results_metrics"],
             self.stake_currency,
             [],
         )
@@ -510,17 +511,18 @@ class HyperoptReport(ReportBase, table=True):
 
         :return: The epoch number of the best epoch.
         """
-        sorted_epochs = sorted(self.all_epochs, key=itemgetter('loss'))
+        sorted_epochs = sorted(self.all_epochs, key=itemgetter("loss"))
         return self.all_epochs.index(sorted_epochs[0])
 
     @classmethod
-    def from_last_result(cls, epoch=0, exchange='kucoin'):
+    def from_last_result(cls, epoch=0, exchange="kucoin"):
         """
         Return a HyperoptReport object from the last result of a hyperopt run.
         """
         return HyperoptReport(
             epoch=epoch,
-            hyperopt_file_str=paths.HYPEROPT_RESULTS_DIR / get_last_hyperopt_file_name(),
+            hyperopt_file_str=paths.HYPEROPT_RESULTS_DIR
+            / get_last_hyperopt_file_name(),
             exchange=exchange,
         )
 
@@ -529,7 +531,9 @@ class HyperoptReport(ReportBase, table=True):
         """
         Return a HyperoptReport object from a hyperopt result file.
         """
-        return HyperoptReport(epoch=0, hyperopt_file_str=str(result_path), exchange=exchange)
+        return HyperoptReport(
+            epoch=0, hyperopt_file_str=str(result_path), exchange=exchange
+        )
 
 
 class BacktestReport(ReportBase, table=True):
@@ -538,20 +542,12 @@ class BacktestReport(ReportBase, table=True):
     session_id: Optional[str]
     ensemble: Optional[str]
 
-    hyperopt_id: Optional[str] = Field(
-        default=None, foreign_key="hyperoptreport.id")
-    _hyperopt: Optional['HyperoptReport'] = Relationship()
+    hyperopt_id: Optional[str] = Field(default=None, foreign_key="hyperoptreport.id")
+    _hyperopt: Optional["HyperoptReport"] = Relationship()
 
-    # performance_id: Optional[int] = Field(
-    #     default=None, foreign_key="backtestperformance.id"
-    # )
-    # _performance: BacktestPerformance = Relationship()
-
-    data_id: Optional[int] = Field(default=None, foreign_key="backtestdata.id")
-    _backtest_data: BacktestData = Relationship()
-    backtest_file_str: str = Field(default='')
-
-    strategy_hash: str = Field(default='')
+    backtest_file_str: str = Field(default="")
+    strategy_hash: str = Field(default="")
+    exchange: str = Field(default="")
 
     # region Properties
     @property
@@ -559,14 +555,14 @@ class BacktestReport(ReportBase, table=True):
         """
         Get the strategy name
         """
-        return list(self.load_data['strategy'].keys())[0]
+        return list(self.load_data["strategy"].keys())[0]
 
-    @property
-    def exchange(self) -> str:
-        """
-        Get the exchange name
-        """
-        return self.backtest_data['exchange']
+    # @property
+    # def exchange(self) -> str:
+    #     """
+    #     Get the exchange name
+    #     """
+    #     return self.backtest_data["exchange"]
 
     @property
     def load_data(self) -> dict:
@@ -574,10 +570,9 @@ class BacktestReport(ReportBase, table=True):
         It takes a data_id and returns the data from the database
         :return: A dictionary of data.
         """
-        
+
         return rapidjson.loads(
-            Path(paths.BACKTEST_RESULTS_DIR,
-                    self.backtest_file_str).read_text()
+            Path(paths.BACKTEST_RESULTS_DIR, self.backtest_file_str).read_text()
         )
 
         # with Session(engine) as session:
@@ -590,7 +585,7 @@ class BacktestReport(ReportBase, table=True):
 
         :return: A dictionary of the data for the strategy.
         """
-        strategy_ = self.load_data['strategy'][self.strategy]
+        strategy_ = self.load_data["strategy"][self.strategy]
         return strategy_
 
     @property
@@ -598,7 +593,7 @@ class BacktestReport(ReportBase, table=True):
         """
         Get the maximum number of open trades.
         """
-        return self.backtest_data['max_open_trades']
+        return self.backtest_data["max_open_trades"]
 
     @property
     def starting_balance(self) -> float:
@@ -607,7 +602,7 @@ class BacktestReport(ReportBase, table=True):
 
         :return: The starting balance of the portfolio.
         """
-        return float(self.backtest_data['starting_balance'])
+        return float(self.backtest_data["starting_balance"])
 
     @property
     def stake_amount(self) -> float:
@@ -616,21 +611,21 @@ class BacktestReport(ReportBase, table=True):
 
         :return: the stake amount.
         """
-        return self.backtest_data['stake_amount']
+        return self.backtest_data["stake_amount"]
 
     @property
     def timeframe(self) -> str:
         """
         Returns the timeframe used in the backtest
         """
-        return self.backtest_data['timeframe']
+        return self.backtest_data["timeframe"]
 
     @property
     def drawdown(self) -> float:
         """
         Returns the drawdown of the backtest
         """
-        return self.backtest_data.get('max_drawdown_account', 0)
+        return self.backtest_data.get("max_drawdown_account", 0)
 
     @property
     def timerange(self) -> str:
@@ -640,12 +635,14 @@ class BacktestReport(ReportBase, table=True):
         """
         # format of start_date and end_date is YYYY-MM-DD HH:MM:SS
         # remove the time from the date and strip the '-'
-        start_date: str = self.backtest_data['backtest_start'].split(' ')[
-            0].replace('-', '')
-        end_date: str = self.backtest_data['backtest_end'].split(' ')[
-            0].replace('-', '')
+        start_date: str = (
+            self.backtest_data["backtest_start"].split(" ")[0].replace("-", "")
+        )
+        end_date: str = (
+            self.backtest_data["backtest_end"].split(" ")[0].replace("-", "")
+        )
 
-        return f'{start_date}-{end_date}'
+        return f"{start_date}-{end_date}"
 
     @property
     def performance(self) -> BacktestPerformance:
@@ -654,13 +651,13 @@ class BacktestReport(ReportBase, table=True):
 
         :return: A BacktestPerformance object.
         """
-        totals = self.backtest_data['results_per_pair'].pop()
-        totals.pop('key')
-        totals['start_date'] = self.backtest_data['backtest_start']
-        totals['end_date'] = self.backtest_data['backtest_end']
-        totals['profit_total_pct'] = totals['profit_total_pct'] / 100
-        totals['drawdown'] = self.drawdown
-        totals['avg_duration'] = self.backtest_data['holding_avg']
+        totals = self.backtest_data["results_per_pair"].pop()
+        totals.pop("key")
+        totals["start_date"] = self.backtest_data["backtest_start"]
+        totals["end_date"] = self.backtest_data["backtest_end"]
+        totals["profit_total_pct"] = totals["profit_total_pct"] / 100
+        totals["drawdown"] = self.drawdown
+        totals["avg_duration"] = self.backtest_data["holding_avg"]
         return BacktestPerformance(**totals)
 
     @property
@@ -684,15 +681,14 @@ class BacktestReport(ReportBase, table=True):
         df: pd.DataFrame = trades.loc[trades.profit_ratio > 0]
         # df.set_index('pair', inplace=True)
         return (
-            df.groupby(df['pair'])
+            df.groupby(df["pair"])
             .aggregate(
-                profit_total=pd.NamedAgg(column='profit_abs', aggfunc='sum'),
-                profit_total_pct=pd.NamedAgg(
-                    column='profit_ratio', aggfunc='sum'),
-                profit_pct=pd.NamedAgg(column='profit_ratio', aggfunc='mean'),
-                count=pd.NamedAgg(column='pair', aggfunc='count'),
+                profit_total=pd.NamedAgg(column="profit_abs", aggfunc="sum"),
+                profit_total_pct=pd.NamedAgg(column="profit_ratio", aggfunc="sum"),
+                profit_pct=pd.NamedAgg(column="profit_ratio", aggfunc="mean"),
+                count=pd.NamedAgg(column="pair", aggfunc="count"),
             )
-            .sort_values('profit_total', ascending=False)
+            .sort_values("profit_total", ascending=False)
         )
         # return df.sort_values('profit_abs', ascending=False)
 
@@ -703,12 +699,12 @@ class BacktestReport(ReportBase, table=True):
         :return: The string representation of the log file.
         """
         if not self.log_file.exists():
-            raise FileNotFoundError('Log file does not exist')
+            raise FileNotFoundError("Log file does not exist")
         return self.log_file.read_text()
 
     @property
     def log_file(self) -> Path:
-        return paths.BACKTEST_LOG_PATH.joinpath(str(self.id) + '.log')
+        return paths.BACKTEST_LOG_PATH.joinpath(str(self.id) + ".log")
 
     @property
     def df(self):
@@ -716,11 +712,11 @@ class BacktestReport(ReportBase, table=True):
         Adds additional columns to the dataframe.
         """
         df = super().df
-        df.insert(2, 'hyperopt_id', self.hyperopt_id)
+        df.insert(2, "hyperopt_id", self.hyperopt_id)
         try:
             df.insert(
                 13,
-                'sortino',
+                "sortino",
                 self.sortino_loss,
             )
         except Exception as e:
@@ -759,31 +755,31 @@ class BacktestReport(ReportBase, table=True):
 
     @property
     def trades(self):
-        df = pd.DataFrame(self.backtest_data['trades'])
+        df = pd.DataFrame(self.backtest_data["trades"])
         df.open_date = pd.to_datetime(df.open_date)
         df.close_date = pd.to_datetime(df.close_date)
         return df
 
     @property
     def pairlist(self) -> list[str]:
-        return self.backtest_data['pairlist']
+        return self.backtest_data["pairlist"]
 
     def as_df(self, key: str):
         """Get a key from the backtest data as a DataFrame"""
         if key not in self.backtest_data:
             raise KeyError(
-                '%s not found in backtest data. Available keys are: %s'
-                % (key, ', '.join(self.backtest_data.keys()))
+                "%s not found in backtest data. Available keys are: %s"
+                % (key, ", ".join(self.backtest_data.keys()))
             )
         return pd.DataFrame(self.backtest_data[key])
 
     @property
     def pair_performance(self):
-        return pd.DataFrame(self.backtest_data['results_per_pair'])
+        return pd.DataFrame(self.backtest_data["results_per_pair"])
 
     @property
     def sell_reason_summary(self):
-        return pd.DataFrame(self.backtest_data['sell_reason_summary'])
+        return pd.DataFrame(self.backtest_data["sell_reason_summary"])
 
     @property
     def hyperopt_report(self):
@@ -810,39 +806,38 @@ class BacktestReport(ReportBase, table=True):
             self.strategy,
             self.id,
             self.backtest_data,
-            self.backtest_data['stake_currency'],
+            self.backtest_data["stake_currency"],
             hyperopt_id=self.hyperopt_id,
         )
 
     # endregion
 
-    def trades_to_csv(self, name=''):
+    def trades_to_csv(self, name=""):
         """
         The function trades_to_csv() takes a backtest object and exports the trades to a csv file
 
         :param name: The name of the strategy
         :return: A CSV file with the trades for the backtest.
         """
-        path = paths.BASE_DIR.joinpath('exports/')
+        path = paths.BASE_DIR.joinpath("exports/")
         path.mkdir(exist_ok=True)
         if not name:
             name = (
-                f'{self.strategy}-'
-                f'${self.starting_balance}-'
-                f'{(self.performance.end_date - self.performance.start_date).days}_days'
+                f"{self.strategy}-"
+                f"${self.starting_balance}-"
+                f"{(self.performance.end_date - self.performance.start_date).days}_days"
             )
             if self.id:
-                name += f'-{self.id}'
-            name += '.csv'
+                name += f"-{self.id}"
+            name += ".csv"
 
         df_trades = self.trades
-        df_trades.open_date = df_trades.open_date.apply(
-            lambda d: d.strftime('%x %X'))
-        df_trades.close_date = df_trades.close_date.apply(
-            lambda d: d.strftime('%x %X'))
+        df_trades.open_date = df_trades.open_date.apply(lambda d: d.strftime("%x %X"))
+        df_trades.close_date = df_trades.close_date.apply(lambda d: d.strftime("%x %X"))
         csv = df_trades.to_csv(path.joinpath(name), index=False)
         logger.info(
-            f'Exported trades for backtest #{self.id} to -> {path.joinpath(name)}')
+            f"Exported trades for backtest #{self.id} to -> {path.joinpath(name)}"
+        )
         return csv
 
     def delete(self, session: Session):
@@ -863,11 +858,12 @@ class BacktestReport(ReportBase, table=True):
         :return:
         """
         import plotly.express as px
+
         from lazyft.plot import calculate_equity, get_dates_from_strategy
 
         strategy_stats = self.backtest_data
         df = pd.DataFrame({"date": get_dates_from_strategy(strategy_stats)})
-        df.loc[:, f'equity_daily'] = calculate_equity(strategy_stats)
+        df.loc[:, f"equity_daily"] = calculate_equity(strategy_stats)
         cols = [col for col in df.columns if "equity_daily" in col]
         fig = px.line(
             df,
@@ -894,8 +890,8 @@ class BacktestReport(ReportBase, table=True):
         import plotly.express as px
 
         trades_df = self.trades
-        trades_df = trades_df.resample('M', on='close_date').sum()
-        trades_df['profit_abs'] = trades_df['profit_abs'].round(2)
+        trades_df = trades_df.resample("M", on="close_date").sum()
+        trades_df["profit_abs"] = trades_df["profit_abs"].round(2)
         fig = px.line(
             trades_df,
             # x="index",
@@ -921,8 +917,8 @@ class BacktestReport(ReportBase, table=True):
         import plotly.express as px
 
         trades_df = self.trades
-        trades_df = trades_df.resample('W', on='close_date').sum()
-        trades_df['profit_abs'] = trades_df['profit_abs'].round(2)
+        trades_df = trades_df.resample("W", on="close_date").sum()
+        trades_df["profit_abs"] = trades_df["profit_abs"].round(2)
         fig = px.line(
             trades_df,
             # x="index",
@@ -947,8 +943,8 @@ class BacktestReport(ReportBase, table=True):
         import plotly.express as px
 
         trades_df = self.trades
-        trades_df = trades_df.resample('D', on='close_date').sum()
-        trades_df['profit_abs'] = trades_df['profit_abs'].round(2)
+        trades_df = trades_df.resample("D", on="close_date").sum()
+        trades_df["profit_abs"] = trades_df["profit_abs"].round(2)
         fig = px.line(
             trades_df,
             # x="index",
@@ -979,16 +975,16 @@ class BacktestReport(ReportBase, table=True):
         # create temp file
         import tempfile
 
-        tmp_file = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
         # write backtest data to temp file
         path = Path(tmp_file.name)
         path.write_text(rapidjson.dumps(self.load_data))
         cli_args = (
-            f'plot-dataframe --strategy {self.strategy} '
-            f'--export-filename {path} '
+            f"plot-dataframe --strategy {self.strategy} "
+            f"--export-filename {path} "
             f'-p {" ".join(pair)} -c {config_file}'
         )
-        logger.info(f'Running plot-dataframe with args: {cli_args}')
+        logger.info(f"Running plot-dataframe with args: {cli_args}")
         args = Arguments(cli_args.split()).get_parsed_arg()
         start_plot_dataframe(args)
         tmp_file.close()
@@ -1020,13 +1016,12 @@ class StrategyBackup(SQLModel, table=True):
         if path.is_dir():
             path = path / strategy.get_file_name(self.name)
         path.write_text(self.text)
-        logger.info(
-            f'Exported strategy {self.name} with hash {self.hash} to {path}')
+        logger.info(f"Exported strategy {self.name} with hash {self.hash} to {path}")
         return path
 
     def print(self):
         console = Console()
-        console.print(Syntax(self.text, lexer_name='python'))
+        console.print(Syntax(self.text, lexer_name="python"))
 
     @classmethod
     def load_hash(cls, hash: str):
@@ -1061,8 +1056,8 @@ class RemotePreset(BaseModel):
     @property
     def opt_port(self):
         if self.port != 22:
-            return ['-e', f'ssh -p {self.port}']
-        return ['']
+            return ["-e", f"ssh -p {self.port}"]
+        return [""]
 
 
 @dataclass
@@ -1109,7 +1104,7 @@ class RemoteBotInfo:
     @property
     def strategy(self) -> str:
         # noinspection PyUnresolvedReferences
-        return self.env.data['STRATEGY']
+        return self.env.data["STRATEGY"]
 
 
 @dataclass
@@ -1120,7 +1115,7 @@ class Strategy:
 
     def __post_init__(self):
         if not self.name:
-            assert self.id, 'Need a strategy name or ID'
+            assert self.id, "Need a strategy name or ID"
 
             self.name = get_name_from_id(self.id)
 
@@ -1130,7 +1125,7 @@ class Strategy:
         Return the strategy as a freqtrade strategy.
         :return: A freqtrade strategy
         """
-        assert self.args, 'Need strategy args'
+        assert self.args, "Need strategy args"
         return StrategyResolver.load_strategy(self.args)
 
     @property
@@ -1149,7 +1144,7 @@ class Strategy:
         return self.as_ft_strategy.timeframe
 
     def __str__(self) -> str:
-        return '-'.join(self.as_pair).rstrip('-')
+        return "-".join(self.as_pair).rstrip("-")
 
 
 SQLModel.metadata.create_all(engine)

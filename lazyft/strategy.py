@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import lazyft.paths as paths
 from freqtrade.commands import Arguments
 from freqtrade.configuration import Configuration, setup_utils_configuration
 from freqtrade.constants import USERPATH_STRATEGIES
@@ -16,6 +15,8 @@ from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from freqtrade.resolvers import ExchangeResolver, StrategyResolver
 from freqtrade.strategy import IStrategy
 from freqtrade.strategy.informative_decorator import InformativeData
+
+import lazyft.paths as paths
 from lazyft import BASIC_CONFIG, logger, parameter_tools, util
 from lazyft.config import Config
 from lazyft.space_handler import SpaceHandler
@@ -234,10 +235,14 @@ def create_temp_folder_for_strategy_and_params_from_backup(
             hyperopt_id, export_path=path.with_suffix(".json")
         )
     hyperopt_data_dir = paths.USER_DATA_DIR / "hyperopt_results"
+    hyperopt_data_dir = paths.USER_DATA_DIR / "backtest_results"
     # backtest_data_dir = paths.USER_DATA_DIR / 'backtest_results'
     # create a link in tmp folder to hyperopt_data_dir and backtest_data_dir
     os.symlink(
         str(hyperopt_data_dir.resolve()), str((tmp_dir / "hyperopt_results/").resolve())
+    )
+    os.symlink(
+        str(hyperopt_data_dir.resolve()), str((tmp_dir / "backtest_results/").resolve())
     )
     # create a link in tmp folder to the data dir
     os.symlink(

@@ -8,8 +8,7 @@ from lazyft import logger
 from lazyft.config import Config
 from lazyft.reports import get_hyperopt_repo
 
-
-STABLE_COINS = ['USDT', 'USDC', 'BUSD', 'USD']
+STABLE_COINS = ["USDT", "USDC", "BUSD", "USD"]
 BLACKLIST = [
     "^(BNB|BTC|ETH)/.*",
     "^(.*USD.*|PAX|PAXG|DAI|IDRT|AUD|BRZ|CAD|CHF|EUR|GBP|HKD|JPY|NGN|RUB|SGD|TRY|UAH|VAI|ZAR)/.*",
@@ -21,8 +20,8 @@ BLACKLIST = [
 ]
 
 
-def load_pairlist_from_id(id: str):
-    logger.debug('loading pairlist from params id {}', id)
+def load_pairlist_from_id(id: int):
+    logger.debug("loading pairlist from params id {}", id)
     return get_hyperopt_repo().get_by_param_id(id).pairlist
 
 
@@ -44,7 +43,7 @@ def refresh_pairlist(
     :param kwargs: (optional) Any additional filters to apply to the pairlist
     :return: The new pairlist
     """
-    logger.info('Refreshing pairlist...')
+    logger.info("Refreshing pairlist...")
     # in case the user wants to save changes as a new config
     config_copy = config.copy()
     # these settings will be used to filter the pairlist
@@ -67,7 +66,7 @@ def refresh_pairlist(
         config_copy.update_whitelist_and_save(manager.whitelist)
         reset_pairlist_settings(config_copy)
         config_copy.save(save_as)
-    logger.info('Finished refreshing pairlist ({})', len(manager.whitelist))
+    logger.info("Finished refreshing pairlist ({})", len(manager.whitelist))
     return manager.whitelist
 
 
@@ -81,21 +80,25 @@ def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
     :param filter_kwargs: Any additional filters to apply to the pairlist
     :return: The updated config object
     """
-    config['exchange']['pair_whitelist'] = []
-    config['pairlists'][0] = {
+    config["exchange"]["pair_whitelist"] = []
+    config["pairlists"][0] = {
         "method": "VolumePairList",
         "number_assets": n_coins,
         "sort_key": "quoteVolume",
         "refresh_period": 1800,
     }
-    if filter_kwargs['AgeFilter']:
-        config['pairlists'].append({"method": "AgeFilter", "min_days_listed": age_limit})
-    if filter_kwargs['PriceFilter']:
-        config['pairlists'].append({"method": "PriceFilter", "min_price": 0.001})
-    if filter_kwargs['SpreadFilter']:
-        config['pairlists'].append({"method": "SpreadFilter", "max_spread_ratio": 0.005})
-    if filter_kwargs['RangeStabilityFilter']:
-        config['pairlists'].append(
+    if filter_kwargs["AgeFilter"]:
+        config["pairlists"].append(
+            {"method": "AgeFilter", "min_days_listed": age_limit}
+        )
+    if filter_kwargs["PriceFilter"]:
+        config["pairlists"].append({"method": "PriceFilter", "min_price": 0.001})
+    if filter_kwargs["SpreadFilter"]:
+        config["pairlists"].append(
+            {"method": "SpreadFilter", "max_spread_ratio": 0.005}
+        )
+    if filter_kwargs["RangeStabilityFilter"]:
+        config["pairlists"].append(
             {
                 "method": "RangeStabilityFilter",
                 "lookback_days": 3,
@@ -103,8 +106,8 @@ def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
                 "refresh_period": 1800,
             }
         )
-    if filter_kwargs['VolatilityFilter']:
-        config['pairlists'].append(
+    if filter_kwargs["VolatilityFilter"]:
+        config["pairlists"].append(
             {
                 "method": "VolatilityFilter",
                 "lookback_days": 3,
@@ -115,8 +118,8 @@ def set_pairlist_settings(config: Config, n_coins, age_limit, **filter_kwargs):
         )
 
     # set blacklist
-    if config['stake_currency'] in STABLE_COINS:
-        config['exchange']['pair_blacklist'] = BLACKLIST
+    if config["stake_currency"] in STABLE_COINS:
+        config["exchange"]["pair_blacklist"] = BLACKLIST
 
 
 def reset_pairlist_settings(config: Config):
@@ -126,7 +129,7 @@ def reset_pairlist_settings(config: Config):
     :param config: The config object to update
     :return: The updated config object
     """
-    config['pairlists'] = [
+    config["pairlists"] = [
         {
             "method": "StaticPairList",
         }

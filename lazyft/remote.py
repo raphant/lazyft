@@ -22,8 +22,6 @@ remotes_file = paths.BASE_DIR.joinpath("remotes.json")
 if remotes_file.exists():
     remotes_dict = rapidjson.loads(remotes_file.read_text())
     remote_preset = {k: RemotePreset(**v) for k, v in remotes_dict.items()}
-else:
-    logger.warning("{} does not exist. Remotes not loaded", remotes_file)
 
 
 # remote_preset = dict(

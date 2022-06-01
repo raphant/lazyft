@@ -111,7 +111,7 @@ def store_backtest_stats(recordfilename: Path, stats: dict[str, DataFrame]) -> P
     Filenames will be appended with a timestamp right before the suffix
     while for directories, <directory>/backtest-result-<datetime>.json will be used as filename
     :param stats: Dataframe containing the backtesting statistics
-    
+
     :return: Path object pointing to the file where the statistics were stored
     """
     if recordfilename.is_dir():
@@ -131,6 +131,11 @@ def store_backtest_stats(recordfilename: Path, stats: dict[str, DataFrame]) -> P
 
 
 def get_best_hyperopt() -> int:
+    """
+    It returns the index of the best hyperopt result in the list of all hyperopt results
+
+    :return: The index of the best hyperopt result.
+    """
     command_best = 'hyperopt-show --best'.split()
     command_all = 'hyperopt-show'.split()
     args_best = Arguments(command_best).get_parsed_arg()
@@ -163,10 +168,11 @@ def get_best_hyperopt() -> int:
 
 def get_timerange(days: int) -> Tuple[str, str]:
     """
-    Get the timerange for the given number of days
+    Get the timerange for the given number of days. The days will automatically be split into
+    2/3rds for hyperopting and 1/3rd for backtesting.
 
     :param days: The number of days to get the timerange for
-    :return: The timerange as a tuple
+    :return: The hyperopt timerange and the backtesting timerange, respectively
     """
     today = datetime.now()
     start_day = datetime.now() - timedelta(days=days)
@@ -215,5 +221,3 @@ def remove_cache(cache: Union[str, Path]) -> None:
         cache = Path(cache)
     if cache.is_dir():
         shutil.rmtree(cache)
-
-

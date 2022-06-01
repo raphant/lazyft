@@ -1,6 +1,6 @@
 # LazyFT
 
-LazyFT is convenient FreqTrade wrapper that makes developing and testing strategies a lot easier for me. My hope is that it will do the same for you.
+LazyFT is convenient [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that makes developing and testing strategies a lot easier for me. My hope is that it will do the same for you.
 
 The features include but are not limited to:
 

@@ -10,6 +10,7 @@ The features include but are not limited to:
 - **Space Handler** - LFT supports creating custom spaces for strategies that extends the kind of optimizations you can do.
 - **Automatic strategy versioning** - LFT will automatically save a copy of the your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
 - Easily access pairlist and other config settings from previous runs.
+- Get notifications when your hyperopt is completed.
 - and more!
 
 ## Getting Stated

@@ -1,6 +1,16 @@
-# lazyft
+# LazyFT
 
-A convenient FreqTrade wrapper-library that makes it easy to develop strategies
+LazyFT is convenient FreqTrade wrapper that makes developing and testing strategies a lot easier for me. My hope is that it will do the same for you.
+
+The features include but are not limited to:
+
+- **Automatic data downloading** - LFT will always know when you need to download data, so no more worrying about that.
+- **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that you can easily reference them later.
+- **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest.
+- **Space Handler** - LFT supports creating custom spaces for strategies that extends the kind of optimizations you can do.
+- **Automatic strategy versioning** - LFT will automatically save a copy of the your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
+- Easily access pairlist and other config settings from previous runs.
+- and more!
 
 ## Getting Stated
 
@@ -19,11 +29,11 @@ pip install -e .
 lft init
 ```
 
-### What You Need
+### Directory
 
 #### Config Files
 
-LazyFT (LFT) expects FreqTrade config files to be in the **./configs** folder. It will ask to automatically create **./config** on it's first run. It will also attempt to detect and automatically move all config files to the **./configs** folder.
+LFT expects FreqTrade config files to be in the **./configs** folder. It will ask to automatically create **./config** on it's first run. It will also attempt to detect and automatically move all config files to the **./configs** folder.
 
 #### User Data
 
@@ -47,13 +57,14 @@ bp = BacktestParameters(
 backtest_runner = bp.run('Strategy')
 ```
 
+Now LFT will check to see if any pair data is missing and then proceed to run the backtest.
+
 ### Important Things to Know About Backtests
 
 #### Parameters
 
 The **days** parameter will automatically be split into 2/3rds for the hyperopt and 1/3rd for backtesting.
-
-To bypass this you can use the **timerange** parameter like you normally would in freqtrade: `20220101-20220131` or `20220101-`.
+To bypass this you can use the **timerange** parameter like you normally would in freqtrade: `timerange='20220101-20220131'` or `timerange='20220101-'`.
 
 The **config_path** can be a string or a [Config](https://github.com/raph92/lazyft/blob/runner/lazyft/config.py#L18) object. It will automatically search the **configs/** directory for the specified config file.
 
@@ -71,6 +82,4 @@ get_backtest_repo().df()
 
 ### Hyperopt
 
-```python
-
-```
+Example Coming Soon! For now can reference [backtest_and_hyperopt_example.ipynb](https://github.com/raph92/lazyft/blob/runner/examples/backtest_and_hyperopt_example.ipynb) for examples

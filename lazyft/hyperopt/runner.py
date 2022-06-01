@@ -170,6 +170,7 @@ class HyperoptRunner(runner.Runner):
         self.epoch_text = ''
         self.exception: Optional[Exception] = None
         self.hyperopt_result_path: Optional[pathlib.Path] = None
+        self.status = 'not ready'
 
     @property
     def report(self) -> HyperoptReport:
@@ -223,6 +224,7 @@ class HyperoptRunner(runner.Runner):
 
         HyperoptRunner.lock = True
         self.start_time = time.time()
+        self.status = 'ready'
 
     def execute(self, background=False, load_strategy=False):
         """
@@ -238,6 +240,7 @@ class HyperoptRunner(runner.Runner):
         # Execute VIA sh
         try:
             logger.info('Executing Hyperopt')
+            self.status = 'running'
             self.running = True
             self.write_worker.start()
             self.process = sh.freqtrade(
@@ -295,6 +298,7 @@ class HyperoptRunner(runner.Runner):
 
     def on_finished(self, _, success, _2):
         """The callback for the sh command in execute()"""
+        self.status = 'finished'
         HyperoptRunner.lock = False
         parameter_tools.remove_params_file(self.strategy, self.command.config.path)
         try:

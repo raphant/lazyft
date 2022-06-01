@@ -14,9 +14,6 @@ def convert(
     strategy_name: str = typer.Argument(..., exists=True),
     save_as: str = typer.Option(None, help="New name to save modified strategy as"),
 ):
-    # noinspection PyUnresolvedReferences
-    import readline
-
     if '.py' not in strategy_name:
         path = paths.STRATEGY_DIR / strategy.get_file_name(strategy_name)
     else:
@@ -70,8 +67,6 @@ def convert(
     add_to_cache = True
     groups = []
     for idx, f in enumerate(find, start=1):
-        cached_group = ''
-
         # replace optimize = True with optimize = False with regex
         inner_find = inner_pattern.findall(f)[0].strip()
         if inner_find in cache:

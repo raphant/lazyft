@@ -51,7 +51,9 @@ def pairs_to_strategy(pairs: list[str]):
 @attr.s
 class GlobalParameters:
     command = ""
-    config_path: Union[str, Config] = attr.ib(converter=format_config, metadata={"arg": "-c"})
+    config_path: Union[str, Config] = attr.ib(
+        converter=format_config, metadata={"arg": "-c"}, default='configs/config.json'
+    )
     secrets_config: Union[str, Config] = attr.ib(
         default=None, converter=format_config, metadata={"arg": "-c"}
     )

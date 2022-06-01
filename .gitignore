@@ -6,3 +6,5 @@ user_data/
 *egg*
 __pycache__
 *.db
+.vscode/
+.idea/

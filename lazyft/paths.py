@@ -22,3 +22,6 @@ BACKTEST_LOG_PATH = LOG_DIR.joinpath("backtest_logs/")
 BACKTEST_LOG_PATH.mkdir(exist_ok=True)
 PAIR_DATA_DIR = USER_DATA_DIR.joinpath("data")
 CACHE_DIR = pathlib.Path(app.user_cache_dir)
+SETTINGS_DIR = pathlib.Path(app.user_config_dir)
+BASE_CONFIG_PATH = pathlib.Path(__file__).parent.parent / "defaults" / "config.json"
+

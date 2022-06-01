@@ -267,7 +267,6 @@ def create_temp_folder_for_strategy_and_params_from_backup(
         parameter_tools.set_params_file(hyperopt_id, export_path=path.with_suffix(".json"))
     hyperopt_data_dir = paths.USER_DATA_DIR / "hyperopt_results"
     backtest_data_dir = paths.USER_DATA_DIR / "backtest_results"
-    # backtest_data_dir = paths.USER_DATA_DIR / 'backtest_results'
     # create a link in tmp folder to hyperopt_data_dir and backtest_data_dir
     os.symlink(str(hyperopt_data_dir.resolve()), str((tmp_dir / "hyperopt_results/").resolve()))
     os.symlink(str(backtest_data_dir.resolve()), str((tmp_dir / "backtest_results/").resolve()))

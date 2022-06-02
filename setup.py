@@ -19,12 +19,12 @@ setup(
     name="lazyft",
     version="0.1.0",
     packages=find_packages(),
-    url='https://github.com/raph92/lazyft',
+    url="https://github.com/raph92/lazyft",
     license="GPLv3",
     author="Raphael N",
     maintainer="Raphael N",
     description="Easily get the latest fork of a Github repo",
-    package_data={'': ["defaults/config.json"]},
+    package_data={"": ["defaults/config.json"]},
     include_package_data=True,
     entry_points={
         "console_scripts": [

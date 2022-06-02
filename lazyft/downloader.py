@@ -147,7 +147,9 @@ def update_download_history(
             if not start_date:
                 delete_record(pair, exchange, interval)
                 logger.debug(
-                    "Failed to load dates for pair {} @ interval {}".format(pair, interval)
+                    "Failed to load dates for pair {} @ interval {}".format(
+                        pair, interval
+                    )
                 )
                 pairs.remove(pair)
                 continue
@@ -197,7 +199,9 @@ def check_if_download_is_needed(
     # first check if pair file exists for the requested interval
     # example of pairfile: BTC_USDT-1m.json.
     # The forward slash is needs to be replaced with an underscore
-    pair_file = paths.PAIR_DATA_DIR.joinpath(exchange, f'{pair.replace("/", "_")}-{interval}.json')
+    pair_file = paths.PAIR_DATA_DIR.joinpath(
+        exchange, f'{pair.replace("/", "_")}-{interval}.json'
+    )
     need_pair_file = not pair_file.exists()
     # replace all dates with UTC
     logger.debug(f"Checking if download is needed for {pair} @ {interval}")
@@ -265,7 +269,9 @@ def download_data_with_parameters(
         parameters.pairs,
         parameters.timeframe_detail,
     )
-    download_missing_historical_data(parameters.config, intervals, pairs, parameters.timerange)
+    download_missing_historical_data(
+        parameters.config, intervals, pairs, parameters.timerange
+    )
 
 
 def download_data_with_config(
@@ -277,7 +283,9 @@ def download_data_with_config(
         lft_config["pairs"],
         lft_config.get("timeframe_detail"),
     )
-    download_missing_historical_data(lft_config, loaded_intervals, loaded_pairs, timerange)
+    download_missing_historical_data(
+        lft_config, loaded_intervals, loaded_pairs, timerange
+    )
 
 
 def download_missing_historical_data(
@@ -305,7 +313,7 @@ def download_missing_historical_data(
     tf_to_download = set()
     pair_list = pairs
 
-    logger.info(
+    logger.debug(
         f"Checking if download is needed for "
         f'{", ".join(pair_list)} @ '
         f'{", ".join(intervals)} interval(s)'
@@ -313,7 +321,9 @@ def download_missing_historical_data(
     for interval in intervals:
         for pair in pair_list:
             logger.debug(f"Checking {pair} @ {interval}")
-            if check_if_download_is_needed(config.exchange, pair, interval, start_date, end_date):
+            if check_if_download_is_needed(
+                config.exchange, pair, interval, start_date, end_date
+            ):
                 logger.debug(f"Download needed for {pair} @ {interval}")
                 pairs_to_download.add(pair)
                 tf_to_download.add(interval)
@@ -359,12 +369,12 @@ def download_missing_historical_data(
             update_download_history(
                 start_date,
                 list(pairs_to_download),
-                ' '.join(tf_to_download),
+                " ".join(tf_to_download),
                 exchange=config.exchange,
             )
 
         Thread(target=update_pairs, daemon=True).start()
-    logger.info("Data is up to date")
+    logger.info("Pair-data is up to date")
 
 
 def download(
@@ -454,7 +464,9 @@ def download_watcher(
     pair_idx = 0
     timeframe_idx = 0
     # downloaded_pairs = []
-    with alive_progress.alive_bar(n_pairs, title="Downloading pair data", force_tty=True) as bar:
+    with alive_progress.alive_bar(
+        n_pairs, title="Downloading pair data", force_tty=True
+    ) as bar:
         while pair_idx < n_pairs:
             try:
                 output: str = queue.get(timeout=300)

@@ -19,13 +19,14 @@ def remove_params_file(strategy: str, config: Union[str, Path] = None) -> None:
     """
     Remove the params file for the given strategy.
     """
-    from lazyft.strategy import get_strategy_param_path
     from lazyft.config import Config
+    from lazyft.strategy import get_strategy_param_path
 
     if not config:
-        config = Config('config.json')
+        config = Config("config.json")
     if isinstance(config, str):
         config = Path(config)
     filepath = get_strategy_param_path(strategy, str(config))
-    logger.info('Removing strategy params: {}', filepath)
-    filepath.unlink(missing_ok=True)
+    if filepath.exists():
+        logger.info("Removing strategy params: {}", filepath)
+        filepath.unlink(missing_ok=True)

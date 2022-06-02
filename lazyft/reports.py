@@ -91,7 +91,7 @@ class RepoExplorer(UserList[T], metaclass=ABCMeta):
             pairs.add((r.strategy, r.hyperopt_id))
         return pairs
 
-    def filter(self, func: Callable[[T], bool]) -> U:
+    def filter(self, func: Callable[[T], bool]) -> "RepoExplorer":
         """
         Filters the list of reports using a function.
 

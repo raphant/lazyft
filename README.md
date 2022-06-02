@@ -83,8 +83,6 @@ get_backtest_repo().df()
 
 ### Hyperopt
 
-Example Coming Soon! For now can reference [backtest_and_hyperopt_example.ipynb](https://github.com/raph92/lazyft/blob/runner/examples/backtest_and_hyperopt_example.ipynb) for examples a
-
 The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L205) works the same way the Backtest does except that it has extra parameters.
 
 ```python

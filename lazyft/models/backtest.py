@@ -8,6 +8,8 @@ import pandas as pd
 import rapidjson
 from freqtrade.commands import Arguments, start_plot_dataframe
 from lazyft import paths
+from lazyft.command_parameters import BacktestParameters
+from lazyft.config import Config
 from lazyft.database import engine
 from lazyft.loss_functions import (
     roi_and_profit_hyperopt_loss,
@@ -363,6 +365,25 @@ class BacktestReport(ReportBase, table=True):
         )
 
     # endregion
+
+    def get_backtest_parameters(self, config: str | Config) -> BacktestParameters:
+        """
+        Create a BacktestParameters object from the backtest data.
+
+        :param config: The config to use.
+        :type config: str | Config
+
+        :return: The backtest parameters.
+        :rtype: BacktestParameters
+        """
+        return BacktestParameters(
+            config_path=config,
+            timerange=self.timerange,
+            interval=self.timeframe,
+            starting_balance=self.starting_balance,
+            pairs=self.pairlist,
+            max_open_trades=self.max_open_trades,
+        )
 
     def trades_to_csv(self, name=""):
         """

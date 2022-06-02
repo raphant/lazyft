@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "LazyFT"
+version = "0.1.0"
+description = "A convenient FreqTrade wrapper-library that makes it easy to develop algorithmic trading strategies."
+authors = ["Raphael Nanje"]
+license = "AGPL-3.0"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typer = "^0.4.1"
+loguru = "^0.6.0"
+pandas = "^1.4.2"
+sh = "^1.14.2"
+attrs = "^21.4.0"
+rich = "^12.4.4"
+rapidjson = "^1.0.0"
+numpy = "^1.22.4"
+python-dateutil = "^2.8.2"
+arrow = "^1.2.2"
+python-dotenv = "^0.20.0"
+pydantic = "^1.9.1"
+"pushbullet.py" = "^0.12.0"
+diskcache = "^5.4.0"
+finta = "^1.3"
+sqlmodel = "^0.0.6"
+plotly = "^5.8.0"
+alive-progress = "^2.4.1"
+appdirs = "^1.4.4"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  # Exclude vendor directory
+  | vendor
+)
+'''
+[tool.isort]
+line_length = 100
+multi_line_output = 0
+lines_after_imports = 2
+skip_glob = [
+  "**/.env*",
+  "**/env/*",
+  "**/.venv/*",
+  "**/docs/*",
+  "**/user_data/*",
+]

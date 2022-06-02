@@ -83,4 +83,48 @@ get_backtest_repo().df()
 
 ### Hyperopt
 
-Example Coming Soon! For now can reference [backtest_and_hyperopt_example.ipynb](https://github.com/raph92/lazyft/blob/runner/examples/backtest_and_hyperopt_example.ipynb) for examples
+Example Coming Soon! For now can reference [backtest_and_hyperopt_example.ipynb](https://github.com/raph92/lazyft/blob/runner/examples/backtest_and_hyperopt_example.ipynb) for examples a
+
+The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L205) works the same way the Backtest does except that it has extra parameters.
+
+```python
+h_params = HyperoptParameters(
+    epochs=20,
+    config_path='config.json',
+    days=30,
+    spaces="buy sell",
+    loss='CalmarHyperOptLoss',
+    interval='1h',
+    min_trades=100,
+    starting_balance=100,
+    max_open_trades=3,
+    stake_amount=100,
+    jobs=-2,
+    download_data=True,
+)
+
+h_params.run('Strategy', background=True)
+report = h_params.save()
+
+```
+
+Passing the **background** parameter to `h_params.run()` will allow the hyperopt to run in a separate thread. This is useful when running in jupyter notebooks.
+
+Similar to the backtest, you can access the [hyperopt report](https://github.com/raph92/lazyft/blob/runner/lazyft/models/hyperopt.py#L81) via `h_params.report`.
+
+#### Epochs
+
+You can access a specific epoch within the hyperopt as follows:
+`h_runner.report.show_epoch(<n>)`, **n** being the epoch number to show.
+
+You can also quickly create a new report from the specific epoch: `report.new_report_from_epoch(n)`
+
+Again, you can access previous hyperopts through the repo:
+
+```python
+get_hyperopt_repo().df()
+```
+
+|   id | strategy   | date              | exchange   |   m_o_t | stake     |   balance |   n_pairlist |   avg_profit_pct | avg_duration   |   wins |   losses |   drawdown |   total_profit_pct |   total_profit |   trades |   days | tag                       |
+|-----:|:-----------|:------------------|:-----------|--------:|:----------|----------:|-------------:|-----------------:|:---------------|-------:|---------:|-----------:|-------------------:|---------------:|---------:|-------:|:--------------------------|
+|    1 | InverseV2  | 06/01/22 15:31:47 | binance    |       3 | unlimited |       100 |           29 |         0.704275 | 11:14:00       |      7 |       21 |  0.0351595 |          0.0711687 |           7.12 |       31 |     51 | 20220303-20220502,default |

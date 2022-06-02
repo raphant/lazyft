@@ -35,7 +35,7 @@ def create_cache() -> tuple[Index, Index]:
         cache = Index(str(paths.CACHE_DIR / "models"))
     except sqlite3.DatabaseError:  # Database is malformed
         # remove cache/models with shutil.rmtree
-        logger.info("Database is malformed, removing cache/models")
+        logger.info("Cache database is malformed, removing cache/models")
         remove_cache(paths.CACHE_DIR / "models")
         cache = Index(str(paths.CACHE_DIR / "models"))
     return cache, Index(tempfile.gettempdir())

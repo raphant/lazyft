@@ -1,8 +1,7 @@
 import datetime
-import re
 from abc import ABCMeta, abstractmethod
 from collections import UserList
-from typing import Any, Callable, Generic, Iterable, TypeVar, Union
+from typing import Any, Callable, Iterable, TypeVar, Union
 
 import pandas as pd
 from dateutil.parser import parse
@@ -177,9 +176,7 @@ class RepoExplorer(UserList[T], metaclass=ABCMeta):
         :return: RepoExplorer with the sorted reports.
         :rtype: RepoExplorer
         """
-        self.data = sorted(
-            self.data, key=lambda r: r.performance.ppd, reverse=not ascended
-        )
+        self.data = sorted(self.data, key=lambda r: r.performance.ppd, reverse=not ascended)
         return self
 
     def sort_by_score(self, ascending=False) -> "RepoExplorer":
@@ -192,9 +189,7 @@ class RepoExplorer(UserList[T], metaclass=ABCMeta):
         :return: RepoExplorer with the sorted reports.
         :rtype: RepoExplorer
         """
-        self.data = sorted(
-            self.data, key=lambda r: r.performance.score, reverse=not ascending
-        )
+        self.data = sorted(self.data, key=lambda r: r.performance.score, reverse=not ascending)
         return self
 
     def filter_by_id(self, ids: Iterable[int]) -> "RepoExplorer":
@@ -250,9 +245,7 @@ class RepoExplorer(UserList[T], metaclass=ABCMeta):
                 if r.strategy in strategies:
                     new_data.append(r)
             except IndexError as e:
-                logger.warning(
-                    f"Could not find strategy {r.strategy} in {strategies}: {e}"
-                )
+                logger.warning(f"Could not find strategy {r.strategy} in {strategies}: {e}")
                 continue
         self.data = new_data
         return self
@@ -509,9 +502,7 @@ def backtest_results_as_text(
     if not hyperopt and hyperopt_id is not None:
         header_str += f" | Hyperopt id: {hyperopt_id}"
     text.append(header_str)
-    table = text_table_bt_results(
-        results["results_per_pair"], stake_currency=stake_currency
-    )
+    table = text_table_bt_results(results["results_per_pair"], stake_currency=stake_currency)
     if isinstance(table, str):
         text.append(" BACKTESTING REPORT ".center(len(table.splitlines()[0]), "="))
     text.append(table)
@@ -535,9 +526,7 @@ def backtest_results_as_text(
         text.append(table)
         text.append("=" * len(table.splitlines()[0]) + "\n")
 
-    table = text_table_bt_results(
-        results["left_open_trades"], stake_currency=stake_currency
-    )
+    table = text_table_bt_results(results["left_open_trades"], stake_currency=stake_currency)
     if isinstance(table, str) and len(table) > 0:
         text.append(" LEFT OPEN TRADES REPORT ".center(len(table.splitlines()[0]), "="))
         text.append(table)
@@ -553,9 +542,7 @@ def backtest_results_as_text(
             period=period,
         )
         if isinstance(table, str) and len(table) > 0:
-            text.append(
-                f" {period.upper()} BREAKDOWN ".center(len(table.splitlines()[0]), "=")
-            )
+            text.append(f" {period.upper()} BREAKDOWN ".center(len(table.splitlines()[0]), "="))
         text.append("=" * len(table.splitlines()[0]))
 
         text.append(table + "\n")

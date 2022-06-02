@@ -1,21 +1,17 @@
-import pathlib
-
-from lazyft.command_parameters import HyperoptParameters
 from lazyft.command import create_commands
-from lazyft.hyperopt.runner import (
-    HyperoptRunner,
-)
+from lazyft.command_parameters import HyperoptParameters
+from lazyft.hyperopt.runner import HyperoptRunner
 from lazyft.models import HyperoptPerformance, HyperoptReport
 
-STRATEGY = ['TestStrategy3']
-STRATEGY_WITH_ID = ['TestStrategy3-test']
-config_name = 'config_test.json'
+STRATEGY = ["TestStrategy3"]
+STRATEGY_WITH_ID = ["TestStrategy3-test"]
+config_name = "config_test.json"
 epochs = 5
 days = 2
 min_trades = 1
 
 
-def get_commands(strategy, timerange=None, spaces='roi'):
+def get_commands(strategy, timerange=None, spaces="roi"):
     hp = get_parameters(spaces, strategy, timerange)
     commands = create_commands(
         hp,
@@ -29,7 +25,7 @@ def get_parameters(spaces, strategy, timerange):
         strategies=strategy,
         config_path=config_name,
         epochs=epochs,
-        spaces=spaces or 'buy sell',
+        spaces=spaces or "buy sell",
         min_trades=min_trades,
         days=days,
         timerange=timerange,

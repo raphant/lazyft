@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import abc
-import logging
 import pathlib
 import signal
 import uuid
 from abc import ABCMeta, abstractmethod
 from queue import Empty, Queue
 from threading import Thread
-from typing import Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union
 
 from loguru import logger
 from rich.console import Console
@@ -22,11 +21,9 @@ if TYPE_CHECKING:
     from lazyft.backtest.commands import BacktestCommand
     from lazyft.hyperopt import HyperoptCommand
 
-logger = logging.getLogger(__name__)
-
 
 class Runner(abc.ABC, metaclass=ABCMeta):
-    def __init__(self, command: 'Union[BacktestCommand, HyperoptCommand]', verbose=False):
+    def __init__(self, command: "Union[BacktestCommand, HyperoptCommand]", verbose=False):
         self.command = command
         self.verbose = verbose
 
@@ -81,7 +78,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
     # endregion
 
     def reset(self):
-        logger.info('Resetting')
+        logger.info("Resetting")
         self.running = False
         self.error = False
         self.error_list = []
@@ -113,17 +110,17 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         This writes all of the Hyperopt output to the log_path. This is started from execute()
         and will stop running when the queue is empty and the hyperopt is no longer running.
         """
-        logger.info('Writer thread started')
+        logger.info("Writer thread started")
         while self.running or not self.write_queue.empty():
             try:
                 line = self.write_queue.get(block=True, timeout=0.3)
             except Empty:
                 continue
-            with self.log_path.open('a+') as f:
+            with self.log_path.open("a+") as f:
                 f.write(line)
                 self.write_queue.task_done()
 
-        logger.info('Writer thread stopped')
+        logger.info("Writer thread stopped")
 
     def on_finish(self):
         strategy.delete_temporary_strategy_backup_dir(self.tmp_strategy_path)
@@ -135,7 +132,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         :param report: The hyperopt report to export parameters from
         """
         if not report.strategy_hash:
-            logger.warning(f'No strategy hash found for report {report.id}...skipping export')
+            logger.warning(f"No strategy hash found for report {report.id}...skipping export")
             return
         self.strategy_hash = report.strategy_hash
         sb = StrategyBackup.load_hash(report.strategy_hash)
@@ -145,4 +142,4 @@ class Runner(abc.ABC, metaclass=ABCMeta):
         self.params.strategy_path = new_folder
         self.params.user_data_dir = new_folder
         self.tmp_strategy_path = new_folder
-        logger.info(f'Using strategy hash {sb.hash} in backup: {new_folder}')
+        logger.info(f"Using strategy hash {sb.hash} in backup: {new_folder}")

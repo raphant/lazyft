@@ -4,7 +4,6 @@ from pathlib import Path
 import dotenv
 import pandas as pd
 from diskcache import Index
-from freqtrade.commands import start_new_config
 from freqtrade.configuration.directory_operations import create_userdata_dir
 
 try:
@@ -47,7 +46,7 @@ if not paths.CONFIG_DIR.exists():
     else:
         if (
             input(
-                f"Found config files in the base directory. LazyFT only uses files"
+                "Found config files in the base directory. LazyFT only uses files"
                 ' in the "configs" folder. Would you like me to move them to the "configs"'
                 " folder? [y/n]:"
             ).lower()

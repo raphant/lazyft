@@ -15,9 +15,7 @@ class HyperoptCommand(Command):
         self.verbose = verbose
         self.secret_config = params.secrets_config
         self.pairs = params.pairs
-        self.args = ['hyperopt', f'-s {strategy}']
+        self.args = ["hyperopt", f"-s {strategy}"]
         if id and not self.pairs:
             # load pairs from ID if pairs not already provided.
             self.pairs = load_pairlist_from_id(id=id)
-
-

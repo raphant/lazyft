@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 import rapidjson
@@ -13,14 +13,15 @@ from diskcache import Index
 from freqtrade.misc import deep_merge_dicts
 from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
+from loguru import logger
+from pandas.io.json import json_normalize
+from sqlmodel import Field, SQLModel
+
 from lazyft import paths, util
 from lazyft.database import engine
 from lazyft.models import PerformanceBase, ReportBase
 from lazyft.strategy import get_file_name
 from lazyft.util import calculate_win_ratio, get_last_hyperopt_file_name, remove_cache
-from loguru import logger
-from pandas.io.json import json_normalize
-from sqlmodel import Field, SQLModel
 
 
 def create_cache() -> tuple[Index, Index]:
@@ -34,7 +35,7 @@ def create_cache() -> tuple[Index, Index]:
         cache = Index(str(paths.CACHE_DIR / "models"))
     except sqlite3.DatabaseError:  # Database is malformed
         # remove cache/models with shutil.rmtree
-        logger.info(f"Database is malformed, removing cache/models")
+        logger.info("Database is malformed, removing cache/models")
         remove_cache(paths.CACHE_DIR / "models")
         cache = Index(str(paths.CACHE_DIR / "models"))
     return cache, Index(tempfile.gettempdir())
@@ -77,14 +78,10 @@ class HyperoptPerformance(PerformanceBase):
 
 
 class HyperoptReport(ReportBase, table=True):
-    id: Optional[int] = Field(
-        default=None, primary_key=True, description="The id of the report"
-    )
+    id: Optional[int] = Field(default=None, primary_key=True, description="The id of the report")
     epoch: int
     hyperopt_file_str: str = Field(default="", description="The hyperopt file name")
-    strategy_hash: str = Field(
-        default="", description="The strategy hash used for integrity"
-    )
+    strategy_hash: str = Field(default="", description="The strategy hash used for integrity")
     exchange: str = Field(default="", description="The exchange used for the backtest")
 
     # region properties
@@ -121,9 +118,7 @@ class HyperoptReport(ReportBase, table=True):
         try:
             data = self.all_epochs[self.epoch]
         except IndexError:
-            logger.error(
-                "Epoch {} not found in hyperopt results for {}", self.epoch, self.id
-            )
+            logger.error("Epoch {} not found in hyperopt results for {}", self.epoch, self.id)
             logger.info("Available epochs: {}", self.total_epochs)
             raise IndexError(
                 f"Epoch {self.epoch} not found in hyperopt results for {self.id}. Available epochs: {self.total_epochs}"
@@ -282,9 +277,7 @@ class HyperoptReport(ReportBase, table=True):
         :rtype: dict
         """
         final_params = deepcopy(self.result_dict["params_not_optimized"])
-        final_params = deep_merge_dicts(
-            self.result_dict["params_details"], final_params
-        )
+        final_params = deep_merge_dicts(self.result_dict["params_details"], final_params)
         date = self.date.strftime("%x %X")
         final_params = {
             "strategy_name": self.strategy,
@@ -435,8 +428,7 @@ class HyperoptReport(ReportBase, table=True):
         """
         return HyperoptReport(
             epoch=epoch,
-            hyperopt_file_str=paths.HYPEROPT_RESULTS_DIR
-            / get_last_hyperopt_file_name(),
+            hyperopt_file_str=paths.HYPEROPT_RESULTS_DIR / get_last_hyperopt_file_name(),
             exchange=exchange,
         )
 
@@ -445,9 +437,7 @@ class HyperoptReport(ReportBase, table=True):
         """
         Return a HyperoptReport object from a hyperopt result file.
         """
-        return HyperoptReport(
-            epoch=0, hyperopt_file_str=str(result_path), exchange=exchange
-        )
+        return HyperoptReport(epoch=0, hyperopt_file_str=str(result_path), exchange=exchange)
 
 
 SQLModel.metadata.create_all(engine)

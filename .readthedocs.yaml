@@ -6,13 +6,13 @@ build:
     python: "3.10"
 
 sphinx:
-   configuration: docs/source/conf.py
-   builder: html
-   fail_on_warning: false
+  configuration: docs/source/conf.py
+  builder: html
+  fail_on_warning: false
 
 python:
-   install:
-     - method: pip
-       path: .
-     - requirements: requirements.txt
-     - requirements: docs/requirements.txt
+  install:
+    - method: pip
+      path: .
+    - requirements: requirements.txt
+    - requirements: docs/requirements.txt

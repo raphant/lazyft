@@ -1,14 +1,10 @@
-import pathlib
-
-from lazyft import paths
 from lazyft.config import Config
-from lazyft.pairlist import load_pairlist_from_id
-from lazyft.quicktools.quick_tools import QuickTools
+from lazyft.pairlist import load_pairlist_from_id, refresh_pairlist
 from lazyft.reports import get_hyperopt_repo
 
-strategy = ['BinH']
-refresh_config = Config('config_binance2.json')
-backtest_config_name = 'config_test.json'
+strategy = ["BinH"]
+refresh_config = Config("config_binance2.json")
+backtest_config_name = "config_test.json"
 backtest_config = Config(backtest_config_name)
 
 
@@ -19,7 +15,7 @@ def test_refresh_pairlist():
 
 
 def test_download_data():
-    download_data(refresh_config, '5m', days=5, verbose=True)
+    NotImplementedError("TODO")
 
 
 def test_pairlist_loading():

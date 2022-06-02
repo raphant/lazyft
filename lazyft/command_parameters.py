@@ -10,7 +10,7 @@ import attr
 from freqtrade.commands import Arguments
 from freqtrade.configuration import Configuration
 from freqtrade.exceptions import OperationalException
-from freqtrade.loggers import LOGFORMAT, bufferHandler, setup_logging_pre
+from freqtrade.loggers import LOGFORMAT, bufferHandler
 
 import lazyft.paths
 from lazyft import logger, parameter_tools
@@ -123,9 +123,7 @@ class BacktestParameters(GlobalParameters):
     timerange: str = attr.ib(default="", metadata={"arg": "--timerange"})
     pairs: list[str] = attr.ib(factory=list, metadata={"arg": "--pairs"})
     days: int = attr.ib(default=60, metadata={"arg": "--days"})
-    starting_balance: float = attr.ib(
-        default=500, metadata={"arg": "--starting-balance"}
-    )
+    starting_balance: float = attr.ib(default=500, metadata={"arg": "--starting-balance"})
     stake_amount: Union[float, str] = attr.ib(
         default="unlimited", metadata={"arg": "--stake-amount"}
     )
@@ -209,18 +207,12 @@ class HyperoptParameters(BacktestParameters):
     epochs: int = attr.ib(default=500, metadata={"arg": "--epochs"})
     min_trades: int = attr.ib(default=100, metadata={"arg": "--min-trades"})
     spaces: str = attr.ib(default="default", metadata={"arg": "--spaces"})
-    loss: str = attr.ib(
-        default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"}
-    )
+    loss: str = attr.ib(default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"})
     seed: int = attr.ib(default=None, metadata={"arg": "--random-state"})
     jobs: int = attr.ib(default=-1, metadata={"arg": "--job-workers"})
-    disable_param_export: bool = attr.ib(
-        default=True, metadata={"arg": "--disable-param-export"}
-    )
+    disable_param_export: bool = attr.ib(default=True, metadata={"arg": "--disable-param-export"})
     print_all: bool = attr.ib(default=False, metadata={"arg": "--print-all"})
-    ignore_missing_spaces: bool = attr.ib(
-        default=True, metadata={"arg": "--ignore-missing-spaces"}
-    )
+    ignore_missing_spaces: bool = attr.ib(default=True, metadata={"arg": "--ignore-missing-spaces"})
     cache: str = None
 
     def __attrs_post_init__(self):
@@ -256,9 +248,7 @@ class HyperoptParameters(BacktestParameters):
             id=strategy.id,
             verbose=verbose,
         )
-        runner = HyperoptRunner(
-            command, autosave=autosave, notify=notify, verbose=verbose
-        )
+        runner = HyperoptRunner(command, autosave=autosave, notify=notify, verbose=verbose)
 
         try:
             runner.execute(background=background, load_strategy=load_hashed_strategy)
@@ -270,6 +260,4 @@ class HyperoptParameters(BacktestParameters):
         pass
 
 
-command_map = {
-    a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata
-}
+command_map = {a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata}

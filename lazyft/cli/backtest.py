@@ -1,8 +1,8 @@
 from enum import Enum
-from pathlib import Path
 
 import pandas as pd
 import typer
+
 from lazyft import print, strategy
 from lazyft.command_parameters import BacktestParameters
 from lazyft.reports import get_backtest_repo
@@ -16,7 +16,7 @@ class PerformanceType(str, Enum):
     WEEKLY = "W"
 
 
-@app.command('from-hyperopt')
+@app.command("from-hyperopt")
 def get_backtests_with_hid(h_id: int = typer.Argument(..., help="Hyperopt ID")):
     """
     Get all backtests for a given hyperopt ID
@@ -31,7 +31,7 @@ def get_backtests_with_hid(h_id: int = typer.Argument(..., help="Hyperopt ID")):
 @app.command()
 def show(
     id: int,
-    type: PerformanceType = typer.Option(None, '-t', '--type', help="Type of performance to show"),
+    type: PerformanceType = typer.Option(None, "-t", "--type", help="Type of performance to show"),
 ):
     """
     Show backtest performance details.
@@ -40,7 +40,7 @@ def show(
     if not type:
         print(report.report_text)
         return
-    print(f'Showing performance for backtest: {report.strategy} with ID: {id}')
+    print(f"Showing performance for backtest: {report.strategy} with ID: {id}")
     trades: pd.DataFrame = report.trades
     """
     Trades' columns:
@@ -79,25 +79,25 @@ def run(
     config: str = typer.Argument(..., help="Config file"),
     interval: str = typer.Argument(..., help="Timeframe interval"),
     days: int = typer.Option(
-        None, '-d', "--days", help="Optional number of days. Actual number of days = Days / (1/3)"
+        None, "-d", "--days", help="Optional number of days. Actual number of days = Days / (1/3)"
     ),
     hyperopt_id: int = typer.Option(
-        None, '-h', "--hyperopt-id", help="Hyperopt ID to use for backtest"
+        None, "-h", "--hyperopt-id", help="Hyperopt ID to use for backtest"
     ),
     timerange: str = typer.Option(
         None, "--timerange", help="Time range to use for backtest: YYYYMMDD-YYYYMMDD"
     ),
     max_open_trades: int = typer.Option(
-        3, '--mot', "--max-open-trades", help="Maximum number of open trades"
+        3, "--mot", "--max-open-trades", help="Maximum number of open trades"
     ),
     stake_amount: float = typer.Option(
-        -1, '--sa', "--stake-amount", help="Stake amount in base currency. -1 for unlimited."
+        -1, "--sa", "--stake-amount", help="Stake amount in base currency. -1 for unlimited."
     ),
     starting_balance: float = typer.Option(
-        100, '-b', "--starting-balance", help="Starting balance in base currency"
+        100, "-b", "--starting-balance", help="Starting balance in base currency"
     ),
     timeframe_detail: str = typer.Option(
-        None, '--td', "--timeframe-detail", help="Timeframe detail"
+        None, "--td", "--timeframe-detail", help="Timeframe detail"
     ),
     tag: str = typer.Option(None, "--tag", help="Tag"),
 ):
@@ -109,7 +109,7 @@ def run(
     assert strategy_name in strategy.get_all_strategies(), "Strategy not found"
     assert timerange or days, "Either days or timerange must be specified"
     if stake_amount == -1:
-        stake_amount = 'unlimited'
+        stake_amount = "unlimited"
     b_params = BacktestParameters(
         timerange=timerange,
         interval=interval,
@@ -129,7 +129,7 @@ def run(
 @app.command()
 def export_trades(
     backtest_id: int = typer.Argument(..., help="Backtest ID"),
-    file_name: str = typer.Option(None, '-f', '--file-name', help="File name to export to"),
+    file_name: str = typer.Option(None, "-f", "--file-name", help="File name to export to"),
 ):
     """
     Export trades to a csv file in the ./exports directory.

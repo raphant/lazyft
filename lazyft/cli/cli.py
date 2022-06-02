@@ -3,17 +3,17 @@ from pathlib import Path
 import typer
 from freqtrade.configuration.directory_operations import create_userdata_dir
 
-from lazyft import paths, logger
-from lazyft.cli import remote, backtest, hyperopt, space_handlerify
+from lazyft import paths
+from lazyft.cli import backtest, hyperopt, remote, space_handlerify
 
 app = typer.Typer()
 app.add_typer(backtest.app, name="backtest")
 app.add_typer(hyperopt.app, name="hyperopt")
 app.add_typer(remote.app, name="remote")
-app.add_typer(space_handlerify.app, name="sh", help='Convert strategies to SpaceHandler')
+app.add_typer(space_handlerify.app, name="sh", help="Convert strategies to SpaceHandler")
 
 
-@app.command('init')
+@app.command("init")
 def init():
     """
     Initialize the configs and user_data folder
@@ -37,7 +37,7 @@ def init():
     else:
         if (
             input(
-                f"Found config files in the base directory. LazyFT only uses files"
+                "Found config files in the base directory. LazyFT only uses files"
                 ' in the "configs" folder. Would you like me to move them to the "configs"'
                 " folder? [y/n]:"
             ).lower()
@@ -64,5 +64,5 @@ def main():
     app()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

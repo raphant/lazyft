@@ -1,5 +1,4 @@
 import math
-from datetime import datetime
 
 import numpy as np
 from pandas import DataFrame, date_range
@@ -18,8 +17,8 @@ def win_ratio_and_profit_ratio_loss(results: DataFrame, trade_count: int) -> flo
     and prevent over-fitting on best profit only
     """
 
-    wins = len(results[results['profit_ratio'] > 0])
-    avg_profit = results['profit_ratio'].sum() * 100.0
+    wins = len(results[results["profit_ratio"] > 0])
+    avg_profit = results["profit_ratio"].sum() * 100.0
 
     win_ratio = wins / trade_count
     return -avg_profit * win_ratio * 100
@@ -42,25 +41,25 @@ def roi_and_profit_hyperopt_loss(results: DataFrame, trade_count: int) -> float:
         + PROFIT_WEIGHT
     )
     # Calculate the rate for different sell reason types
-    results.loc[(results['sell_reason'] == 'roi'), 'roi_signals'] = 1
-    roi_signals_rate = results['roi_signals'].sum() / trade_count
+    results.loc[(results["sell_reason"] == "roi"), "roi_signals"] = 1
+    roi_signals_rate = results["roi_signals"].sum() / trade_count
 
-    results.loc[(results['sell_reason'] == 'sell_signal'), 'strategy_sell_signals'] = 1
-    strategy_sell_signal_rate = results['strategy_sell_signals'].sum() / trade_count
+    results.loc[(results["sell_reason"] == "sell_signal"), "strategy_sell_signals"] = 1
+    strategy_sell_signal_rate = results["strategy_sell_signals"].sum() / trade_count
 
     results.loc[
-        (results['sell_reason'] == 'trailing_stop_loss'),
-        'trailing_stop_loss_signals',
+        (results["sell_reason"] == "trailing_stop_loss"),
+        "trailing_stop_loss_signals",
     ] = 1
-    trailing_stop_loss_signals_rate = results['trailing_stop_loss_signals'].sum() / trade_count
+    trailing_stop_loss_signals_rate = results["trailing_stop_loss_signals"].sum() / trade_count
 
-    results.loc[(results['sell_reason'] == 'stop_loss'), 'stop_loss_signals'] = 1
-    stop_loss_signals_rate = results['stop_loss_signals'].sum() / trade_count
+    results.loc[(results["sell_reason"] == "stop_loss"), "stop_loss_signals"] = 1
+    stop_loss_signals_rate = results["stop_loss_signals"].sum() / trade_count
 
-    results.loc[(results['profit_ratio'] > 0), 'wins'] = 1
-    win_rate = results['wins'].sum() / trade_count
+    results.loc[(results["profit_ratio"] > 0), "wins"] = 1
+    win_rate = results["wins"].sum() / trade_count
 
-    average_profit = results['profit_ratio'].mean() * 100
+    average_profit = results["profit_ratio"].mean() * 100
 
     return (
         -1
@@ -115,21 +114,21 @@ def sortino_daily(results: DataFrame, trade_count: int, *args, **kwargs) -> floa
     """
     min_date = results.close_date.min()
     max_date = results.close_date.max()
-    resample_freq = '1D'
+    resample_freq = "1D"
     slippage_per_trade_ratio = 0.0005
     days_in_year = 365
     minimum_acceptable_return = 0.0
 
     # apply slippage per trade to profit_ratio
-    results.loc[:, 'profit_ratio_after_slippage'] = (
-        results['profit_ratio'] - slippage_per_trade_ratio
+    results.loc[:, "profit_ratio_after_slippage"] = (
+        results["profit_ratio"] - slippage_per_trade_ratio
     )
 
     # create the index within the min_date and end max_date
     t_index = date_range(start=min_date, end=max_date, freq=resample_freq, normalize=True)
 
     sum_daily = (
-        results.resample(resample_freq, on='close_date')
+        results.resample(resample_freq, on="close_date")
         .agg({"profit_ratio_after_slippage": sum})
         .reindex(t_index)
         .fillna(0)
@@ -138,12 +137,12 @@ def sortino_daily(results: DataFrame, trade_count: int, *args, **kwargs) -> floa
     total_profit = sum_daily["profit_ratio_after_slippage"] - minimum_acceptable_return
     expected_returns_mean = total_profit.mean()
 
-    sum_daily['downside_returns'] = 0
-    sum_daily.loc[total_profit < 0, 'downside_returns'] = total_profit
-    total_downside = sum_daily['downside_returns']
+    sum_daily["downside_returns"] = 0
+    sum_daily.loc[total_profit < 0, "downside_returns"] = total_profit
+    total_downside = sum_daily["downside_returns"]
     # Here total_downside contains min(0, P - MAR) values,
     # where P = sum_daily["profit_ratio_after_slippage"]
-    down_stdev = math.sqrt((total_downside ** 2).sum() / len(total_downside))
+    down_stdev = math.sqrt((total_downside**2).sum() / len(total_downside))
 
     if down_stdev != 0:
         sortino_ratio = expected_returns_mean / down_stdev * math.sqrt(days_in_year)

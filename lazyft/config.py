@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import pathlib
 import tempfile
 from pathlib import Path
 from typing import Iterable, Union
@@ -10,7 +9,8 @@ import rapidjson
 from freqtrade.commands.build_config_commands import ask_user_overwrite
 from freqtrade.configuration import Configuration
 from freqtrade.exceptions import OperationalException
-from freqtrade.exchange import validate_exchange, validate_exchanges
+from freqtrade.exchange import validate_exchange
+
 from lazyft import BASIC_CONFIG, logger
 from lazyft.paths import CONFIG_DIR
 
@@ -58,8 +58,7 @@ class Config:
             if save_as.exists():
                 overwrite = (
                     overwrite
-                    or input(f"{save_as} already exists. Overwrite? [y/n] ").lower()
-                    == "y"
+                    or input(f"{save_as} already exists. Overwrite? [y/n] ").lower() == "y"
                 )
                 if overwrite:
                     logger.info(f"Overwriting {save_as}")
@@ -76,9 +75,7 @@ class Config:
         tmp = Path(temp_path, "config.json")
         return Config(self.save(save_as=tmp))
 
-    def update_whitelist_and_save(
-        self, whitelist: Iterable[str], append=False
-    ) -> list[str]:
+    def update_whitelist_and_save(self, whitelist: Iterable[str], append=False) -> list[str]:
         if append:
             existing = set(self["exchange"]["pair_whitelist"])
             existing.update(whitelist)
@@ -120,9 +117,7 @@ class Config:
         return self._config_path
 
     @classmethod
-    def new(
-        cls, config_path: Union[str, Path], from_config: Union[str, "Config"]
-    ) -> "Config":
+    def new(cls, config_path: Union[str, Path], from_config: Union[str, "Config"]) -> "Config":
         """
         Creates a new config file from an existing one.
 
@@ -214,9 +209,7 @@ def create_new_config_for_exchange(
         from lazyft.pairlist import refresh_pairlist
 
         pairs = refresh_pairlist(new_config, n_coins=n_coins)
-        logger.info(
-            f"Generated pairlist for {exchange_name}. Pairlist length: {len(pairs)}"
-        )
+        logger.info(f"Generated pairlist for {exchange_name}. Pairlist length: {len(pairs)}")
     logger.info(f"Created new config file: {config_path}")
     return new_config
 

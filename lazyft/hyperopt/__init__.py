@@ -1,2 +1,4 @@
 from .commands import HyperoptCommand
-from .runner import HyperoptRunner, HyperoptManager
+from .runner import HyperoptManager, HyperoptRunner
+
+all = [HyperoptCommand, HyperoptManager, HyperoptRunner]

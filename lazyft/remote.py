@@ -9,12 +9,12 @@ import rapidjson
 import sh
 from freqtrade.data.btanalysis import load_trades_from_db
 
-from lazyft import logger, paths, parameter_tools
+from lazyft import logger, paths
 from lazyft.config import Config
 from lazyft.models import StrategyBackup
-from lazyft.models.remote import RemotePreset, Environment, RemoteBotInfo
+from lazyft.models.remote import Environment, RemoteBotInfo, RemotePreset
 from lazyft.reports import get_hyperopt_repo
-from lazyft.strategy import create_strategy_params_filepath, get_file_name, Strategy
+from lazyft.strategy import Strategy, create_strategy_params_filepath, get_file_name
 
 DEBUG = False
 RUN_MODES = ["dry", "live"]
@@ -116,8 +116,8 @@ class RemoteBot:
             return
         # create df from db
         df = load_trades_from_db("sqlite:///" + str(db_path))
-        df.open_date = df.open_date.apply(lambda d: d.strftime('%x %X'))
-        df.close_date = df.close_date.apply(lambda d: d.strftime('%x %X'))
+        df.open_date = df.open_date.apply(lambda d: d.strftime("%x %X"))
+        df.close_date = df.close_date.apply(lambda d: d.strftime("%x %X"))
         return df
 
     def update_config(self, update: dict):
@@ -153,10 +153,10 @@ class RemoteBot:
 
     def update_ensemble(self, strategies: Iterable[Strategy]):
         tmp_dir = tempfile.mkdtemp()
-        path = Path(tmp_dir, 'ensemble.json')
+        path = Path(tmp_dir, "ensemble.json")
         path.write_text(rapidjson.dumps([s.name for s in strategies]))
-        logger.info('New ensemble is %s', strategies)
-        self.send_file(path, 'user_data/strategies/ensemble.json')
+        logger.info("New ensemble is %s", strategies)
+        self.send_file(path, "user_data/strategies/ensemble.json")
 
     def send_file(self, local_path: Union[str, Path], remote_path: Union[str, Path]):
         return self.tools.send_file(self.bot_id, local_path, remote_path)
@@ -185,7 +185,7 @@ class RemoteTools:
         # load path of params
         # create the remote path to save as
         tmp_dir = tempfile.mkdtemp()
-        local_params = Path(tmp_dir, 'params.json')
+        local_params = Path(tmp_dir, "params.json")
         local_params.write_text(rapidjson.dumps(get_hyperopt_repo().get(id).parameters))
         remote_path = f"user_data/strategies/" f"{create_strategy_params_filepath(strategy).name}"
         # send the local params to the remote path

@@ -1,14 +1,13 @@
 import lazyft.models.backtest
-from lazyft import backtest, models
+from lazyft import backtest
 from lazyft.backtest.commands import create_commands
 from lazyft.backtest.runner import BacktestRunner
 from lazyft.command_parameters import BacktestParameters
-from lazyft.models import Strategy
 
-param_id = 'test'
+param_id = "test"
 # STRATEGY_WITH_ID = [Strategy(id=1)]
-STRATEGIES = ['TestStrategy-test', 'TestStrategy']
-config_name = 'config.json'
+STRATEGIES = ["TestStrategy-test", "TestStrategy"]
+config_name = "config.json"
 
 days = 5
 
@@ -34,17 +33,17 @@ def test_backtest_command_no_id():
     runner = BacktestRunner(commands[1])
     runner.execute()
     if runner.error:
-        raise RuntimeError('Error in backtest runner')
+        raise RuntimeError("Error in backtest runner")
     assert bool(runner.report)
     runner.save()
 
 
 def test_backtest_command_with_id():
-    commands = get_commands(STRATEGY_WITH_ID)
+    commands = get_commands(STRATEGIES)
     runner = BacktestRunner(commands[0])
     runner.execute()
     if runner.error:
-        raise RuntimeError('Error in backtest runner')
+        raise RuntimeError("Error in backtest runner")
     assert bool(runner.report)
     # runner.report.json_file.unlink(missing_ok=True)
     runner.save()
@@ -73,7 +72,7 @@ def test_backtest_command_with_id():
 
 
 def test_save_backtesting_report():
-    commands = get_commands(STRATEGY_WITH_ID)
+    commands = get_commands(STRATEGIES)
     runner = BacktestRunner(commands[0])
     runner.execute()
     assert bool(runner.report)

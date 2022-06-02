@@ -4,9 +4,20 @@ from sqlmodel import SQLModel
 
 from lazyft.database import engine
 
-from .base import ReportBase, PerformanceBase
+from .backtest import BacktestPerformance, BacktestReport
+from .base import PerformanceBase, ReportBase
+from .hyperopt import HyperoptPerformance, HyperoptReport
 from .strategy import StrategyBackup
-from .backtest import BacktestReport, BacktestPerformance
-from .hyperopt import HyperoptReport, HyperoptPerformance
 
 SQLModel.metadata.create_all(engine)
+
+
+all = [
+    BacktestPerformance,
+    BacktestReport,
+    HyperoptPerformance,
+    HyperoptReport,
+    PerformanceBase,
+    ReportBase,
+    StrategyBackup,
+]

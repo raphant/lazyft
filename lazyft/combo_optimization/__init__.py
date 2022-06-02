@@ -1,12 +1,11 @@
-import logging
-import os
 import sys
 from functools import partial
 
-from lazyft import paths
-from lazyft.log_config import filter_log_file, non_exec_only
-from lazyft.notify import notify_telegram
 from loguru import logger
+
+from lazyft import paths
+from lazyft.log_config import filter_log_file
+from lazyft.notify import notify_telegram
 
 # logger = logging.getLogger('HBC')
 # # make logger log to paths.LOG_DIR / 'backtesting_hyperopt.log' and print to stdout and set logger formatting to date, time, message
@@ -22,12 +21,12 @@ from loguru import logger
 
 
 logger.add(
-    paths.LOG_DIR / 'backtesting_hyperopt.log',
-    rotation='1 MB',
-    level='DEBUG',
-    filter=lambda r: filter_log_file(r, log_type='combo'),
+    paths.LOG_DIR / "backtesting_hyperopt.log",
+    rotation="1 MB",
+    level="DEBUG",
+    filter=lambda r: filter_log_file(r, log_type="combo"),
 )
-logger.add(sys.stdout, filter=lambda r: filter_log_file(r, log_type='combo'), level='INFO')
+logger.add(sys.stdout, filter=lambda r: filter_log_file(r, log_type="combo"), level="INFO")
 
-logger = logger.bind(type='combo')
-notify = partial(notify_telegram, 'Auto Hyperopt & Backtest')
+logger = logger.bind(type="combo")
+notify = partial(notify_telegram, "Auto Hyperopt & Backtest")

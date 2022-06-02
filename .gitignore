@@ -8,3 +8,5 @@ __pycache__
 *.db
 .vscode/
 .idea/
+.trunk/
+*.lock

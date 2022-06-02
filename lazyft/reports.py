@@ -2,7 +2,7 @@ import datetime
 import re
 from abc import ABCMeta, abstractmethod
 from collections import UserList
-from typing import Any, Callable, Iterable, Union
+from typing import Any, Callable, Generic, Iterable, TypeVar, Union
 
 import pandas as pd
 from dateutil.parser import parse
@@ -21,9 +21,7 @@ from lazyft import logger
 from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
 from lazyft.models.backtest import BacktestReport
-from lazyft.models.base import ReportBase
 from lazyft.models.hyperopt import HyperoptReport
-from lazyft.util import calculate_win_ratio
 
 cols_to_print = [
     "strategy",
@@ -42,8 +40,10 @@ HyperoptReportList = UserList[HyperoptReport]
 RepoList = Union[UserList[BacktestReport], UserList[HyperoptReport]]
 AbstractReport = Union[BacktestReport, HyperoptReport]
 
+T = TypeVar("T")
 
-class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
+
+class RepoExplorer(UserList[T], metaclass=ABCMeta):
     """
     A database API used to query, sort, filter, and delete reports.
     """
@@ -63,7 +63,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         """
         pass
 
-    def get(self, id: int) -> ReportBase:
+    def get(self, id: int) -> T:
         """
         Returns the report with the given id.
 
@@ -91,7 +91,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
             pairs.add((r.strategy, r.hyperopt_id))
         return pairs
 
-    def filter(self, func: Callable[[ReportBase], bool]) -> "RepoExplorer":
+    def filter(self, func: Callable[[T], bool]) -> U:
         """
         Filters the list of reports using a function.
 
@@ -104,7 +104,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         return self
 
     # noinspection PyMethodOverriding
-    def sort(self, func: Callable[[ReportBase], bool]) -> "RepoExplorer":
+    def sort(self, func: Callable[[T], bool]) -> "RepoExplorer":
         """
         Sorts the list of reports using a function.
 
@@ -269,7 +269,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         self.data = [r for r in self if r.exchange == exchange]
         return self
 
-    def first(self) -> ReportBase:
+    def first(self) -> T:
         """
         Returns the first report.
 
@@ -278,7 +278,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         """
         return self.data[0]
 
-    def last(self) -> ReportBase:
+    def last(self) -> T:
         """
         Returns the last report.
 
@@ -350,8 +350,8 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         return len(self)
 
 
-class _BacktestRepoExplorer(RepoExplorer, BacktestReportList):
-    def reset(self) -> "_BacktestRepoExplorer":
+class BacktestRepoExplorer(RepoExplorer[BacktestReport], BacktestReportList):
+    def reset(self) -> "BacktestRepoExplorer":
         with Session(engine) as session:
             statement = select(BacktestReport)
             results = session.exec(statement)
@@ -428,7 +428,7 @@ class _BacktestRepoExplorer(RepoExplorer, BacktestReportList):
         return df.sort_values(sort_by, ascending=False)
 
 
-class _HyperoptRepoExplorer(RepoExplorer, HyperoptReportList):
+class HyperoptRepoExplorer(RepoExplorer[HyperoptReport], HyperoptReportList):
     def reset(self):
         with Session(engine) as session:
             statement = select(HyperoptReport)
@@ -462,14 +462,14 @@ def get_backtest_repo():
     """
     Returns the backtest repo.
     """
-    return _BacktestRepoExplorer().reset()
+    return BacktestRepoExplorer().reset()
 
 
 def get_hyperopt_repo():
     """
     Returns the hyperopt repo.
     """
-    return _HyperoptRepoExplorer()
+    return HyperoptRepoExplorer()
 
 
 class BacktestExplorer:
@@ -499,6 +499,7 @@ def backtest_results_as_text(
 ) -> str:
     """
     Generate a text report from a backtest results dict.
+    Modified FreqTrade code
     """
     text = []
     if backtest_breakdown is None:
@@ -514,29 +515,33 @@ def backtest_results_as_text(
     if isinstance(table, str):
         text.append(" BACKTESTING REPORT ".center(len(table.splitlines()[0]), "="))
     text.append(table)
+    text.append("=" * len(table.splitlines()[0]) + "\n")
 
-    if results.get("results_per_buy_tag") is not None:
+    if results.get("results_per_enter_tag") is not None:
         table = text_table_tags(
-            "buy_tag", results["results_per_buy_tag"], stake_currency=stake_currency
+            "enter_tag", results["results_per_enter_tag"], stake_currency=stake_currency
         )
 
         if isinstance(table, str) and len(table) > 0:
-            text.append(" BUY TAG STATS ".center(len(table.splitlines()[0]), "="))
+            text.append(" Enter TAG STATS ".center(len(table.splitlines()[0]), "="))
         text.append(table)
+        text.append("=" * len(table.splitlines()[0]) + "\n")
 
     table = text_table_exit_reason(
         exit_reason_stats=results["exit_reason_summary"], stake_currency=stake_currency
     )
     if isinstance(table, str) and len(table) > 0:
-        text.append(" SELL REASON STATS ".center(len(table.splitlines()[0]), "="))
-    text.append(table)
+        text.append(" Exit REASON STATS ".center(len(table.splitlines()[0]), "="))
+        text.append(table)
+        text.append("=" * len(table.splitlines()[0]) + "\n")
 
     table = text_table_bt_results(
         results["left_open_trades"], stake_currency=stake_currency
     )
     if isinstance(table, str) and len(table) > 0:
         text.append(" LEFT OPEN TRADES REPORT ".center(len(table.splitlines()[0]), "="))
-    text.append(table)
+        text.append(table)
+        text.append("=" * len(table.splitlines()[0]) + "\n")
 
     for period in backtest_breakdown:
         days_breakdown_stats = generate_periodic_breakdown_stats(
@@ -551,7 +556,9 @@ def backtest_results_as_text(
             text.append(
                 f" {period.upper()} BREAKDOWN ".center(len(table.splitlines()[0]), "=")
             )
-        text.append(table)
+        text.append("=" * len(table.splitlines()[0]))
+
+        text.append(table + "\n")
 
     table = text_table_add_metrics(results)
     if isinstance(table, str) and len(table) > 0:

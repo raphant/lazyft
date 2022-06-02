@@ -2,9 +2,10 @@
 Designed to work with the Ensemble strategy.
 """
 from __future__ import annotations
+
 import rapidjson
 
-from lazyft import paths, parameter_tools
+from lazyft import parameter_tools, paths
 from lazyft.strategy import Strategy
 
 
@@ -22,5 +23,5 @@ def set_ensemble_strategies(strategies: list[Strategy]):
     return strategies
 
 
-if __name__ == '__main__':
-    set_ensemble_strategies([Strategy('TestStrategy'), Strategy('BinH')])
+if __name__ == "__main__":
+    set_ensemble_strategies([Strategy("TestStrategy"), Strategy("BinH")])

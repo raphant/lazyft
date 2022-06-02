@@ -27,7 +27,7 @@ from lazyft.hyperopt import HyperoptRunner
 from lazyft.models.backtest import BacktestReport
 from lazyft.models.hyperopt import HyperoptReport
 from lazyft.reports import get_backtest_repo, get_hyperopt_repo
-from lazyft.strategy import get_space_handler_spaces, Strategy
+from lazyft.strategy import Strategy, get_space_handler_spaces
 from lazyft.util import dict_to_telegram_string
 
 
@@ -127,9 +127,9 @@ class ComboOptimizer:
             lambda x, y: list(combinations(custom_spaces, y)) + x, range(len(custom_spaces) + 1), []
         )
         spaces_combinations = [
-            ' '.join(s) for s in spaces_combinations if 0 < len(s) < max_len_of_combo
+            " ".join(s) for s in spaces_combinations if 0 < len(s) < max_len_of_combo
         ]
-        logger.info(f'Generated {len(spaces_combinations)} space combinations')
+        logger.info(f"Generated {len(spaces_combinations)} space combinations")
         return spaces_combinations
 
     @staticmethod
@@ -155,27 +155,27 @@ class ComboOptimizer:
         logger.info("Generating hyperopt parameters...")
         hyperopt_params = []
         for space in generated_spaces:
-            custom_spaces = ''
-            spaces = ''
+            custom_spaces = ""
+            spaces = ""
             params_copy = deepcopy(base_params)
-            split = space.split(' ')
+            split = space.split(" ")
             for cs in split:
-                if cs in ['roi', 'stoploss', 'trailing']:
-                    spaces += ' ' + cs
+                if cs in ["roi", "stoploss", "trailing"]:
+                    spaces += " " + cs
                 else:
-                    custom_spaces += ' ' + cs
+                    custom_spaces += " " + cs
             params_copy.custom_spaces = custom_spaces.strip()
             if spaces:
-                params_copy.spaces += ' ' + spaces.strip()
-            combined_space = (spaces + ' ' + custom_spaces).strip()
-            params_copy.tag += f'__{combined_space}__{base_params.interval}'
+                params_copy.spaces += " " + spaces.strip()
+            combined_space = (spaces + " " + custom_spaces).strip()
+            params_copy.tag += f"__{combined_space}__{base_params.interval}"
             hyperopt_params.append(params_copy)
         # hyperopt_params = [
         #     h for h in hyperopt_params if len(h.custom_spaces.split()) <= max_len_of_combo
         # ]
         if shuffle_spaces:
             shuffle(hyperopt_params)
-        logger.info(f'Created {len(hyperopt_params)} hyperopt parameters')
+        logger.info(f"Created {len(hyperopt_params)} hyperopt parameters")
         return hyperopt_params
 
     def add_backtest(self, backtest_params: BacktestParameters) -> None:
@@ -200,23 +200,23 @@ class ComboOptimizer:
         if self.best_backtest_id:
             self.best_backtest_report = get_backtest_repo().get(self.best_hyperopt_id)
         logger.info(
-            f'Starting optimization for {self.strategy} with {len(self.generated_params)} '
-            f'hyperopt parameters'
+            f"Starting optimization for {self.strategy} with {len(self.generated_params)} "
+            f"hyperopt parameters"
         )
         for i in range(1, self.number_of_trials + 1):
             self.current_trial = i
-            logger.info(f'Starting trial {i}/{self.number_of_trials}')
+            logger.info(f"Starting trial {i}/{self.number_of_trials}")
             meets = []
             for idx, hyperopt_parameter in enumerate(self.generated_params, start=1):
                 self.current_idx = idx
                 to_backtest = []
                 logger.info(
-                    f'Hyperopting {hyperopt_parameter.tag} ({idx}/{len(self.generated_params)})'
+                    f"Hyperopting {hyperopt_parameter.tag} ({idx}/{len(self.generated_params)})"
                 )
                 try:
                     runner = self.run_hyperopt(hyperopt_parameter)
                 except Exception as e:
-                    logger.error(f'Error in trial {i}, index {idx}')
+                    logger.error(f"Error in trial {i}, index {idx}")
                     logger.exception(e)
                     raise e
                 if not runner:
@@ -228,14 +228,14 @@ class ComboOptimizer:
 
                 if not any(epochs_that_meet_req):
                     logger.info(
-                        f'Found no epochs that meet requirements in hyperopt #{h_report.id}'
+                        f"Found no epochs that meet requirements in hyperopt #{h_report.id}"
                     )
                     get_hyperopt_repo().delete(h_report.id)
                     continue
                 else:
                     to_backtest.extend(epochs_that_meet_req)
                     logger.info(
-                        f'Found {len(epochs_that_meet_req)} epochs that meet requirements in hyperopt #{h_report.id}'
+                        f"Found {len(epochs_that_meet_req)} epochs that meet requirements in hyperopt #{h_report.id}"
                     )
                 get_hyperopt_repo().delete(h_report.id)
                 meets.extend(self.backtest_passed_epochs(to_backtest, hyperopt_parameter))
@@ -243,7 +243,7 @@ class ComboOptimizer:
             logger.info(
                 f'Reports rejected: {self.counter["n_skipped"]}, '
                 f'Reports accepted: {self.counter["n_passed"]}, '
-                f'Current best HID: {self.best_hyperopt_id}'
+                f"Current best HID: {self.best_hyperopt_id}"
             )
             self.meets[i] = meets
 
@@ -259,9 +259,9 @@ class ComboOptimizer:
         runner = parameter.run(strategy)
         # make sure report meets requirements
         if runner.exception or runner.error:
-            logger.info(f'Report #{runner.report.id} failed with exception {runner.exception}')
+            logger.info(f"Report #{runner.report.id} failed with exception {runner.exception}")
             raise HyperoptError(
-                f'Report #{runner.report.id} failed with exception {runner.exception}'
+                f"Report #{runner.report.id} failed with exception {runner.exception}"
             )
         return runner
 
@@ -288,29 +288,29 @@ class ComboOptimizer:
         for j, hyperopt_report in enumerate(to_backtest, start=1):
             try:
                 logger.info(
-                    f'Backtesting #{hyperopt_report.id}-{hyperopt_report.tag} ({j}/{len(to_backtest)})'
+                    f"Backtesting #{hyperopt_report.id}-{hyperopt_report.tag} ({j}/{len(to_backtest)})"
                 )
                 # notify(f'`Backtesting hyperopt #{r.id}-{r.tag} ({idx + 1}/{len(to_backtest)})`')
                 b_runner = self.run_backtest(hyperopt_parameter, hyperopt_report)
                 b_report = b_runner.save()
                 append_stats(hyperopt_report, b_report, self.stats)
             except Exception as e:
-                logger.exception(f'Failed while backtesting on idx {j}', exc_info=e)
+                logger.exception(f"Failed while backtesting on idx {j}", exc_info=e)
                 break
             if not report_meets_requirements(b_report, self.backtest_requirements):
                 if not self.best_hyperopt_id:
-                    logger.info(f'No hyperopt baseline found, updating to #{hyperopt_report.id}')
+                    logger.info(f"No hyperopt baseline found, updating to #{hyperopt_report.id}")
                     self.best_hyperopt_id = hyperopt_report.id
                     continue
                 logger.info(
-                    f'Backtest #{b_report.id} with hyperopt #{hyperopt_report.id} does not meet requirements {b_report.performance.dict()}'
+                    f"Backtest #{b_report.id} with hyperopt #{hyperopt_report.id} does not meet requirements {b_report.performance.dict()}"
                 )
                 get_backtest_repo().delete(b_report.id)
                 get_hyperopt_repo().delete(hyperopt_report.id)
-                self.counter['n_skipped'] += 1
+                self.counter["n_skipped"] += 1
             else:
                 logger.info(
-                    f'Backtest #{b_report.id} with hyperopt #{hyperopt_report.id} meets all requirements: \n{b_report.report_text}'
+                    f"Backtest #{b_report.id} with hyperopt #{hyperopt_report.id} meets all requirements: \n{b_report.report_text}"
                 )
                 # notify(
                 #     f'Backtest report #{b_report.id} `({r.tag})` meets all requirements.\n'
@@ -318,7 +318,7 @@ class ComboOptimizer:
                 #     f'Backtest #{b_report.id}:\n{dict_to_telegram_string(b_report.performance.dict())}'
                 # )
                 meets.append(b_report)
-                self.stats['n_passed'] += 1
+                self.stats["n_passed"] += 1
 
                 # update hyperopt id?
                 self.update_best(b_report, hyperopt_report)
@@ -340,18 +340,18 @@ class ComboOptimizer:
         """
         b_params_copy = deepcopy(self.backtests[0])
         b_params_copy.interval = hyperopt_parameter.interval
-        b_params_copy.tag = f'{hyperopt_report.id}-{hyperopt_report.tag}'
+        b_params_copy.tag = f"{hyperopt_report.id}-{hyperopt_report.tag}"
         b_params_copy.custom_spaces = hyperopt_parameter.custom_spaces
         b_params_copy.custom_settings = hyperopt_parameter.custom_settings
         b_runner = b_params_copy.run(
-            f'{hyperopt_report.strategy}-{hyperopt_report.id}', load_from_hash=True
+            f"{hyperopt_report.strategy}-{hyperopt_report.id}", load_from_hash=True
         )
         if b_runner.error or b_runner.exception:
             logger.info(
-                f'Backtest with hyperopt #{hyperopt_report.id} failed with exception {b_runner.exception}'
+                f"Backtest with hyperopt #{hyperopt_report.id} failed with exception {b_runner.exception}"
             )
             raise Exception(
-                f'Error while backtesting with hyperopt #{hyperopt_report.id}. Error: {b_runner.error}, Exception: {b_runner.exception}'
+                f"Error while backtesting with hyperopt #{hyperopt_report.id}. Error: {b_runner.error}, Exception: {b_runner.exception}"
             )
         return b_runner
 
@@ -366,21 +366,21 @@ class ComboOptimizer:
             self.best_backtest_report, b_report
         ):
             if not self.best_hyperopt_id:
-                logger.info(f'No hyperopt baseline found, updating to #{b_report.hyperopt_id}')
+                logger.info(f"No hyperopt baseline found, updating to #{b_report.hyperopt_id}")
             else:
                 logger.info(
-                    f'Found a better hyperopt baseline, updating to #{b_report.hyperopt_id}'
+                    f"Found a better hyperopt baseline, updating to #{b_report.hyperopt_id}"
                 )
             self.best_backtest_report = b_report
             self.best_backtest_id = b_report.id
             self.best_hyperopt_id = b_report.hyperopt_id
             # notify(f"New hyperopt baseline #{h_id}:\n{dict_to_telegram_string(b_report.performance.dict())}")
             notify(
-                f'New hyperopt baseline `({hyperopt_report.tag})`.\n'
-                f'Hyperopt #{hyperopt_report.id}:\n{dict_to_telegram_string(hyperopt_report.performance.dict())}\n\n'
-                f'Backtest #{b_report.id}:\n{dict_to_telegram_string(b_report.performance.dict())}'
+                f"New hyperopt baseline `({hyperopt_report.tag})`.\n"
+                f"Hyperopt #{hyperopt_report.id}:\n{dict_to_telegram_string(hyperopt_report.performance.dict())}\n\n"
+                f"Backtest #{b_report.id}:\n{dict_to_telegram_string(b_report.performance.dict())}"
             )
         else:
             logger.info(
-                f'New report #{b_report.id} from hyperopt #{hyperopt_report.id} was not an improvement'
+                f"New report #{b_report.id} from hyperopt #{hyperopt_report.id} was not an improvement"
             )

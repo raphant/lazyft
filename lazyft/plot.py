@@ -3,7 +3,7 @@ from typing import Sequence
 import pandas as pd
 import plotly.express as px
 
-from lazyft.reports import get_hyperopt_repo, get_backtest_repo
+from lazyft.reports import get_backtest_repo, get_hyperopt_repo
 
 
 def calculate_equity(strategy_stats: dict) -> list:
@@ -14,7 +14,7 @@ def calculate_equity(strategy_stats: dict) -> list:
     :return: pd.Series with the equity curve.
     """
     profits = []
-    for date_profit in strategy_stats['daily_profit']:
+    for date_profit in strategy_stats["daily_profit"]:
         profits.append(date_profit[1])
     equity = 0
     equity_daily = []
@@ -32,7 +32,7 @@ def get_dates_from_strategy(strategy_stats: dict) -> list:
     :return: pd.Series with the dates.
     """
     dates = []
-    for date_profit in strategy_stats['daily_profit']:
+    for date_profit in strategy_stats["daily_profit"]:
         dates.append(date_profit[0])
     return dates
 
@@ -45,18 +45,18 @@ def get_dataframe_with_equity_series(report_ids: Sequence[int], type_: str) -> p
     :param type_: 'backtest' or 'hyperopt'.
     :return: pd.DataFrame with the equity curve.
     """
-    repo = get_backtest_repo() if type_ == 'backtest' else get_hyperopt_repo()
+    repo = get_backtest_repo() if type_ == "backtest" else get_hyperopt_repo()
     # set column "date" to dates of first series
     strategy_stats = repo.get(report_ids[0]).backtest_data
     df = pd.DataFrame({"date": get_dates_from_strategy(strategy_stats)})
     # add all equity series to dataframe
     for report_id in report_ids:
         strategy_stats = repo.get(report_id).backtest_data
-        df.loc[:, f'equity_daily_{report_id}'] = calculate_equity(strategy_stats)
+        df.loc[:, f"equity_daily_{report_id}"] = calculate_equity(strategy_stats)
     return df
 
 
-def plot_equity_curves(*report_ids: int, type='hyperopt') -> None:
+def plot_equity_curves(*report_ids: int, type="hyperopt") -> None:
     """
     Plot the equity curves for a list of strategies.
     :param report_ids: List of strategy ids to get the equity curve for.
@@ -73,6 +73,6 @@ def plot_equity_curves(*report_ids: int, type='hyperopt') -> None:
     fig.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # plot equity curves for strategies: 92 and 93
     plot_equity_curves(90, 91, 92, 93)

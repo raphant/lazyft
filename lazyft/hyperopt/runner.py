@@ -10,6 +10,10 @@ from typing import Optional
 import pandas as pd
 import rapidjson
 import sh
+from rich.live import Live
+from rich.table import Table
+from sqlmodel import Session
+
 from lazyft import (
     downloader,
     hyperopt,
@@ -25,9 +29,6 @@ from lazyft.notify import notify_telegram
 from lazyft.reports import get_hyperopt_repo
 from lazyft.space_handler import SpaceHandler
 from lazyft.util import get_last_hyperopt_file_name
-from rich.live import Live
-from rich.table import Table
-from sqlmodel import Session
 
 EPOCH_LINE_REGEX = re.compile(
     r"(?P<epoch>[\d/]+)[\s|]+(?P<trades>[\d/]+)[\s|]+"
@@ -52,9 +53,7 @@ columns = [
 
 
 class HyperoptManager:
-    def __init__(
-        self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True
-    ) -> None:
+    def __init__(self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True) -> None:
         """
         Runs multiple instances of HyperoptRunner sequentially.
 
@@ -197,14 +196,11 @@ class HyperoptRunner(runner.Runner):
         logger.debug(f"Preparing to hyperopt {self.strategy}")
         self.reset()
         if self.params.download_data:
-            downloader.download_data_for_strategy(
-                self.strategy, self.config, self.params
-            )
+            downloader.download_data_for_strategy(self.strategy, self.config, self.params)
         # set or remove parameter file in strategy directory
         if self.command.hyperopt_id:
             assert (
-                get_hyperopt_repo().get(self.command.hyperopt_id).strategy
-                == self.strategy
+                get_hyperopt_repo().get(self.command.hyperopt_id).strategy == self.strategy
             ), f"Hyperopt id {self.command.id} does not match strategy {self.strategy}"
             parameter_tools.set_params_file(self.command.hyperopt_id)
         else:
@@ -361,9 +357,7 @@ class HyperoptRunner(runner.Runner):
             session.refresh(report)
             logger.info("Created report id: {}".format(report.id))
             try:
-                self.log_path.rename(
-                    paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + ".log")
-                )
+                self.log_path.rename(paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + ".log"))
             except FileNotFoundError:
                 pass
 
@@ -379,9 +373,7 @@ class HyperoptRunner(runner.Runner):
         """
         hyperopt_file = pathlib.Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
-            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
-                "latest_hyperopt"
-            ],
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())["latest_hyperopt"],
         ).resolve()
         report = HyperoptReport(
             hyperopt_file_str=str(hyperopt_file),
@@ -419,9 +411,7 @@ class HyperoptRunner(runner.Runner):
 
     def update_spaces(self):
         logger.info("Updating custom spaces...")
-        sh = SpaceHandler(
-            self.params.strategy_path / strategy.get_file_name(self.strategy)
-        )
+        sh = SpaceHandler(self.params.strategy_path / strategy.get_file_name(self.strategy))
         sh.reset()
         if self.params.custom_spaces == "all":
             logger.debug("Enabling all custom spaces")

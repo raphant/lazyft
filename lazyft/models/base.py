@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import datetime
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pandas as pd
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Field, Session
+from sqlmodel import Field, Session, SQLModel
 
 from lazyft.database import engine
 
@@ -88,7 +88,7 @@ class ReportBase(SQLModel):
 
     @property
     @abstractmethod
-    def performance(self) -> 'Union[HyperoptPerformance, BacktestPerformance]':
+    def performance(self) -> "Union[HyperoptPerformance, BacktestPerformance]":
         ...
 
     # noinspection PyUnresolvedReferences

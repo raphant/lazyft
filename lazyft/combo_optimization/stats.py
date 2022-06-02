@@ -33,7 +33,7 @@ def append_stats(
     stats["hyperopt_average_profit_per_trade"].append(hyperopt_report.performance.profit_ratio)
 
 
-def print_stats(stats: dict[str, list], optimizer: 'ComboOptimizer', last_n=20):
+def print_stats(stats: dict[str, list], optimizer: "ComboOptimizer", last_n=20):
     """
     It prints the average stats of the last 20 trials
 
@@ -43,36 +43,36 @@ def print_stats(stats: dict[str, list], optimizer: 'ComboOptimizer', last_n=20):
     :type optimizer: ComboOptimizer
     :param last_n: The number of previous reports to average over, defaults to 20 (optional)
     """
-    if optimizer.current_idx % 5 == 0 and len(stats['backtest_average_profit']) > 1:
+    if optimizer.current_idx % 5 == 0 and len(stats["backtest_average_profit"]) > 1:
         try:
             # get last_n results
             stats = {
-                'avg_profit': statistics.mean(stats['hyperopt_average_profit'][-last_n:]),
-                'avg_drawdown': statistics.mean(stats['hyperopt_average_drawdown'][-last_n:]),
-                'avg_win_rate': statistics.mean(stats['hyperopt_average_win_rate'][-last_n:]),
-                'avg_trades': statistics.mean(stats['hyperopt_average_trades'][-last_n:]),
-                'avg_profit_per_trade': statistics.mean(
-                    stats['hyperopt_average_profit_per_trade'][-last_n:]
+                "avg_profit": statistics.mean(stats["hyperopt_average_profit"][-last_n:]),
+                "avg_drawdown": statistics.mean(stats["hyperopt_average_drawdown"][-last_n:]),
+                "avg_win_rate": statistics.mean(stats["hyperopt_average_win_rate"][-last_n:]),
+                "avg_trades": statistics.mean(stats["hyperopt_average_trades"][-last_n:]),
+                "avg_profit_per_trade": statistics.mean(
+                    stats["hyperopt_average_profit_per_trade"][-last_n:]
                 ),
             }
             backtest_stats = {
-                'avg_profit': statistics.mean(stats['backtest_average_profit'][-last_n:]),
-                'avg_drawdown': statistics.mean(stats['backtest_average_drawdown'][-last_n:]),
-                'avg_win_rate': statistics.mean(stats['backtest_average_win_rate'][-last_n:]),
-                'avg_trades': statistics.mean(stats['backtest_average_trades'][-last_n:]),
-                'avg_profit_per_trade': statistics.mean(
-                    stats['backtest_average_profit_per_trade'][-last_n:]
+                "avg_profit": statistics.mean(stats["backtest_average_profit"][-last_n:]),
+                "avg_drawdown": statistics.mean(stats["backtest_average_drawdown"][-last_n:]),
+                "avg_win_rate": statistics.mean(stats["backtest_average_win_rate"][-last_n:]),
+                "avg_trades": statistics.mean(stats["backtest_average_trades"][-last_n:]),
+                "avg_profit_per_trade": statistics.mean(
+                    stats["backtest_average_profit_per_trade"][-last_n:]
                 ),
             }
         except statistics.StatisticsError:
             pass
         else:
             notify(
-                f'Checkpoint trial {optimizer.current_trial}-{optimizer.current_idx} - '
-                f'{len(optimizer.meets)} report(s) meet requirements\n'
+                f"Checkpoint trial {optimizer.current_trial}-{optimizer.current_idx} - "
+                f"{len(optimizer.meets)} report(s) meet requirements\n"
                 f'Average Hyperopt stats for `last {len(stats["hyperopt_average_profit"][-last_n:])} report(s)`:\n'
-                f'{dict_to_telegram_string(stats)}\n\n'
+                f"{dict_to_telegram_string(stats)}\n\n"
                 f'Average Backtest stats for `last {len(stats["backtest_average_profit_per_trade"][-last_n:])} report(s)`:\n'
-                f'{dict_to_telegram_string(backtest_stats)}\n'
-                f'Current best report: Hyperopt #{optimizer.best_hyperopt_id} - Backtest #{optimizer.best_backtest_id}'
+                f"{dict_to_telegram_string(backtest_stats)}\n"
+                f"Current best report: Hyperopt #{optimizer.best_hyperopt_id} - Backtest #{optimizer.best_backtest_id}"
             )

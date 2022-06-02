@@ -61,7 +61,11 @@ def init():
 
 
 def main():
-    app()
+    try:
+        app()
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from enum import Enum
 
 import pandas as pd
 import typer
+from colorama import Fore
 
 from lazyft import print, strategy
 from lazyft.command_parameters import BacktestParameters
@@ -106,8 +107,12 @@ def run(
 
     --days or --timerange is required.
     """
-    assert strategy_name in strategy.get_all_strategies(), "Strategy not found"
-    assert timerange or days, "Either days or timerange must be specified"
+    if strategy_name not in strategy.get_all_strategies():
+        typer.echo(Fore.RED + f'Strategy "{strategy_name}" not found.')
+        raise typer.Exit(1)
+    if not (timerange or days):
+        typer.echo(Fore.RED + "--days or --timerange is required.")
+        raise typer.Exit(1)
     if stake_amount == -1:
         stake_amount = "unlimited"
     b_params = BacktestParameters(

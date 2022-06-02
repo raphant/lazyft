@@ -3,6 +3,7 @@ from pprint import pprint
 
 import attr
 import typer
+
 from lazyft.command_parameters import HyperoptParameters
 from lazyft.errors import IdNotFoundError
 from lazyft.reports import get_backtest_repo, get_hyperopt_repo
@@ -106,9 +107,7 @@ def run_from_backtest(
     timerange: str = typer.Option(
         None, "--timerange", help="Time range to use for backtest: YYYYMMDD-YYYYMMDD"
     ),
-    auto_save: bool = typer.Option(
-        False, "-s", "--auto-save", help="Save results automatically"
-    ),
+    auto_save: bool = typer.Option(False, "-s", "--auto-save", help="Save results automatically"),
 ):
     """
     Runs a hyperopt with the same configuration settings from a previous backtest.

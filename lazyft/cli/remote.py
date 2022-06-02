@@ -11,8 +11,8 @@ app = typer.Typer()
 def update_strategy(
     bot_id: int = typer.Argument(...),
     strategy_name: str = typer.Argument(..., help="Name of the strategy"),
-    hyperopt_id: Optional[str] = typer.Option(None, '-h', '--hyperopt-id', help="Hyperopt ID"),
-    restart: bool = typer.Option(False, '-r', '--restart', help="Restart the bot"),
+    hyperopt_id: Optional[str] = typer.Option(None, "-h", "--hyperopt-id", help="Hyperopt ID"),
+    restart: bool = typer.Option(False, "-r", "--restart", help="Restart the bot"),
 ):
     """Update the strategy of a remote bot"""
     bot = RemoteBot(bot_id, "pi")

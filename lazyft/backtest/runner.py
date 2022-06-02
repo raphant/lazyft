@@ -15,6 +15,8 @@ from freqtrade.commands.optimize_commands import setup_optimize_configuration
 from freqtrade.enums import RunMode
 from freqtrade.exceptions import OperationalException
 from freqtrade.optimize import backtesting, optimize_reports
+from sqlmodel import Session
+
 from lazyft import downloader, logger, parameter_tools, paths, strategy, util
 from lazyft.backtest.commands import BacktestCommand
 from lazyft.database import engine
@@ -23,7 +25,6 @@ from lazyft.reports import get_backtest_repo, get_hyperopt_repo
 from lazyft.runner import Runner
 from lazyft.space_handler import SpaceHandler
 from lazyft.util import get_latest_backtest_filename, store_backtest_stats
-from sqlmodel import Session
 
 logger_exec = logger.bind(type="backtest")
 
@@ -67,9 +68,7 @@ class BacktestMultiRunner:
         Returns a DataFrame with all of the performances.
         """
         assert any(self.reports), "No reports found."
-        frames = [
-            {"strategy": r.strategy, **r.performance.dict()} for r in self.reports
-        ]
+        frames = [{"strategy": r.strategy, **r.performance.dict()} for r in self.reports]
         return pd.DataFrame(frames)
 
     def save(self):
@@ -134,8 +133,7 @@ class BacktestRunner(Runner):
                 )
         except TypeError as e:
             raise TypeError(
-                f"Could not hash command: {self.command.command_string}"
-                f"\n{self.command.params}"
+                f"Could not hash command: {self.command.command_string}" f"\n{self.command.params}"
             ) from e
         if self.params.ensemble:
             command_string += ",".join([str(s) for s in self.params.ensemble])
@@ -171,9 +169,7 @@ class BacktestRunner(Runner):
         if self.params.custom_settings:
             self.update_spaces()
         if self.params.download_data:
-            downloader.download_data_for_strategy(
-                self.strategy, self.config, self.params
-            )
+            downloader.download_data_for_strategy(self.strategy, self.config, self.params)
         pargs = Arguments(self.command.command_string.split()).get_parsed_arg()
         config = setup_optimize_configuration(pargs, RunMode.BACKTEST)
         bt = backtesting.Backtesting(config)
@@ -259,9 +255,7 @@ class BacktestRunner(Runner):
             pairlist=self.command.pairs,
             tag=self.command.params.tag,
             strategy_hash=self.strategy_hash,
-            ensemble=",".join(
-                ["-".join(s.as_pair) for s in self.command.params.ensemble]
-            ),
+            ensemble=",".join(["-".join(s.as_pair) for s in self.command.params.ensemble]),
         )
 
     def log(self, *args) -> None:
@@ -324,13 +318,9 @@ class BacktestRunner(Runner):
             session.commit()
             session.refresh(report)
             # session.refresh(report._backtest_data)
-            logger.info(
-                "Created report id {}: {}".format(report.id, report.performance.dict())
-            )
+            logger.info("Created report id {}: {}".format(report.id, report.performance.dict()))
             if self.log_path.exists():
-                self.log_path.rename(
-                    paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + ".log")
-                )
+                self.log_path.rename(paths.BACKTEST_LOG_PATH.joinpath(str(report.id) + ".log"))
                 self.report_id = report.id
         return report
 
@@ -357,9 +347,7 @@ class BacktestRunner(Runner):
         Updates the spaces file of the strategy.
         """
         logger.info("Updating custom spaces...")
-        sh = SpaceHandler(
-            self.params.strategy_path / strategy.get_file_name(self.strategy)
-        )
+        sh = SpaceHandler(self.params.strategy_path / strategy.get_file_name(self.strategy))
         sh.reset()
         if self.params.custom_spaces == "all":
             logger.debug("Enabling all custom spaces")

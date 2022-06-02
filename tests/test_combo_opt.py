@@ -6,9 +6,9 @@ days = 365
 starting_balance = 100
 max_open_trades = 4
 stake_amount = 25
-interval = '15m'
+interval = "15m"
 use_custom_stoploss = False
-binance = Config('binance_refresh_december.json')
+binance = Config("binance_refresh_december.json")
 bin_us = Config("config.binanceus.json")
 
 h_params = HyperoptParameters(
@@ -17,7 +17,7 @@ h_params = HyperoptParameters(
     days=days,
     spaces="buy sell",
     # loss='ROIAndProfitHyperOptLoss',
-    loss='CalmarHyperOptLoss',
+    loss="CalmarHyperOptLoss",
     interval=interval,
     min_trades=100,
     starting_balance=starting_balance,
@@ -25,9 +25,9 @@ h_params = HyperoptParameters(
     stake_amount=stake_amount,
     jobs=-2,
     download_data=True,
-    custom_spaces='',
-    custom_settings={'use_custom_stoploss': use_custom_stoploss, 'timeframe': interval},
-    tag='auto',
+    custom_spaces="",
+    custom_settings={"use_custom_stoploss": use_custom_stoploss, "timeframe": interval},
+    tag="auto",
 )
 
 b_params = BacktestParameters(
@@ -37,10 +37,10 @@ b_params = BacktestParameters(
     stake_amount=stake_amount,
     starting_balance=starting_balance,
     max_open_trades=max_open_trades,
-    timeframe_detail='5m',
+    timeframe_detail="5m",
     download_data=True,
     tag="",
-    custom_settings={'use_custom_stoploss': use_custom_stoploss, 'timeframe': interval},
+    custom_settings={"use_custom_stoploss": use_custom_stoploss, "timeframe": interval},
 )
 """
 if is_hyperopt:
@@ -56,20 +56,20 @@ else:
     minimum_ppt = 0.009
     """
 hyperopt_requirements = {
-    'maximum_drawdown': 0.4,
-    'minimum_profit_pct': 1,
-    'minimum_win_rate': 0.4,
-    'minimum_ppt': 0.007,
+    "maximum_drawdown": 0.4,
+    "minimum_profit_pct": 1,
+    "minimum_win_rate": 0.4,
+    "minimum_ppt": 0.007,
 }
 backtest_requirements = {
-    'maximum_drawdown': 0.4,
-    'minimum_profit_pct': 0.4,
-    'minimum_win_rate': 0.4,
-    'minimum_ppt': 0.009,
+    "maximum_drawdown": 0.4,
+    "minimum_profit_pct": 0.4,
+    "minimum_win_rate": 0.4,
+    "minimum_ppt": 0.009,
 }
 
 
 def test_combo_opt():
     optimizer = ComboOptimizer(backtest_requirements, hyperopt_requirements, 1)
-    optimizer.prepare('BatsContest', h_params, False)
+    optimizer.prepare("BatsContest", h_params, False)
     optimizer.start_optimization()

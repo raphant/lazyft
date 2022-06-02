@@ -4,3 +4,7 @@ class IdNotFoundError(Exception):
 
 class HashAlreadyExistsError(Exception):
     pass
+
+
+class StrategyNotFoundError(Exception):
+    pass

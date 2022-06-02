@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Optional, Union
 
 from loguru import logger
-
 from rich.syntax import Syntax
-from sqlmodel import SQLModel, Field, Session, select
+from sqlmodel import Field, Session, SQLModel, select
 
 from lazyft import strategy
 from lazyft.database import engine

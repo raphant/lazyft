@@ -78,7 +78,7 @@ class Runner(abc.ABC, metaclass=ABCMeta):
     # endregion
 
     def reset(self):
-        logger.info("Resetting")
+        # logger.info("Resetting")
         self.running = False
         self.error = False
         self.error_list = []

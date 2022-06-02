@@ -16,6 +16,7 @@ import lazyft.paths
 from lazyft import logger, parameter_tools
 from lazyft.config import Config
 from lazyft.ensemble import set_ensemble_strategies
+from lazyft.errors import StrategyNotFoundError
 from lazyft.strategy import Strategy
 from lazyft.util import get_timerange
 
@@ -180,17 +181,19 @@ class BacktestParameters(GlobalParameters):
                 if "Invalid parameter file provided" in str(e):
                     print(self.config_path)
                     parameter_tools.remove_params_file(strategy.name, self.config.path)
-                    self.interval = strategy.as_ft_strategy.timeframe
-
-        command = commands.BacktestCommand(
-            strategy.name,
-            params=self,
-            verbose=verbose,
-            id=strategy.id,
-        )
         if stdout:
             enable_ft_logging()
-        runner = BacktestRunner(command, load_from_hash=load_from_hash)
+
+        try:
+            command = commands.BacktestCommand(
+                strategy.name,
+                params=self,
+                verbose=verbose,
+                id=strategy.id,
+            )
+            runner = BacktestRunner(command, load_from_hash=load_from_hash)
+        except Exception:
+            raise StrategyNotFoundError(f'Strategy "{strategy.name}" not found')
         try:
             runner.execute()
         except Exception as e:

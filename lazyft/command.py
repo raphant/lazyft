@@ -5,9 +5,7 @@ from lazyft.command_parameters import BacktestParameters, HyperoptParameters
 
 
 class Command:
-    def __init__(
-        self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None
-    ):
+    def __init__(self, strategy, params: Union[BacktestParameters, HyperoptParameters], id=None):
         self.strategy = strategy
         self.hyperopt_id = id
         self.config = params.config
@@ -31,15 +29,13 @@ def create_commands(
     :param verbose: Whether to print out the commands
 
     :return: List of `HyperoptCommand`
-    """ 
+    """
     from lazyft.backtest.commands import BacktestCommand
     from lazyft.hyperopt.commands import HyperoptCommand
 
     commands = []
     CommandClass = (
-        HyperoptCommand
-        if isinstance(parameters, HyperoptParameters)
-        else BacktestCommand
+        HyperoptCommand if isinstance(parameters, HyperoptParameters) else BacktestCommand
     )
     for s, id in parameters.strategy_id_pairs:
         command = CommandClass(

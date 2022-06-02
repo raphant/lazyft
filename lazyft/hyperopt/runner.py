@@ -10,10 +10,6 @@ from typing import Optional
 import pandas as pd
 import rapidjson
 import sh
-from rich.live import Live
-from rich.table import Table
-from sqlmodel import Session
-
 from lazyft import (
     downloader,
     hyperopt,
@@ -29,17 +25,20 @@ from lazyft.notify import notify_telegram
 from lazyft.reports import get_hyperopt_repo
 from lazyft.space_handler import SpaceHandler
 from lazyft.util import get_last_hyperopt_file_name
+from rich.live import Live
+from rich.table import Table
+from sqlmodel import Session
 
 EPOCH_LINE_REGEX = re.compile(
-    r'(?P<epoch>[\d/]+)[\s|]+(?P<trades>[\d/]+)[\s|]+'
-    r'(?P<wins_draws_losses>\d+\s+\d+\s+\d+)[\s|]+'
-    r'(?P<average_profit>[\d.-]+%)[\s|]+'
-    r'(?P<profit>[\d.-]+ \w+\s+\([\d.,-]+%\))[\s|]+'
-    r'(?P<average_duration>\d+ \w+ [\d:]+)[\s|]+'
-    r'(?P<max_drawdown>(?:[\d.-]+ (\w+\s+)\([\d.]+%\))?(?:--)?)[\s|]+'
-    r'(?P<objective>[\d.,-]+)'
+    r"(?P<epoch>[\d/]+)[\s|]+(?P<trades>[\d/]+)[\s|]+"
+    r"(?P<wins_draws_losses>\d+\s+\d+\s+\d+)[\s|]+"
+    r"(?P<average_profit>[\d.-]+%)[\s|]+"
+    r"(?P<profit>[\d.-]+ \w+\s+\([\d.,-]+%\))[\s|]+"
+    r"(?P<average_duration>\d+ \w+ [\d:]+)[\s|]+"
+    r"(?P<max_drawdown>(?:[\d.-]+ (\w+\s+)\([\d.]+%\))?(?:--)?)[\s|]+"
+    r"(?P<objective>[\d.,-]+)"
 )
-logger_exec = logger.bind(type='hyperopt')
+logger_exec = logger.bind(type="hyperopt")
 columns = [
     "Epoch",
     "Trades",
@@ -53,7 +52,9 @@ columns = [
 
 
 class HyperoptManager:
-    def __init__(self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True) -> None:
+    def __init__(
+        self, commands: list[hyperopt.HyperoptCommand], autosave: bool = True
+    ) -> None:
         """
         Runs multiple instances of HyperoptRunner sequentially.
 
@@ -81,7 +82,7 @@ class HyperoptManager:
 
         :return: The thread object.
         """
-        logger.info('Hyperopting in the background')
+        logger.info("Hyperopting in the background")
         thread = Thread(target=self._runner)
         thread.start()
         self.thread = thread
@@ -103,9 +104,9 @@ class HyperoptManager:
                 self.on_finished(r)
         self.running = False
         self.current_runner = None
-        notify_telegram('Hyperopt Manager', 'Finished hyperopting')
+        notify_telegram("Hyperopt Manager", "Finished hyperopting")
 
-    def on_finished(self, runner: 'HyperoptRunner'):
+    def on_finished(self, runner: "HyperoptRunner"):
         """
         Called when a runner finishes.
 
@@ -113,11 +114,11 @@ class HyperoptManager:
         :return: None
         """
         if runner.error:
-            logger.error('Failed while hyperopting {}', runner.strategy)
+            logger.error("Failed while hyperopting {}", runner.strategy)
             logger.error(runner.output[-300:])
             self.failed_runners.append(runner)
         else:
-            logger.info('Hyperopt finished {}', runner.strategy)
+            logger.info("Hyperopt finished {}", runner.strategy)
             if self.autosave:
                 runner.save()
 
@@ -167,10 +168,10 @@ class HyperoptRunner(runner.Runner):
 
         self._report = None
         self.start_time = None
-        self.epoch_text = ''
+        self.epoch_text = ""
         self.exception: Optional[Exception] = None
         self.hyperopt_result_path: Optional[pathlib.Path] = None
-        self.status = 'not ready'
+        self.status = "not ready"
 
     @property
     def report(self) -> HyperoptReport:
@@ -181,7 +182,7 @@ class HyperoptRunner(runner.Runner):
         """
         Returns the path to the log file.
         """
-        return paths.HYPEROPT_LOG_PATH.joinpath(self.report_id + '.log')
+        return paths.HYPEROPT_LOG_PATH.joinpath(self.report_id + ".log")
 
     @property
     def output(self):
@@ -192,16 +193,19 @@ class HyperoptRunner(runner.Runner):
         Initializes the HyperoptRunner.
         """
         if HyperoptRunner.lock:
-            raise RuntimeError('Hyperopt is already running')
-        logger.info(f'Preparing to hyperopt {self.strategy}')
+            raise RuntimeError("Hyperopt is already running")
+        logger.debug(f"Preparing to hyperopt {self.strategy}")
         self.reset()
         if self.params.download_data:
-            downloader.download_data_for_strategy(self.strategy, self.config, self.params)
+            downloader.download_data_for_strategy(
+                self.strategy, self.config, self.params
+            )
         # set or remove parameter file in strategy directory
         if self.command.hyperopt_id:
             assert (
-                get_hyperopt_repo().get(self.command.hyperopt_id).strategy == self.strategy
-            ), f'Hyperopt id {self.command.id} does not match strategy {self.strategy}'
+                get_hyperopt_repo().get(self.command.hyperopt_id).strategy
+                == self.strategy
+            ), f"Hyperopt id {self.command.id} does not match strategy {self.strategy}"
             parameter_tools.set_params_file(self.command.hyperopt_id)
         else:
             parameter_tools.remove_params_file(self.strategy, self.command.config.path)
@@ -219,12 +223,14 @@ class HyperoptRunner(runner.Runner):
         logger.info('Running command: "freqtrade {}"', self.command.command_string)
         logger_exec.info('Running command: "freqtrade {}"', self.command.command_string)
         logger.info(
-            'Hyperopting {} with id "{}"', self.strategy, self.command.hyperopt_id or 'NO_ID'
+            'Hyperopting {} with id "{}"',
+            self.strategy,
+            self.command.hyperopt_id or None,
         )
 
         HyperoptRunner.lock = True
         self.start_time = time.time()
-        self.status = 'ready'
+        self.status = "ready"
 
     def execute(self, background=False, load_strategy=False):
         """
@@ -239,8 +245,8 @@ class HyperoptRunner(runner.Runner):
 
         # Execute VIA sh
         try:
-            logger.info('Executing Hyperopt')
-            self.status = 'running'
+            logger.debug("Executing Hyperopt")
+            self.status = "running"
             self.running = True
             self.write_worker.start()
             self.process = sh.freqtrade(
@@ -250,19 +256,20 @@ class HyperoptRunner(runner.Runner):
                 _err=lambda log: self.sub_process_log(log),
                 _cwd=str(paths.BASE_DIR),
                 _bg=True,
+                _bg_exc=False,
                 _done=self.on_finished,
             )
             if not background:
                 self.join()
-            logger.info('Process ID: {}', self.process.pid)
+            logger.debug("Process ID: {}", self.process.pid)
         except KeyboardInterrupt:
             self.stop()
         except AttributeError:
             pass
         except Exception as e:
-            logger.error(self.output[-200:])
-            if not background:
-                raise e
+            # logger.error(self.output[-200:])
+            # if not background:
+            #     raise e
             self.exception = e
             self.error = True
 
@@ -284,7 +291,7 @@ class HyperoptRunner(runner.Runner):
             except KeyboardInterrupt:
                 pass
         if self.error:
-            logger.error('\n'.join(self.error_list[-5:]))
+            logger.error("\n".join(self.error_list[-5:]))
 
     def _get_results_as_table(self):
         """Generates tables for live_output"""
@@ -298,34 +305,35 @@ class HyperoptRunner(runner.Runner):
 
     def on_finished(self, _, success, _2):
         """The callback for the sh command in execute()"""
-        self.status = 'finished'
+        self.status = "finished"
         HyperoptRunner.lock = False
         parameter_tools.remove_params_file(self.strategy, self.command.config.path)
         try:
             if not success:
                 logger.error("Finished with errors")
                 self.error = True
-                logger.error(self.output)
+                # logger.error(self.output)
                 if self.notify:
                     notify_telegram(
-                        'Hyperopt Runner - Hyperopt Failed', 'Hyperopt finished with errors'
+                        "Hyperopt Runner - Hyperopt Failed",
+                        "Hyperopt finished with errors",
                     )
 
             else:
                 logger.success("Finished successfully.")
                 if self.notify and not self.manually_stopped:
                     notify_telegram(
-                        'Hyperopt Runner - Hyperopt Finished',
-                        'Hyperopt finished successfully. Elapsed time: %sminutes '
+                        "Hyperopt Runner - Hyperopt Finished",
+                        "Hyperopt finished successfully. Elapsed time: %sminutes "
                         % ((time.time() - self.start_time) // 60),
                     )
                 try:
                     self._report = self.generate_report()
                 except IndexError:
                     return
-                logger.debug('Report generated')
+                logger.debug("Report generated")
                 if self.autosave:
-                    logger.info('Auto-saved: {}', self.save())
+                    logger.info("Auto-saved: {}", self.save())
         finally:
             self.running = False
             strategy.delete_temporary_strategy_backup_dir(self.tmp_strategy_path)
@@ -341,7 +349,7 @@ class HyperoptRunner(runner.Runner):
         :return: The saved report
         """
         if not self._report:
-            raise ValueError('No report available')
+            raise ValueError("No report available")
         with Session(engine) as session:
             report = self._report
             if epoch:
@@ -351,9 +359,11 @@ class HyperoptRunner(runner.Runner):
             session.add(report)
             session.commit()
             session.refresh(report)
-            logger.info('Created report id: {}'.format(report.id))
+            logger.info("Created report id: {}".format(report.id))
             try:
-                self.log_path.rename(paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + '.log'))
+                self.log_path.rename(
+                    paths.HYPEROPT_LOG_PATH.joinpath(str(report.id) + ".log")
+                )
             except FileNotFoundError:
                 pass
 
@@ -369,12 +379,14 @@ class HyperoptRunner(runner.Runner):
         """
         hyperopt_file = pathlib.Path(
             paths.LAST_HYPEROPT_RESULTS_FILE.parent,
-            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())['latest_hyperopt'],
+            rapidjson.loads(paths.LAST_HYPEROPT_RESULTS_FILE.read_text())[
+                "latest_hyperopt"
+            ],
         ).resolve()
         report = HyperoptReport(
             hyperopt_file_str=str(hyperopt_file),
             epoch=epoch - 1,
-            exchange=self.command.config['exchange']['name'],
+            exchange=self.command.config["exchange"]["name"],
         )
         return report
 
@@ -382,7 +394,7 @@ class HyperoptRunner(runner.Runner):
         """Creates a report that can saved later on."""
         self._report = HyperoptReport.from_hyperopt_result(
             paths.HYPEROPT_RESULTS_DIR / get_last_hyperopt_file_name(),
-            exchange=self.config['exchange']['name'],
+            exchange=self.config["exchange"]["name"],
         )
         self._report.epoch = self._report.get_best_epoch()
         self._report.strategy_hash = self.strategy_hash
@@ -402,21 +414,23 @@ class HyperoptRunner(runner.Runner):
         self.write_queue.put(text)
         if out or self.verbose:
             self.console.print(text, end="")
-        if error:
+        if "error" in text.lower():
             self.error_list.append(text)
 
     def update_spaces(self):
-        logger.info('Updating custom spaces...')
-        sh = SpaceHandler(self.params.strategy_path / strategy.get_file_name(self.strategy))
+        logger.info("Updating custom spaces...")
+        sh = SpaceHandler(
+            self.params.strategy_path / strategy.get_file_name(self.strategy)
+        )
         sh.reset()
-        if self.params.custom_spaces == 'all':
-            logger.debug('Enabling all custom spaces')
+        if self.params.custom_spaces == "all":
+            logger.debug("Enabling all custom spaces")
             sh.set_all_enabled()
         for space in self.params.custom_spaces.split():
-            logger.debug(f'Enabling space: {space}')
+            logger.debug(f"Enabling space: {space}")
             sh.add_space(space)
         for s, v in self.params.custom_settings.items():
-            logger.debug(f'Setting space-setting: {s} to {v}')
+            logger.debug(f"Setting space-setting: {s} to {v}")
             sh.add_setting(s, v)
         sh.save()
 

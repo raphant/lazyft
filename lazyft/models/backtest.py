@@ -7,22 +7,20 @@ from typing import Optional
 import pandas as pd
 import rapidjson
 from freqtrade.commands import Arguments, start_plot_dataframe
-from loguru import logger
-from sqlmodel import Field, Relationship, Session, SQLModel
-
 from lazyft import paths
 from lazyft.database import engine
 from lazyft.loss_functions import (
-    sortino_daily,
-    sharpe_hyperopt_loss,
     roi_and_profit_hyperopt_loss,
+    sharpe_hyperopt_loss,
+    sortino_daily,
     win_ratio_and_profit_ratio_loss,
 )
 from lazyft.models import PerformanceBase
 from lazyft.models.base import ReportBase
-
 from lazyft.models.hyperopt import HyperoptReport
 from lazyft.util import calculate_win_ratio
+from loguru import logger
+from sqlmodel import Field, Relationship, Session, SQLModel
 
 
 class BacktestPerformance(PerformanceBase):
@@ -115,7 +113,9 @@ class BacktestReport(ReportBase, table=True):
         :rtype: dict
         """
 
-        return rapidjson.loads(Path(paths.BACKTEST_RESULTS_DIR, self.backtest_file_str).read_text())
+        return rapidjson.loads(
+            Path(paths.BACKTEST_RESULTS_DIR, self.backtest_file_str).read_text()
+        )
 
         # with Session(engine) as session:
         #     return rapidjson.loads(session.get(BacktestData, self.data_id).text)
@@ -167,8 +167,12 @@ class BacktestReport(ReportBase, table=True):
         """
         # format of start_date and end_date is YYYY-MM-DD HH:MM:SS
         # remove the time from the date and strip the '-'
-        start_date: str = self.backtest_data["backtest_start"].split(" ")[0].replace("-", "")
-        end_date: str = self.backtest_data["backtest_end"].split(" ")[0].replace("-", "")
+        start_date: str = (
+            self.backtest_data["backtest_start"].split(" ")[0].replace("-", "")
+        )
+        end_date: str = (
+            self.backtest_data["backtest_end"].split(" ")[0].replace("-", "")
+        )
 
         return f"{start_date}-{end_date}"
 
@@ -383,7 +387,9 @@ class BacktestReport(ReportBase, table=True):
         df_trades.open_date = df_trades.open_date.apply(lambda d: d.strftime("%x %X"))
         df_trades.close_date = df_trades.close_date.apply(lambda d: d.strftime("%x %X"))
         csv = df_trades.to_csv(path.joinpath(name), index=False)
-        logger.info(f"Exported trades for backtest #{self.id} to -> {path.joinpath(name)}")
+        logger.info(
+            f"Exported trades for backtest #{self.id} to -> {path.joinpath(name)}"
+        )
         return csv
 
     def delete(self, session: Session):
@@ -404,7 +410,6 @@ class BacktestReport(ReportBase, table=True):
         :return:
         """
         import plotly.express as px
-
         from lazyft.plot import calculate_equity, get_dates_from_strategy
 
         strategy_stats = self.backtest_data
@@ -418,7 +423,6 @@ class BacktestReport(ReportBase, table=True):
             title=f"Equity Curve {self.strategy}-{self.hyperopt_id or 'NO_ID'} | "
             f"Interval={self.timeframe} Timerange={self.timerange}, "
             f"Total profit=${self.performance.profit_total_abs:.2f}, "
-            # f"Final profit=${(self.performance.profit_total_abs + self.starting_balance):.2f}, "
             f"Total pct={self.performance.profit_total_pct * 100:.2f}%, "
             f"Mean pct={self.performance.profit_mean_pct:.2f}%, "
             f"Trades={self.performance.trades}, "

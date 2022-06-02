@@ -14,6 +14,9 @@ from freqtrade.optimize.optimize_reports import (
     text_table_periodic_breakdown,
     text_table_tags,
 )
+from sqlmodel import Session
+from sqlmodel.sql.expression import select
+
 from lazyft import logger
 from lazyft.database import engine
 from lazyft.errors import IdNotFoundError
@@ -21,8 +24,6 @@ from lazyft.models.backtest import BacktestReport
 from lazyft.models.base import ReportBase
 from lazyft.models.hyperopt import HyperoptReport
 from lazyft.util import calculate_win_ratio
-from sqlmodel import Session
-from sqlmodel.sql.expression import select
 
 cols_to_print = [
     "strategy",
@@ -176,7 +177,9 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         :return: RepoExplorer with the sorted reports.
         :rtype: RepoExplorer
         """
-        self.data = sorted(self.data, key=lambda r: r.performance.ppd, reverse=not ascended)
+        self.data = sorted(
+            self.data, key=lambda r: r.performance.ppd, reverse=not ascended
+        )
         return self
 
     def sort_by_score(self, ascending=False) -> "RepoExplorer":
@@ -189,7 +192,9 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
         :return: RepoExplorer with the sorted reports.
         :rtype: RepoExplorer
         """
-        self.data = sorted(self.data, key=lambda r: r.performance.score, reverse=not ascending)
+        self.data = sorted(
+            self.data, key=lambda r: r.performance.score, reverse=not ascending
+        )
         return self
 
     def filter_by_id(self, ids: Iterable[int]) -> "RepoExplorer":
@@ -245,7 +250,9 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
                 if r.strategy in strategies:
                     new_data.append(r)
             except IndexError as e:
-                logger.warning(f"Could not find strategy {r.strategy} in {strategies}: {e}")
+                logger.warning(
+                    f"Could not find strategy {r.strategy} in {strategies}: {e}"
+                )
                 continue
         self.data = new_data
         return self
@@ -295,7 +302,7 @@ class RepoExplorer(UserList[AbstractReport], metaclass=ABCMeta):
                 logger.exception("Failed to create dataframe for report: %s", r)
                 logger.debug(e)
         if not len(frames):
-            logger.info("No dataframes created")
+            print("No dataframes created")
             return pd.DataFrame()
         frame = pd.DataFrame(pd.concat(frames, ignore_index=True))
         frame.set_index("id", inplace=True)
@@ -501,7 +508,9 @@ def backtest_results_as_text(
     if not hyperopt and hyperopt_id is not None:
         header_str += f" | Hyperopt id: {hyperopt_id}"
     text.append(header_str)
-    table = text_table_bt_results(results["results_per_pair"], stake_currency=stake_currency)
+    table = text_table_bt_results(
+        results["results_per_pair"], stake_currency=stake_currency
+    )
     if isinstance(table, str):
         text.append(" BACKTESTING REPORT ".center(len(table.splitlines()[0]), "="))
     text.append(table)
@@ -522,7 +531,9 @@ def backtest_results_as_text(
         text.append(" SELL REASON STATS ".center(len(table.splitlines()[0]), "="))
     text.append(table)
 
-    table = text_table_bt_results(results["left_open_trades"], stake_currency=stake_currency)
+    table = text_table_bt_results(
+        results["left_open_trades"], stake_currency=stake_currency
+    )
     if isinstance(table, str) and len(table) > 0:
         text.append(" LEFT OPEN TRADES REPORT ".center(len(table.splitlines()[0]), "="))
     text.append(table)
@@ -537,7 +548,9 @@ def backtest_results_as_text(
             period=period,
         )
         if isinstance(table, str) and len(table) > 0:
-            text.append(f" {period.upper()} BREAKDOWN ".center(len(table.splitlines()[0]), "="))
+            text.append(
+                f" {period.upper()} BREAKDOWN ".center(len(table.splitlines()[0]), "=")
+            )
         text.append(table)
 
     table = text_table_add_metrics(results)

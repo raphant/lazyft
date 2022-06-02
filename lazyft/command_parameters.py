@@ -52,7 +52,7 @@ def pairs_to_strategy(pairs: list[str]):
 class GlobalParameters:
     command = ""
     config_path: Union[str, Config] = attr.ib(
-        converter=format_config, metadata={"arg": "-c"}, default='configs/config.json'
+        converter=format_config, metadata={"arg": "-c"}, default="configs/config.json"
     )
     secrets_config: Union[str, Config] = attr.ib(
         default=None, converter=format_config, metadata={"arg": "-c"}
@@ -123,7 +123,9 @@ class BacktestParameters(GlobalParameters):
     timerange: str = attr.ib(default="", metadata={"arg": "--timerange"})
     pairs: list[str] = attr.ib(factory=list, metadata={"arg": "--pairs"})
     days: int = attr.ib(default=60, metadata={"arg": "--days"})
-    starting_balance: float = attr.ib(default=500, metadata={"arg": "--starting-balance"})
+    starting_balance: float = attr.ib(
+        default=500, metadata={"arg": "--starting-balance"}
+    )
     stake_amount: Union[float, str] = attr.ib(
         default="unlimited", metadata={"arg": "--stake-amount"}
     )
@@ -207,12 +209,18 @@ class HyperoptParameters(BacktestParameters):
     epochs: int = attr.ib(default=500, metadata={"arg": "--epochs"})
     min_trades: int = attr.ib(default=100, metadata={"arg": "--min-trades"})
     spaces: str = attr.ib(default="default", metadata={"arg": "--spaces"})
-    loss: str = attr.ib(default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"})
+    loss: str = attr.ib(
+        default="WinRatioAndProfitRatioLoss", metadata={"arg": "--hyperopt-loss"}
+    )
     seed: int = attr.ib(default=None, metadata={"arg": "--random-state"})
     jobs: int = attr.ib(default=-1, metadata={"arg": "--job-workers"})
-    disable_param_export: bool = attr.ib(default=True, metadata={"arg": "--disable-param-export"})
+    disable_param_export: bool = attr.ib(
+        default=True, metadata={"arg": "--disable-param-export"}
+    )
     print_all: bool = attr.ib(default=False, metadata={"arg": "--print-all"})
-    ignore_missing_spaces: bool = attr.ib(default=True, metadata={"arg": "--ignore-missing-spaces"})
+    ignore_missing_spaces: bool = attr.ib(
+        default=True, metadata={"arg": "--ignore-missing-spaces"}
+    )
     cache: str = None
 
     def __attrs_post_init__(self):
@@ -242,22 +250,15 @@ class HyperoptParameters(BacktestParameters):
             except ValueError:
                 s, id = strategy, ""
             strategy = Strategy(s, id)
-        # if not self.interval:
-        #     strategy.args = self.to_config_dict(strategy.name)
-        #     try:
-        #         self.interval = strategy.as_ft_strategy.timeframe
-        #     except OperationalException as e:
-        #         # if the msg == "Invalid parameter file provided", delete parameter file and retry
-        #         if 'Invalid parameter file provided' in str(e):
-        #             parameter_tools.remove_params_file(strategy.name, self.config.path)
-        #             self.interval = strategy.as_ft_strategy.timeframe
         command = commands.HyperoptCommand(
             strategy.name,
             params=self,
             id=strategy.id,
             verbose=verbose,
         )
-        runner = HyperoptRunner(command, autosave=autosave, notify=notify, verbose=verbose)
+        runner = HyperoptRunner(
+            command, autosave=autosave, notify=notify, verbose=verbose
+        )
 
         try:
             runner.execute(background=background, load_strategy=load_hashed_strategy)
@@ -269,4 +270,6 @@ class HyperoptParameters(BacktestParameters):
         pass
 
 
-command_map = {a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata}
+command_map = {
+    a.name: a.metadata.get("arg") for a in attr.fields(HyperoptParameters) if a.metadata
+}

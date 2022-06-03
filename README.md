@@ -1,6 +1,6 @@
 # LazyFT
 
-LazyFT is convenient [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that makes developing and testing strategies a lot easier for me. My hope is that it will do the same for you.
+LazyFT is a [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that I made to ease the development and testing of strategies. I think that many people in the FreqTrade community will appreciate some of the features that I've created. I hope this makes it easier for you to create and test your strategies.
 
 The features include but are not limited to:
 
@@ -239,4 +239,4 @@ bot.set_strategy("Strategy2", id=<hyperopt_id>)
 
 - [ ] 95% Test Coverage
 - [ ] Add more docs
-- [ ] Import existing hyperopt and backtest data into the database from user_data/\*\_results/
+- [ ] Import existing hyperopt and backtest data into the database from _user_data/\*\_results/_

@@ -101,6 +101,12 @@ def run(
         None, "--td", "--timeframe-detail", help="Timeframe detail"
     ),
     tag: str = typer.Option(None, "--tag", help="Tag"),
+    extra_args: str = typer.Option(
+        None,
+        "-e",
+        "--extra-args",
+        help="Extra arguments to pass to 'freqtrade backtesting'.\nExample: -e '--enable-protections --eps'",
+    ),
 ):
     """
     Backtest a strategy.
@@ -126,6 +132,7 @@ def run(
         max_open_trades=max_open_trades,
         download_data=True,
         tag=tag,
+        extra_args=extra_args,
     )
     runner = b_params.run(f'{strategy_name}-{hyperopt_id or ""}', load_from_hash=True)
     runner.save()

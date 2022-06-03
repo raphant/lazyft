@@ -111,6 +111,18 @@ backtest_runner = bp.run('Strategy')
 
 Now, LFT will check to see if any pair data is missing and then proceed to run the backtest.
 
+You can then view the result of the trade:
+|   id | strategy   | hyperopt_id   | date              | exchange   |   m_o_t | stake     |   balance |   n_pairlist |   avg_profit_pct | avg_duration   |   wins |   losses |   sortino |   drawdown |   total_profit_pct |   total_profit |   trades |   days | tag               |
+|-----:|:-----------|:--------------|:------------------|:-----------|--------:|:----------|----------:|-------------:|-----------------:|:---------------|-------:|---------:|----------:|-----------:|-------------------:|---------------:|---------:|-------:|:------------------|
+|    1 | BB_RPB_TSL |               | 06/03/22 18:53:23 | binance    |       3 | unlimited |       100 |           29 |       0.00447919 | 9:04:00        |     27 |        4 |   3.56476 |  0.0509242 |              0.046 |            4.6 |       31 |     31 | 20220301-20220401 |
+
+You can then save the result to reference it later:
+
+```python
+>> backtest_runner.save()
+2022-06-03 18:54:08.525 | INFO     | lazyft.backtest.runner:save:321 - Created report id 1: {'start_date': datetime.datetime(2022, 3, 1, 0, 0), 'end_date': datetime.datetime(2022, 4, 1, 0, 0), 'trades': 31, 'wins': 27, 'losses': 4, 'draws': 0, 'drawdown': 0.05092419396273416, 'avg_duration': '9:04:00', 'profit_mean_pct': 0.004479186451612903, 'profit_sum_pct': 13.89, 'profit_total_abs': 4.595481449999999, 'profit_total_pct': 0.046, 'duration_avg': datetime.timedelta(seconds=32640)}
+```
+
 ### CLI Approach
 
 You can also run backtests through the CLI:
@@ -201,9 +213,13 @@ get_hyperopt_repo().df()
 ### View The Overall Results of a Strategy
 
 ```python
-get_backtest_repo().filter_by_strategy(['Strategy1', 'Strategy2'])
+get_backtest_repo().filter_by_strategy(['BB_RPB_TSL'])
 ```
-
+| strategy   | hyperopt_id   | date              | exchange   |   m_o_t | stake     |   balance |   n_pairlist |   avg_profit_pct | avg_duration     |   wins |   losses |    sortino |   drawdown |   total_profit_pct |   total_profit |   trades |   days | tag               |
+|:-----------|:--------------|:------------------|:-----------|--------:|:----------|----------:|-------------:|-----------------:|:-----------------|-------:|---------:|-----------:|-----------:|-------------------:|---------------:|---------:|-------:|:------------------|
+| BB_RPB_TSL | 2             | 06/03/22 19:15:25 | binance    |       3 | unlimited |       100 |           29 |         1.09353  | 2 days, 15:23:00 |     14 |        3 |   78.4186  | 0.00305115 |             0.0864 |           8.64 |       23 |     31 | 20220301-20220401 |
+| BB_RPB_TSL | 1             | 06/03/22 19:15:04 | binance    |       3 | unlimited |       100 |           29 |         1.64825  | 18:52:00         |     15 |        0 | 1880.44    | 0          |             0.0903 |           9.03 |       16 |     31 | 20220301-20220401 |
+| BB_RPB_TSL |               | 06/03/22 18:53:23 | binance    |       3 | unlimited |       100 |           29 |         0.447919 | 9:04:00          |     27 |        4 |    3.56476 | 0.0509242  |             0.046  |           4.6  |       31 |     31 | 20220301-20220401 |
 ## Remotes
 
 Easily send strategies and optimized parameters to your remote servers.

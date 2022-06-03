@@ -10,3 +10,5 @@ __pycache__
 .idea/
 .trunk/
 *.lock
+.flake8
+.isort.cfg

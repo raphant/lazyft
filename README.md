@@ -17,17 +17,47 @@ The features include but are not limited to:
 
 ### Installation
 
-#### Install in existing FreqTrade environment
+#### Install in a FreqTrade environment (Recommended)
 
-`pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip`
+If you haven't already, git clone a FreqTrade enviroment using the [installation instructuctions](https://www.freqtrade.io/en/stable/installation/#install-code) for your OS.
 
-#### Quick start in new environment
+Afterwards, make sure you have the [Freqtrade shell activated](https://www.freqtrade.io/en/stable/installation/#activate-your-virtual-environment), then install lazyft:
 
 ```bash
-git clone https://github.com/raph92/lazyft.git
-cd lazyft
-pip install -e .
+# install lazyft
+pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
+# initialize lazyft
 lft init
+```
+
+#### FreqTrade is installed, use LazyFT in a new directory
+
+If you have FreqTrade installed locally, but want to install LazyFT in a fresh directory, then you can use the following commands:
+
+```bash
+# Create a new directory
+mkdir lft_workdir
+cd lft_workdir
+# Create a new virtual environment
+python3 -m venv venv
+# Activate the virtual environment
+source venv/bin/activate.fish || source venv/bin/activate || venv/Scripts/activate
+# Install freqtrade
+pip install -e <FREQTRADE_PATH>/freqtrade
+# Install freqtrade hyperopt deps
+pip install -r <FREQTRADE_PATH>/requirements-hyperopt.txt
+# Install lazyft
+pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
+# Initialize lazyft
+lft init
+```
+
+#### Docker
+
+Add the following to your Dockerfile:
+
+```docker
+RUN pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
 ```
 
 ### Directory
@@ -38,9 +68,11 @@ LFT expects FreqTrade config files to be in the **./configs** folder. It will as
 
 #### User Data
 
-LFT also expects a **./user_data** folder in the base directory.
+LFT also expects a **./user_data** folder in the base directory and will offer to create it using FreqTrade's builtin toolset.
 
-## Backtest
+## Running a Backtest
+
+Programically, you can run a backtest using the following:
 
 ```python
 from lazyft.command_parameters import BacktestParameters
@@ -58,7 +90,7 @@ bp = BacktestParameters(
 backtest_runner = bp.run('Strategy')
 ```
 
-Now LFT will check to see if any pair data is missing and then proceed to run the backtest.
+Now, LFT will check to see if any pair data is missing and then proceed to run the backtest.
 
 ### Important Things to Know About Backtests
 
@@ -69,17 +101,19 @@ To bypass this you can use the **timerange** parameter like you normally would i
 
 The **config_path** can be a string or a [Config](https://github.com/raph92/lazyft/blob/runner/lazyft/config.py#L18) object. It will automatically search the **configs/** directory for the specified config file.
 
-The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L95) class will have a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L75) attribute that will be saved after a successful run. This can be accessed by **backtest_runner.report**.
+#### Post-run
 
-You can save a run by calling **backtest_runner.save()** and the run will be logged to the database **lazyft.db** in your working directory. The reports can then by accessed in aggregate using the [RepoExplorer](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L45). You can directly access all backtest through [get_backtest_repo().get(<report_id>)](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L454).
+The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L95) class will have a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L75) attribute that can will be available after a successful run. This can be accessed by **backtest_runner.report**.
+
+You can save a run by calling **backtest_runner.save()** and the run will be logged to the database named **lazyft.db** in your working directory. The reports can then by accessed in aggregate using the [RepoExplorer](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L45). You can directly access all backtest through [get_backtest_repo().get(<report_id>)](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L454).
 
 ```python
-get_backtest_repo().df()
+get_backtest_repo().get(1).df()
 ```
 
 |  id | strategy | hyperopt_id | date              | exchange | m_o_t | stake     | balance | n_pairlist | avg_profit_pct | avg_duration | wins | losses |  sortino |  drawdown | total_profit_pct | total_profit | trades | days | tag               |
 | --: | :------- | ----------: | :---------------- | :------- | ----: | :-------- | ------: | ---------: | -------------: | :----------- | ---: | -----: | -------: | --------: | ---------------: | -----------: | -----: | ---: | :---------------- |
-|   4 | Strategy |             | 06/01/22 15:32:28 | binance  |     3 | unlimited |     100 |         29 |        0.12113 | 11:52:00     |    2 |     13 | 0.545416 | 0.0251296 |           0.0053 |         0.53 |     16 |   29 | 20220503-20220601 |
+|   1 | Strategy |             | 06/01/22 15:32:28 | binance  |     3 | unlimited |     100 |         29 |        0.12113 | 11:52:00     |    2 |     13 | 0.545416 | 0.0251296 |           0.0053 |         0.53 |     16 |   29 | 20220503-20220601 |
 
 ### Hyperopt
 
@@ -123,6 +157,6 @@ Again, you can access previous hyperopts through the repo:
 get_hyperopt_repo().df()
 ```
 
-|   id | strategy   | date              | exchange   |   m_o_t | stake     |   balance |   n_pairlist |   avg_profit_pct | avg_duration   |   wins |   losses |   drawdown |   total_profit_pct |   total_profit |   trades |   days | tag                       |
-|-----:|:-----------|:------------------|:-----------|--------:|:----------|----------:|-------------:|-----------------:|:---------------|-------:|---------:|-----------:|-------------------:|---------------:|---------:|-------:|:--------------------------|
-|    1 | InverseV2  | 06/01/22 15:31:47 | binance    |       3 | unlimited |       100 |           29 |         0.704275 | 11:14:00       |      7 |       21 |  0.0351595 |          0.0711687 |           7.12 |       31 |     51 | 20220303-20220502,default |
+|  id | strategy  | date              | exchange | m_o_t | stake     | balance | n_pairlist | avg_profit_pct | avg_duration | wins | losses |  drawdown | total_profit_pct | total_profit | trades | days | tag                       |
+| --: | :-------- | :---------------- | :------- | ----: | :-------- | ------: | ---------: | -------------: | :----------- | ---: | -----: | --------: | ---------------: | -----------: | -----: | ---: | :------------------------ |
+|   1 | InverseV2 | 06/01/22 15:31:47 | binance  |     3 | unlimited |     100 |         29 |       0.704275 | 11:14:00     |    7 |     21 | 0.0351595 |        0.0711687 |         7.12 |     31 |   51 | 20220303-20220502,default |

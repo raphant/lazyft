@@ -4,11 +4,12 @@ LazyFT is convenient [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper
 
 The features include but are not limited to:
 
-- **Automatic data downloading** - LFT will always know when you need to download data, so no more worrying about that.
+- **Automatic data downloading** - LFT will always know when you need to download data for your pairs before hyperopting or backtesting, so no more worrying about that.
 - **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that you can easily reference them later.
-- **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest.
-- **Space Handler** - LFT supports creating custom spaces for strategies that extends the kind of optimizations you can do.
-- **Automatic strategy versioning** - LFT will automatically save a copy of the your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
+- **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest. No more manually deleting and re-adding parameter files.
+- **Smart Space Handling** - LFT supports creating custom spaces for strategies, and that extends what is possible with hyperopting.
+- **Automated Hyperopting and Bactesting** - With the ability of SpaceHandler you can automate the process of hyperopting and backtesting by automatically enabling and disabling custom spaces in a Strategy.
+- **Strategy versioning** - LFT will automatically save a copy of the your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
 - Easily access pairlist and other config settings from previous runs.
 - Get notifications when your hyperopt is completed.
 - and more!

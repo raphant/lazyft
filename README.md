@@ -15,6 +15,18 @@ The features include but are not limited to:
 
 ## Getting Stated
 
+### Caution
+
+**Please Read**
+
+Initially, I did not plan on releasing this publicly and so I designed LazyFT with my only setup in mind.
+
+My main setup is Manjaro Arch and all of my dry-run/live bots run on Ubuntu with ssh-keys setup. My main FreqTrade environment is not setup using Docker, thus you may have some difficulties setting up LazyFT if you use Docker to run backtests and hyperopts.
+
+If your setup is similar to mine (linux & non-Docker FreqTrade), getting started should be simple.
+
+However, I do plan on adding support for other setups and so please feel free to [open an issue](https://github.com/raph92/lazyft/issues/new) if you have any questions/requests.
+
 ### Installation
 
 #### Install in a FreqTrade environment (Recommended)
@@ -72,7 +84,9 @@ LFT also expects a **./user_data** folder in the base directory and will offer t
 
 ## Running a Backtest
 
-Programically, you can run a backtest using the following:
+### Programatic Approach
+
+Programatically, you can run a backtest using the following:
 
 ```python
 from lazyft.command_parameters import BacktestParameters
@@ -91,6 +105,14 @@ backtest_runner = bp.run('Strategy')
 ```
 
 Now, LFT will check to see if any pair data is missing and then proceed to run the backtest.
+
+### CLI Approach
+
+You can also run backtests through the CLI:
+
+`lft backtest run [OPTIONS] STRATEGY_NAME CONFIG INTERVAL`
+
+Run `lft backtest run --help` for more options
 
 ### Important Things to Know About Backtests
 
@@ -119,7 +141,16 @@ get_backtest_repo().get(1).df()
 
 The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L205) works the same way the Backtest does except that it has extra parameters.
 
+### CLI Approach
+
+`lft hyperopt run [OPTIONS] STRATEGY_NAME CONFIG INTERVAL`
+
+Run `lft hyperopt run --help` for more options
+
+### Programatic Approach
+
 ```python
+
 h_params = HyperoptParameters(
     epochs=20,
     config_path='config.json',
@@ -160,3 +191,41 @@ get_hyperopt_repo().df()
 |  id | strategy  | date              | exchange | m_o_t | stake     | balance | n_pairlist | avg_profit_pct | avg_duration | wins | losses |  drawdown | total_profit_pct | total_profit | trades | days | tag                       |
 | --: | :-------- | :---------------- | :------- | ----: | :-------- | ------: | ---------: | -------------: | :----------- | ---: | -----: | --------: | ---------------: | -----------: | -----: | ---: | :------------------------ |
 |   1 | InverseV2 | 06/01/22 15:31:47 | binance  |     3 | unlimited |     100 |         29 |       0.704275 | 11:14:00     |    7 |     21 | 0.0351595 |        0.0711687 |         7.12 |     31 |   51 | 20220303-20220502,default |
+
+## Remotes
+
+Easily send strategies and optimized parameters to your remote servers.
+
+### Requirements
+
+Remotes relies on sending SSH commands to your remote server. It also assumes that you have ssh keys already installed on the server to bypass typing in a password.
+
+### Setting up remotes.json
+
+```json
+{
+  "pi4": {
+    "address": "pi@pi4.local",
+    "path": "/home/pi/freqtrade/",
+    "port": 22
+  },
+  "pi3": {
+    "address": "pi@pi3.local",
+    "path": "/home/pi/freqtrade/",
+    "port": 22
+  }
+}
+```
+
+**More Detailed Explanation and Changes Coming Soon**
+
+### Updating a Remote Strategy
+
+```python
+bot1 = remote.RemoteBot(bot_id=1, "pi3")
+bot2 = remote.RemoteBot(bot_id=2, "pi4")
+bot.set_strategy("Strategy1", id=<hyperopt_id>)
+bot.set_strategy("Strategy2", id=<hyperopt_id>)
+```
+
+**More Detailed Explanation Coming Soon**

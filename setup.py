@@ -24,7 +24,7 @@ setup(
     author="Raphael N",
     maintainer="Raphael N",
     description="Easily get the latest fork of a Github repo",
-    package_data={"": ["defaults/config.json"]},
+    package_data={"": ["lazyft/defaults/config.json"]},
     include_package_data=True,
     entry_points={
         "console_scripts": [

@@ -196,6 +196,13 @@ get_hyperopt_repo().df()
 |  id | strategy  | date              | exchange | m_o_t | stake     | balance | n_pairlist | avg_profit_pct | avg_duration | wins | losses |  drawdown | total_profit_pct | total_profit | trades | days | tag                       |
 | --: | :-------- | :---------------- | :------- | ----: | :-------- | ------: | ---------: | -------------: | :----------- | ---: | -----: | --------: | ---------------: | -----------: | -----: | ---: | :------------------------ |
 |   1 | InverseV2 | 06/01/22 15:31:47 | binance  |     3 | unlimited |     100 |         29 |       0.704275 | 11:14:00     |    7 |     21 | 0.0351595 |        0.0711687 |         7.12 |     31 |   51 | 20220303-20220502,default |
+## Browsing the Repo
+
+### View The Overall Results of a Strategy
+
+```python
+get_backtest_repo().filter_by_strategy(['Strategy1', 'Strategy2'])
+```
 
 ## Remotes
 

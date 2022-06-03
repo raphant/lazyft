@@ -130,7 +130,7 @@ The **config_path** can be a string or a [Config](https://github.com/raph92/lazy
 
 #### Post-run
 
-The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L95) class will have a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L75) attribute that can will be available after a successful run. This can be accessed by **backtest_runner.report**.
+The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L96) class will have a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L76) attribute that can will be available after a successful run. This can be accessed by **backtest_runner.report**.
 
 You can save a run by calling **backtest_runner.save()** and the run will be logged to the database named **lazyft.db** in your working directory. The reports can then by accessed in aggregate using the [RepoExplorer](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L45). You can directly access all backtest through [get_backtest_repo().get(<report_id>)](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L454).
 
@@ -144,7 +144,7 @@ get_backtest_repo().get(1).df()
 
 ### Hyperopt
 
-The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L205) works the same way the Backtest does except that it has extra parameters.
+The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L208) works the same way the Backtest does except that it has extra parameters.
 
 ### CLI Approach
 

@@ -229,3 +229,8 @@ bot.set_strategy("Strategy2", id=<hyperopt_id>)
 ```
 
 **More Detailed Explanation Coming Soon**
+
+## TODO
+
+- [ ] 95% Test Coverage
+- [ ] Add more docs

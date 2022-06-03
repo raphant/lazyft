@@ -8,7 +8,7 @@ rapidjson
 numpy
 python-dateutil
 arrow
-python-dotenv
+python-dotenv=="^0.20.0"
 pydantic
 pushbullet.py
 diskcache

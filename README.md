@@ -5,7 +5,11 @@ LazyFT is convenient [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper
 The features include but are not limited to:
 
 - **Automatic data downloading** - LFT will always know when you need to download data for your pairs before hyperopting or backtesting, so no more worrying about that.
-- **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that you can easily reference them later.
+- **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that allows you to:
+    - View the overall performance of a strategies' backtest/hyperopt history
+    - View the performance of a pair throughout all of your backtest/hyperopt history
+    - Get the performance from all of your strategies from a specific date range.
+    - and more!
 - **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest. No more manually deleting and re-adding parameter files.
 - **Smart Space Handling** - LFT supports creating custom spaces for strategies, and that extends what is possible with hyperopting.
 - **Automated Hyperopting and Bactesting** - With the ability of SpaceHandler you can automate the process of hyperopting and backtesting by automatically enabling and disabling custom spaces in a Strategy.
@@ -26,7 +30,7 @@ My main setup is Manjaro Arch and all of my dry-run/live bots run on Ubuntu with
 
 If your setup is similar to mine (linux & non-Docker FreqTrade), getting started should be simple.
 
-However, I do plan on adding support for other setups and so please feel free to [open an issue](https://github.com/raph92/lazyft/issues/new) if you have any questions/requests.
+That being said, I do plan on adding support for other setups and so please feel free to [open an issue](https://github.com/raph92/lazyft/issues/new) if you have any questions/requests.
 
 ### Installation
 
@@ -235,3 +239,4 @@ bot.set_strategy("Strategy2", id=<hyperopt_id>)
 
 - [ ] 95% Test Coverage
 - [ ] Add more docs
+- Import existing hyperopt and backtest data into the database from user_data/*_results/

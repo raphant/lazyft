@@ -2,18 +2,17 @@
 
 LazyFT is a [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that I made to ease the development and testing of strategies. I think that many people in the FreqTrade community will appreciate some of the features that I've created. I hope this makes it easier for you to create and test your strategies.
 
-The features include but are not limited to:
+The features include, but are not limited to:
 
 - **Automatic data downloading** - LFT will always know when you need to download data for your pairs before hyperopting or backtesting, so no more worrying about that.
 - **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that allows you to:
   - View the overall performance of a strategies' backtest/hyperopt history
   - View the performance of a pair throughout all of your backtest/hyperopt history
   - Get the performance from all of your strategies from a specific date range.
-  - and more!
 - **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest. No more manually deleting and re-adding parameter files.
 - **Smart Space Handling** - LFT supports creating custom spaces for strategies, and that extends what is possible with hyperopting.
-- **Automated Hyperopting and Bactesting** - With the ability of SpaceHandler you can automate the process of hyperopting and backtesting by automatically enabling and disabling custom spaces in a Strategy.
-- **Strategy versioning** - LFT will automatically save a copy of the your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
+- **Automated Hyperopting and Backtesting** - With the ability of SpaceHandler you can automate the process of hyperopting and backtesting by automatically enabling and disabling custom spaces in a Strategy.
+- **Strategy versioning** - LFT will automatically save a copy of your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
 - Easily access pairlist and other config settings from previous runs.
 - Get notifications when your hyperopt is completed.
 - and more!

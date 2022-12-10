@@ -1,5 +1,7 @@
 # LazyFT
 
+## ** This software is no longer being actively maintained **
+
 LazyFT is a [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that I made to ease the development and testing of strategies. I think that many people in the FreqTrade community will appreciate some of the features that I've created. I hope this makes it easier for you to create and test your strategies.
 
 The features include, but are not limited to:

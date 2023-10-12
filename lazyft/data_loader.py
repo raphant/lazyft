@@ -15,7 +15,7 @@ cache = Cache(paths.CACHE_DIR)
 
 
 def load_pair_data(
-    pair: str, timeframe: str, exchange="binance", timerange=None, startup_candles=0
+    pair: str, timeframe: str, exchange="binanceus", timerange=None, startup_candles=0
 ) -> pd.DataFrame:
     """
     Loads the pair from the exchange and returns a pandas dataframe

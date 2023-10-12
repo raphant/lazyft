@@ -12,3 +12,5 @@ __pycache__
 *.lock
 .flake8
 .isort.cfg
+.jupyter/
+.env

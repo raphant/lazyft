@@ -18,13 +18,15 @@ from freqtrade.strategy import IStrategy
 from freqtrade.strategy.informative_decorator import InformativeData
 
 import lazyft.paths as paths
-from lazyft import BASIC_CONFIG, logger, parameter_tools, util
+from lazyft import logger, BASIC_CONFIG, parameter_tools, util
 from lazyft.config import Config
 from lazyft.space_handler import SpaceHandler
 
 if TYPE_CHECKING:
     from lazyft.command_parameters import BacktestParameters
     from lazyft.models import StrategyBackup
+
+logger_exec = logger
 
 
 class StrategyTools:
@@ -79,7 +81,8 @@ def start_list_strategies(args: dict[str, Any]):
     config = setup_utils_configuration(args, RunMode.UTIL_NO_EXCHANGE)
 
     directory = Path(config.get("strategy_path", config["user_data_dir"] / USERPATH_STRATEGIES))
-    strategy_objs = StrategyResolver.search_all_objects(directory, not args["print_one_column"])
+    strategy_objs = StrategyResolver.search_all_objects(config, False)
+    logger_exec.debug("Found {} strategies", len(strategy_objs))
     # Sort alphabetically
     strategy_objs = sorted(strategy_objs, key=lambda x: x["name"])
     for obj in strategy_objs:
@@ -103,10 +106,10 @@ def create_strategy_params_filepath(strategy: str) -> Path:
     :return:
     """
     """Return the path to the strategies parameter file."""
-    logger.warning(
+    logger_exec.warning(
         "create_strategy_params_filepath is deprecated. Use get_strategy_param_path instead."
     )
-    logger.debug("Getting parameters path of {}", strategy)
+    logger_exec.debug("Getting parameters path of {}", strategy)
     file_name = get_file_name(strategy)
     if not file_name:
         raise ValueError("Could not find strategy: %s" % strategy)
@@ -133,6 +136,7 @@ def get_all_strategies() -> dict[str, dict]:
 
     strats = start_list_strategies(args)
     # pop 'name' key of each dict in strats and make it the key
+    # logger.debug("Strategies: {}", strats)
     return {strat["name"]: strat for strat in strats}
 
 
@@ -190,7 +194,7 @@ def load_intervals_from_strategy(strategy_name: str, parameters: "BacktestParame
     tfs.add(parameters.timeframe_detail)
     tfs.add(strategy.timeframe)
     intervals = " ".join([t for t in tfs if t])
-    logger.debug("Intervals for strategy {}: {}", strategy_name, intervals)
+    logger_exec.debug("Intervals for strategy {}: {}", strategy_name, intervals)
     return intervals
 
 
@@ -233,10 +237,10 @@ def save_strategy_text_to_database(strategy_name: str) -> str:
     # check if strategy is already in database
     existing_backup = StrategyBackup.load_hash(hash)
     if existing_backup:
-        # logger.info(f"Strategy {strategy_name} already in database...skipping")
+        # logger_exec.info(f"Strategy {strategy_name} already in database...skipping")
         return hash
     StrategyBackup(name=strategy_name, text=text, hash=hash).save()
-    logger.info(f"Saved strategy {strategy_name} with hash {hash} to database")
+    logger_exec.info(f"Saved strategy {strategy_name} with hash {hash} to database")
     return hash
 
 
@@ -260,9 +264,11 @@ def create_temp_folder_for_strategy_and_params_from_backup(
     :return: The path to the new folder
     """
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"lazyft-{strategy_backup.name}_"))
-    logger.info(f"Created temporary folder {tmp_dir} for strategy backup {strategy_backup.name}")
+    logger_exec.info(
+        f"Created temporary folder {tmp_dir} for strategy backup {strategy_backup.name}"
+    )
     path = strategy_backup.export_to(tmp_dir)
-    logger.info(f"Exported strategy backup {strategy_backup.name} to {path}")
+    logger_exec.info(f"Exported strategy backup {strategy_backup.name} to {path}")
     if hyperopt_id:
         parameter_tools.set_params_file(hyperopt_id, export_path=path.with_suffix(".json"))
     hyperopt_data_dir = paths.USER_DATA_DIR / "hyperopt_results"
@@ -275,7 +281,7 @@ def create_temp_folder_for_strategy_and_params_from_backup(
         str(paths.USER_DATA_DIR.joinpath("data").resolve()),
         str((tmp_dir / "data/").resolve()),
     )
-    logger.info(
+    logger_exec.info(
         f"Created user_data symlink's to hyperopt_results, backtest_results, and data in {tmp_dir}"
     )
     return tmp_dir
@@ -289,10 +295,10 @@ def delete_temporary_strategy_backup_dir(tmp_dir: Path) -> None:
     :return: None
     """
     if tmp_dir and tmp_dir.exists():
-        logger.info(f"Deleting temporary strategy folder {tmp_dir}")
+        logger_exec.info(f"Deleting temporary strategy folder {tmp_dir}")
         shutil.rmtree(tmp_dir)
     else:
-        logger.debug(f'Temporary folder "{tmp_dir}" does not exist...skipping')
+        logger_exec.debug(f'Temporary folder "{tmp_dir}" does not exist...skipping')
 
 
 def get_space_handler_spaces(strategy_name: str) -> set[str]:

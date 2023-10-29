@@ -34,7 +34,7 @@ def load_pair_data(
     @cache.memoize(expire=60 * 30, tag="data_loader.load_pair_data")
     def func(pair, timeframe, exchange, timerange):
         if timerange:
-            download_pair(pair.upper(), exchange, intervals=[timeframe], timerange=timerange)
+            download_pair(pair.upper(), intervals=[timeframe], timerange=timerange, config=config)
         return load_pair_history(
             datadir=PAIR_DATA_DIR.joinpath(exchange),
             timeframe=timeframe,
@@ -44,10 +44,11 @@ def load_pair_data(
             startup_candles=startup_candles,
         )
 
-    data = func(pair, timeframe, exchange, timerange)
-    assert not data.empty, f"Data for {pair} {timeframe} {exchange} {timerange} is empty"
+    data = func(pair, timeframe, config.exchange, timerange)
+    assert not data.empty, f"Data for {pair} {timeframe} {config.exchange} {timerange} is empty"
     logger.info(
-        f'Loaded {len(data)} rows for {pair} @ timeframe {timeframe}, data starts at {data.iloc[0]["date"]}'
+        f'Loaded {len(data)} rows for {pair} @ timeframe {timeframe}, data starts at '
+        f'{data.iloc[0]["date"]}'
     )
     return data
 

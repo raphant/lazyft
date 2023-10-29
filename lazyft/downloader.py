@@ -417,20 +417,15 @@ def download(
     )
 
 
-def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str, config: Config):
+def download_pair(pair: str, intervals: list[str], timerange: str, config: Config):
     """
     It downloads the data for the specified pair, exchange, and intervals
 
     :param pair: The pair to download
-    :type pair: str
     :param exchange: The exchange you want to download from
-    :type exchange: str
     :param intervals: A list of intervals to download
-    :type intervals: list[str]
     :param timerange: The time range to download data for
-    :type timerange: str
     :param config: The Config object
-    :type config: Config
     """
     download_missing_historical_data(config, intervals, [pair], timerange)
 

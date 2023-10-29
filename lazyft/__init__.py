@@ -6,7 +6,6 @@ import pandas as pd
 from diskcache import Index
 from freqtrade.configuration.directory_operations import create_userdata_dir
 
-
 try:
     from freqtrade.configuration import Configuration
 except ImportError as e:
@@ -30,7 +29,6 @@ warnings.filterwarnings(
 
 # noinspection PyShadowingBuiltins
 print = console.Console().print
-
 
 if not paths.CONFIG_DIR.exists():
     if input("No configs folder found. Would you like to create one? [y/n]:").lower() == "y":
@@ -66,7 +64,10 @@ if not paths.USER_DATA_DIR.exists():
 settings = LftSettings.load()
 
 if not settings.base_config_path:
-    settings.base_config_path = Path(input("Please enter the path to your base config file: "))
+    settings.base_config_path = Path(
+        input("Please enter the path to your base config file [configs/config.json]: ") or str(
+            paths.CONFIG_DIR / "config.json"))
+
     if not settings.base_config_path.exists():
         raise RuntimeError("Invalid path to base config file")
     settings.save()

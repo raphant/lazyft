@@ -14,7 +14,6 @@ from freqtrade.misc import deep_merge_dicts
 from freqtrade.optimize import optimize_reports
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from loguru import logger
-from pandas.io.json import json_normalize
 from sqlmodel import Field, SQLModel
 
 from lazyft import paths, util
@@ -349,7 +348,7 @@ class HyperoptReport(ReportBase, table=True):
         :return: A dataframe with the hyperopt list.
         :rtype: pd.DataFrame
         """
-        trials = json_normalize(self.all_epochs, max_level=1)
+        trials = pd.json_normalize(self.all_epochs, max_level=1)
         trials = HyperoptTools.prepare_trials_columns(
             trials,
             "results_metrics.max_drawdown_abs" in trials.columns

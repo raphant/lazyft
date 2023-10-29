@@ -31,7 +31,6 @@ warnings.filterwarnings(
 # noinspection PyShadowingBuiltins
 print = console.Console().print
 
-settings = LftSettings.load()
 
 if not paths.CONFIG_DIR.exists():
     if input("No configs folder found. Would you like to create one? [y/n]:").lower() == "y":
@@ -63,6 +62,8 @@ if not paths.USER_DATA_DIR.exists():
         create_userdata_dir(paths.USER_DATA_DIR, create_dir=True)
     else:
         logger.warning("Continuing with no user_data folder")
+
+settings = LftSettings.load()
 
 if not settings.base_config_path:
     settings.base_config_path = Path(input("Please enter the path to your base config file: "))

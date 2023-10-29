@@ -4,8 +4,8 @@ pandas==2.0.3
 sh==2.0.6
 attrs==23.1.0
 rich==13.5.3
-python-rapidjson==1.11
-numpy==1.23.0
+python-rapidjson
+numpy
 python-dateutil==2.8.2
 python-dotenv==1.0.0
 pydantic
@@ -16,4 +16,4 @@ alive-progress==3.1.4
 appdirs==1.4.4
 sqlmodel
 finta==1.3
-freqtrade==2022.7
+freqtrade==2023.2

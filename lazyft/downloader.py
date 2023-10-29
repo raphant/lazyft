@@ -417,7 +417,7 @@ def download(
     )
 
 
-def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str):
+def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str, config: Config):
     """
     It downloads the data for the specified pair, exchange, and intervals
 
@@ -429,8 +429,9 @@ def download_pair(pair: str, exchange: str, intervals: list[str], timerange: str
     :type intervals: list[str]
     :param timerange: The time range to download data for
     :type timerange: str
+    :param config: The Config object
+    :type config: Config
     """
-    config = Config(exchange + ".json")
     download_missing_historical_data(config, intervals, [pair], timerange)
 
 

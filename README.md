@@ -250,8 +250,8 @@ Example `remotes.json`:
 
 ## Examples and docs
 
-See `examples/`, `docs/source/`, and `backtest_and_hyperopt_example.ipynb` for
-additional examples and reference material.
+The repository also includes notebook examples, Sphinx docs sources, and a
+backtest/hyperopt example notebook for additional reference material.
 
 ## Limitations
 

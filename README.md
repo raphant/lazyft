@@ -2,7 +2,7 @@
 
 > **Status:** this project is no longer actively maintained.
 
-LazyFT is a wrapper around [Freqtrade](https://github.com/freqtrade/freqtrade) for people who spend a lot of time backtesting, hyperopting, and iterating on strategies locally. It adds a small workflow layer on top of Freqtrade so you can run experiments faster, keep track of results, and reuse past runs more easily.
+LazyFT is a wrapper around [FreqTrade](https://github.com/freqtrade/freqtrade) for people who spend a lot of time backtesting, hyperopting, and iterating on strategies locally. It adds a small workflow layer on top of FreqTrade so you can run experiments faster, keep track of results, and reuse past runs more easily.
 
 ## What LazyFT helps with
 
@@ -17,23 +17,23 @@ LazyFT is a wrapper around [Freqtrade](https://github.com/freqtrade/freqtrade) f
 
 ## Best fit
 
-LazyFT was built around a Linux, non-Docker Freqtrade setup. If your workflow is similar, setup is usually straightforward. Docker-based setups may need extra adaptation.
+LazyFT was built around a Linux, non-Docker FreqTrade setup. If your workflow is similar, setup is usually straightforward. Docker-based setups may need extra adaptation.
 
 If you run into gaps, open an issue and document your environment so other users can benefit too.
 
 ## Requirements
 
-- Python environment with Freqtrade installed
-- Freqtrade hyperopt dependencies available
+- Python environment with FreqTrade installed
+- FreqTrade hyperopt dependencies available
 - A local working directory for configs, user data, logs, and results
 
 LazyFT expects to run from your working directory and uses that directory as its base path.
 
 ## Installation
 
-### Recommended: install inside an existing Freqtrade environment
+### Recommended: install inside an existing FreqTrade environment
 
-Follow the official [Freqtrade installation guide](https://www.freqtrade.io/en/stable/installation/#install-code) for your platform, activate that environment, then install LazyFT:
+Follow the official [FreqTrade installation guide](https://www.freqtrade.io/en/stable/installation/#install-code) for your platform, activate that environment, then install LazyFT:
 
 ```bash
 pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
@@ -81,7 +81,7 @@ After `lft init`, the working directory should look roughly like this:
 Important conventions:
 
 - Config files live in `./configs`
-- Freqtrade user data lives in `./user_data`
+- FreqTrade user data lives in `./user_data`
 - LazyFT stores logs in `./logs`
 - Saved run metadata is stored in `lazyft.db` in the working directory
 
@@ -218,7 +218,7 @@ When you save a completed run, LazyFT stores metadata so you can later:
 - compare results across date ranges
 - reuse parameter IDs from earlier hyperopts
 
-This is one of the main benefits of the project over running isolated Freqtrade commands manually.
+This is one of the main benefits of the project over running isolated FreqTrade commands manually.
 
 ## Remote bot support
 
@@ -226,7 +226,7 @@ LazyFT includes basic remote deployment helpers that assume:
 
 - SSH access is already configured
 - keys are installed on the target host
-- each remote has a known path to its Freqtrade instance
+- each remote has a known path to its FreqTrade instance
 
 Example `remotes.json`:
 

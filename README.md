@@ -51,7 +51,7 @@ python3 -m venv venv
 Activate the environment using the command that matches your shell:
 
 - fish: `source venv/bin/activate.fish`
-- bash/zsh: `. venv/bin/activate`
+- bash/zsh: `source venv/bin/activate`
 - Windows: `venv/Scripts/activate`
 
 ```bash
@@ -250,8 +250,8 @@ Example `remotes.json`:
 
 ## Examples and docs
 
-The repository includes notebook examples, Sphinx docs sources, and a top-level
-`backtest_and_hyperopt_example.ipynb` notebook for reference.
+See `examples/`, `docs/source/`, and `backtest_and_hyperopt_example.ipynb` for
+additional examples and reference material.
 
 ## Limitations
 

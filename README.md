@@ -2,7 +2,7 @@
 
 > **Status:** this project is no longer actively maintained.
 
-LazyFT is a wrapper around [FreqTrade](https://github.com/freqtrade/freqtrade) for people who spend a lot of time backtesting, hyperopting, and iterating on strategies locally. It adds a small workflow layer on top of FreqTrade so you can run experiments faster, keep track of results, and reuse past runs more easily.
+LazyFT is a wrapper around [FreqTrade](https://github.com/freqtrade/freqtrade) for people who spend a lot of time backtesting, hyperoptimizing, and iterating on strategies locally. It adds a small workflow layer on top of FreqTrade so you can run experiments faster, keep track of results, and reuse past runs more easily.
 
 ## What LazyFT helps with
 
@@ -255,7 +255,7 @@ Example `remotes.json`:
 
 ## Development
 
-There is a `tests/` directory in the repository, but in this environment `pytest` was not installed, so the test suite could not be run before this documentation update.
+Automated tests live in `./tests`.
 
 ## License
 

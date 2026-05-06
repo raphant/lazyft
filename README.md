@@ -46,7 +46,12 @@ lft init
 mkdir lft_workdir
 cd lft_workdir
 python3 -m venv venv
-source venv/bin/activate.fish || source venv/bin/activate || . venv/Scripts/activate
+# fish
+source venv/bin/activate.fish
+# bash/zsh
+. venv/bin/activate
+# Windows
+venv/Scripts/activate
 pip install -e <FREQTRADE_PATH>/freqtrade
 pip install -r <FREQTRADE_PATH>/requirements-hyperopt.txt
 pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
@@ -242,9 +247,8 @@ Example `remotes.json`:
 
 ## Examples and docs
 
-- Notebook examples: `./examples`
-- Sphinx docs source: `./docs/source`
-- Repository root notebook: `./backtest_and_hyperopt_example.ipynb`
+The repository includes notebook examples, Sphinx docs sources, and a top-level
+`backtest_and_hyperopt_example.ipynb` notebook for reference.
 
 ## Limitations
 

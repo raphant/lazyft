@@ -46,12 +46,10 @@ lft init
 mkdir lft_workdir
 cd lft_workdir
 python3 -m venv venv
-# fish
-source venv/bin/activate.fish
-# bash/zsh
-. venv/bin/activate
-# Windows
-venv/Scripts/activate
+# Choose the activation command that matches your shell:
+# fish:    source venv/bin/activate.fish
+# bash/zsh: . venv/bin/activate
+# Windows: venv/Scripts/activate
 pip install -e <FREQTRADE_PATH>/freqtrade
 pip install -r <FREQTRADE_PATH>/requirements-hyperopt.txt
 pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip

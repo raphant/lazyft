@@ -242,9 +242,9 @@ Example `remotes.json`:
 
 ## Examples and docs
 
-- Notebook examples: `/home/runner/work/lazyft/lazyft/examples`
-- Sphinx docs source: `/home/runner/work/lazyft/lazyft/docs/source`
-- Repository root notebook: `/home/runner/work/lazyft/lazyft/backtest_and_hyperopt_example.ipynb`
+- Notebook examples: `./examples`
+- Sphinx docs source: `./docs/source`
+- Repository root notebook: `./backtest_and_hyperopt_example.ipynb`
 
 ## Limitations
 

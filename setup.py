@@ -20,7 +20,7 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     url="https://github.com/raph92/lazyft",
-    license="AGPL-3.0 OR MIT",
+    license="AGPL-3.0",
     author="Raphael N",
     maintainer="Raphael N",
     description="Easily get the latest fork of a Github repo",

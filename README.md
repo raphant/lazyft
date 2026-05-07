@@ -266,7 +266,4 @@ Automated tests live in `./tests`.
 
 ## License
 
-LazyFT is dual-licensed. You may use it under either of the following licenses:
-
-- [AGPL-3.0](LICENSE) — requires derivative works to remain open source
-- [MIT](LICENSE-MIT) — permissive, no copyleft obligations
+AGPL-3.0

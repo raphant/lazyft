@@ -3,8 +3,10 @@
 LazyFT wraps [FreqTrade](https://github.com/freqtrade/freqtrade) so that every backtest and hyperopt you run becomes a saved, queryable record instead of terminal output you lose.
 Each run is stored with the strategy code, pairlist, and config that produced it, so you can come back months later and ask how a given pair performed across your entire history.
 
-**This software is no longer actively maintained.**
-It was built for Linux with a non-Docker FreqTrade install, and that is the configuration it works on.
+**This software is no longer actively maintained, but FreqTrade is.**
+LazyFT targets `freqtrade[hyperopt]==2023.2` and has not been updated since.
+FreqTrade has kept shipping monthly releases in the years since, so some of what LazyFT adds here may now exist in FreqTrade itself, and some of it may no longer work against a current release.
+Check against the FreqTrade version you actually run before relying on any of it.
 
 ## The problem it solves
 
@@ -60,7 +62,7 @@ StrategyBackup.load_hash(report.strategy_hash).export_to('./recovered/')
 ### Caution
 
 LazyFT was written for one setup and released afterwards.
-It expects Linux and a FreqTrade environment installed without Docker.
+It expects Linux, a FreqTrade environment installed without Docker, and FreqTrade 2023.2.
 Remote bot management assumes SSH keys are already installed on the target server.
 
 If your setup matches, getting started should be simple.

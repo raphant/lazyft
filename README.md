@@ -1,45 +1,78 @@
 # LazyFT
 
-## ** This software is no longer being actively maintained **
+LazyFT wraps [FreqTrade](https://github.com/freqtrade/freqtrade) so that every backtest and hyperopt you run becomes a saved, queryable record instead of terminal output you lose.
+Each run is stored with the strategy code, pairlist, and config that produced it, so you can come back months later and ask how a given pair performed across your entire history.
 
-LazyFT is a [FreqTrade](https://github.com/freqtrade/freqtrade) wrapper that I made to ease the development and testing of strategies. I think that many people in the FreqTrade community will appreciate some of the features that I've created. I hope this makes it easier for you to create and test your strategies.
+**This software is no longer actively maintained.**
+It was built for Linux with a non-Docker FreqTrade install, and that is the configuration it works on.
 
-The features include, but are not limited to:
+## The problem it solves
 
-- **Automatic data downloading** - LFT will always know when you need to download data for your pairs before hyperopting or backtesting, so no more worrying about that.
-- **Backtest and Hyperopt Repository** - LFT keeps track of every hyperopt and backtest you save so that allows you to:
-  - View the overall performance of a strategies' backtest/hyperopt history
-  - View the performance of a pair throughout all of your backtest/hyperopt history
-  - Get the performance from all of your strategies from a specific date range.
-- **Hyperopt IDs** - LFT will automatically remove and add the appropriate parameters based on the IDs you pass to a backtest. No more manually deleting and re-adding parameter files.
-- **Smart Space Handling** - LFT supports creating custom spaces for strategies, and that extends what is possible with hyperopting.
-- **Automated Hyperopting and Backtesting** - With the ability of SpaceHandler you can automate the process of hyperopting and backtesting by automatically enabling and disabling custom spaces in a Strategy.
-- **Strategy versioning** - LFT will automatically save a copy of your strategy after a hyperopt that you can easily retrieve even after you've made changes to your strategy.
-- Easily access pairlist and other config settings from previous runs.
-- Get notifications when your hyperopt is completed.
-- and more!
+Optimizing a FreqTrade strategy means running a hyperopt, copying the winning parameters into a file, running a backtest, editing the strategy, running another hyperopt, and trying to remember which parameter file went with which version of the code.
+The results live in your scrollback.
+A week later you cannot reconstruct which run produced which numbers.
 
-## Getting Stated
+LazyFT keeps the record for you.
+
+Instead of manually deleting and re-adding parameter files between runs, you pass a hyperopt ID and LazyFT swaps the right parameters in and out.
+
+Instead of results going stale the moment you edit your strategy, LazyFT saves a copy of the strategy after each hyperopt, so the numbers stay attached to the code behind them.
+
+Instead of checking whether you have candle data before every run, LazyFT checks and downloads whatever is missing.
+
+Instead of hand-rolling multi-stage optimization, `SpaceHandler` lets you enable and disable custom hyperopt spaces programmatically, so a sequence of hyperopts and backtests can run unattended and notify you when it finishes.
+
+## What you can ask it
+
+Runs are stored in a local SQLite database rather than printed, so the repository answers questions the raw tool cannot.
+
+```python
+from lazyft.reports import get_backtest_repo, get_hyperopt_repo
+
+# How has every pair performed across every backtest I have ever saved?
+get_backtest_repo().get_pair_totals()
+
+# What did all my strategies do over a specific date range?
+get_backtest_repo().get_results_from_date_range('20220101', '20220201')
+
+# Which strategies have performed best?
+get_backtest_repo().get_top_strategies(n=3)
+
+# Show me one strategy's whole backtest history, most profitable first.
+get_backtest_repo().filter_by_strategy(['Strategy']).sort_by_profit().df()
+
+# And the hyperopt history.
+get_hyperopt_repo().df()
+```
+
+Every report also carries the pairlist and config settings of the run that produced it, and the exact strategy source:
+
+```python
+from lazyft.models import StrategyBackup
+
+report = get_hyperopt_repo().get(1)
+StrategyBackup.load_hash(report.strategy_hash).print()
+StrategyBackup.load_hash(report.strategy_hash).export_to('./recovered/')
+```
+
+## Getting started
 
 ### Caution
 
-**Please Read**
+LazyFT was written for one setup and released afterwards.
+It expects Linux and a FreqTrade environment installed without Docker.
+Remote bot management assumes SSH keys are already installed on the target server.
 
-Initially, I did not plan on releasing this publicly and so I designed LazyFT with my only setup in mind.
-
-My main setup is Manjaro Arch and all of my dry-run/live bots run on Ubuntu with ssh-keys setup. My main FreqTrade environment is not setup using Docker, thus you may have some difficulties setting up LazyFT if you use Docker to run backtests and hyperopts.
-
-If your setup is similar to mine (linux & non-Docker FreqTrade), getting started should be simple.
-
-That being said, I do plan on adding support for other setups and so please feel free to [open an issue](https://github.com/raph92/lazyft/issues/new) if you have any questions/requests.
+If your setup matches, getting started should be simple.
+If it does not, expect friction, especially when running backtests and hyperopts through Docker.
 
 ### Installation
 
-#### Install in a FreqTrade environment (Recommended)
+#### Install in a FreqTrade environment (recommended)
 
-If you haven't already, git clone a FreqTrade enviroment using the [installation instructuctions](https://www.freqtrade.io/en/stable/installation/#install-code) for your OS.
+If you have not already, clone a FreqTrade environment using the [installation instructions](https://www.freqtrade.io/en/stable/installation/#install-code) for your OS.
 
-Afterwards, make sure you have the [Freqtrade shell activated](https://www.freqtrade.io/en/stable/installation/#activate-your-virtual-environment), then install lazyft:
+Then activate the [FreqTrade shell](https://www.freqtrade.io/en/stable/installation/#activate-your-virtual-environment) and install lazyft:
 
 ```bash
 # install lazyft
@@ -50,7 +83,7 @@ lft init
 
 #### FreqTrade is installed, use LazyFT in a new directory
 
-If you have FreqTrade installed locally, but want to install LazyFT in a fresh directory, then you can use the following commands:
+If you have FreqTrade installed locally but want LazyFT in a fresh directory:
 
 ```bash
 # Create a new directory
@@ -80,19 +113,18 @@ RUN pip install https://github.com/raph92/lazyft/archive/refs/heads/runner.zip
 
 ### Directory
 
-#### Config Files
+#### Config files
 
-LFT expects FreqTrade config files to be in the **./configs** folder. It will ask to automatically create **./config** on it's first run. It will also attempt to detect and automatically move all config files to the **./configs** folder.
+LFT expects FreqTrade config files in the **./configs** folder.
+It will offer to create **./configs** on its first run, and it will try to detect and move existing config files there.
 
-#### User Data
+#### User data
 
 LFT also expects a **./user_data** folder in the base directory and will offer to create it using FreqTrade's builtin toolset.
 
-## Running a Backtest
+## Running a backtest
 
-### Programatic Approach
-
-Programatically, you can run a backtest using the following:
+### Programmatic approach
 
 ```python
 from lazyft.command_parameters import BacktestParameters
@@ -110,30 +142,40 @@ bp = BacktestParameters(
 backtest_runner = bp.run('Strategy')
 ```
 
-Now, LFT will check to see if any pair data is missing and then proceed to run the backtest.
+LFT checks for missing pair data, downloads it, then runs the backtest.
 
-### CLI Approach
+To run a backtest against the parameters from a previous hyperopt, append the hyperopt ID to the strategy name.
+LFT writes that hyperopt's parameters into place before the run and cleans up afterwards, so you never edit a parameter file by hand:
+
+```python
+backtest_runner = bp.run('Strategy-1')
+```
+
+### CLI approach
 
 You can also run backtests through the CLI:
 
 `lft backtest run [OPTIONS] STRATEGY_NAME CONFIG INTERVAL`
 
-Run `lft backtest run --help` for more options
+Run `lft backtest run --help` for more options.
 
-### Important Things to Know About Backtests
+### Important things to know about backtests
 
 #### Parameters
 
-The **days** parameter will automatically be split into 2/3rds for the hyperopt and 1/3rd for backtesting.
-To bypass this you can use the **timerange** parameter like you normally would in freqtrade: `timerange='20220101-20220131'` or `timerange='20220101-'`.
+The **days** parameter is automatically split into 2/3rds for the hyperopt and 1/3rd for backtesting.
+To bypass this, use the **timerange** parameter as you normally would in FreqTrade: `timerange='20220101-20220131'` or `timerange='20220101-'`.
 
-The **config_path** can be a string or a [Config](https://github.com/raph92/lazyft/blob/runner/lazyft/config.py#L18) object. It will automatically search the **configs/** directory for the specified config file.
+The **config_path** can be a string or a [Config](https://github.com/raph92/lazyft/blob/runner/lazyft/config.py#L18) object.
+It automatically searches the **configs/** directory for the named config file.
 
 #### Post-run
 
-The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L96) class will have a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L76) attribute that can will be available after a successful run. This can be accessed by **backtest_runner.report**.
+The [BacktestRunner](https://github.com/raph92/lazyft/blob/runner/lazyft/backtest/runner.py#L96) class exposes a [BacktestReport](https://github.com/raph92/lazyft/blob/runner/lazyft/models/backtest.py#L76) attribute after a successful run, available as **backtest_runner.report**.
 
-You can save a run by calling **backtest_runner.save()** and the run will be logged to the database named **lazyft.db** in your working directory. The reports can then by accessed in aggregate using the [RepoExplorer](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L45). You can directly access all backtest through [get_backtest_repo().get(<report_id>)](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L454).
+Save a run by calling **backtest_runner.save()**.
+The run is logged to a database named **lazyft.db** in your working directory, and the reports are then available in aggregate through the [RepoExplorer](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L45).
+You can access a single backtest directly through [get_backtest_repo().get(<report_id>)](https://github.com/raph92/lazyft/blob/runner/lazyft/reports.py#L454).
 
 ```python
 get_backtest_repo().get(1).df()
@@ -145,15 +187,15 @@ get_backtest_repo().get(1).df()
 
 ### Hyperopt
 
-The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L208) works the same way the Backtest does except that it has extra parameters.
+The [hyperopt API](https://github.com/raph92/lazyft/blob/runner/lazyft/command_parameters.py#L208) works the same way the backtest does, with extra parameters.
 
-### CLI Approach
+### CLI approach
 
 `lft hyperopt run [OPTIONS] STRATEGY_NAME CONFIG INTERVAL`
 
-Run `lft hyperopt run --help` for more options
+Run `lft hyperopt run --help` for more options.
 
-### Programatic Approach
+### Programmatic approach
 
 ```python
 
@@ -177,18 +219,17 @@ report = h_params.save()
 
 ```
 
-Passing the **background** parameter to `h_params.run()` will allow the hyperopt to run in a separate thread. This is useful when running in jupyter notebooks.
+Passing the **background** parameter to `h_params.run()` runs the hyperopt in a separate thread, which is useful in Jupyter notebooks.
 
-Similar to the backtest, you can access the [hyperopt report](https://github.com/raph92/lazyft/blob/runner/lazyft/models/hyperopt.py#L81) via `h_params.report`.
+As with the backtest, the [hyperopt report](https://github.com/raph92/lazyft/blob/runner/lazyft/models/hyperopt.py#L81) is available via `h_params.report`.
 
 #### Epochs
 
-You can access a specific epoch within the hyperopt as follows:
-`h_runner.report.show_epoch(<n>)`, **n** being the epoch number to show.
+Access a specific epoch within the hyperopt with `h_runner.report.show_epoch(<n>)`, where **n** is the epoch number.
 
-You can also quickly create a new report from the specific epoch: `report.new_report_from_epoch(n)`
+You can also create a new report from a specific epoch: `report.new_report_from_epoch(n)`.
 
-Again, you can access previous hyperopts through the repo:
+Again, previous hyperopts are available through the repo:
 
 ```python
 get_hyperopt_repo().df()
@@ -198,13 +239,38 @@ get_hyperopt_repo().df()
 | --: | :-------- | :---------------- | :------- | ----: | :-------- | ------: | ---------: | -------------: | :----------- | ---: | -----: | --------: | ---------------: | -----------: | -----: | ---: | :------------------------ |
 |   1 | InverseV2 | 06/01/22 15:31:47 | binance  |     3 | unlimited |     100 |         29 |       0.704275 | 11:14:00     |    7 |     21 | 0.0351595 |        0.0711687 |         7.12 |     31 |   51 | 20220303-20220502,default |
 
+## Custom hyperopt spaces
+
+`SpaceHandler` lets a strategy expose optional blocks of logic that can be switched on and off from outside the strategy file.
+It reads a JSON file sitting next to the strategy, named `<StrategyFile>.sh.json`, and the strategy queries it for each space:
+
+```python
+from lazyft.space_handler import SpaceHandler
+
+
+class MyStrategy(IStrategy):
+    sh = SpaceHandler(__file__, disable=__name__ != __qualname__)
+
+    def populate_indicators(self, dataframe, metadata):
+        if self.sh.get_space('custom_stoploss'):
+            ...
+```
+
+Because the switches live in a file rather than in the strategy source, an outside script can flip them between runs.
+That is what makes automated multi-stage optimization possible: enable a space, hyperopt it, save the result, disable it, move to the next one, all without touching the strategy.
+
+To convert an existing strategy's parameters into named spaces automatically, run:
+
+`lft sh convert <STRATEGY_NAME>`
+
 ## Remotes
 
-Easily send strategies and optimized parameters to your remote servers.
+Send strategies and optimized parameters to your remote servers.
 
 ### Requirements
 
-Remotes relies on sending SSH commands to your remote server. It also assumes that you have ssh keys already installed on the server to bypass typing in a password.
+Remotes works by sending SSH commands to your remote server.
+It assumes you already have SSH keys installed there so no password prompt appears.
 
 ### Setting up remotes.json
 
@@ -223,9 +289,9 @@ Remotes relies on sending SSH commands to your remote server. It also assumes th
 }
 ```
 
-**More Detailed Explanation and Changes Coming Soon**
+**More detailed explanation and changes coming soon.**
 
-### Updating a Remote Strategy
+### Updating a remote strategy
 
 ```python
 bot1 = remote.RemoteBot(bot_id=1, "pi3")
@@ -234,10 +300,16 @@ bot.set_strategy("Strategy1", id=<hyperopt_id>)
 bot.set_strategy("Strategy2", id=<hyperopt_id>)
 ```
 
-**More Detailed Explanation Coming Soon**
+**More detailed explanation coming soon.**
+
+## Notifications
+
+LFT can notify you when a long hyperopt finishes, through Pushbullet or Telegram.
+Set `PB_TOKEN` for Pushbullet, or `TELEGRAM_NOTIFY_TOKEN` and `TELEGRAM_NOTIFY_CHAT_ID` for Telegram.
+See [notify.py](https://github.com/raph92/lazyft/blob/runner/lazyft/notify.py).
 
 ## TODO
 
-- [ ] 95% Test Coverage
+- [ ] 95% test coverage
 - [ ] Add more docs
 - [ ] Import existing hyperopt and backtest data into the database from _user_data/\*\_results/_
